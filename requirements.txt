@@ -1,0 +1,9 @@
+loguru
+tabulate
+GitPython
+jinja2
+openai>=1.14.3
+prompt_toolkit
+pydantic
+rich
+pylint
