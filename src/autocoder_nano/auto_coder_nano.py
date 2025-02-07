@@ -17,7 +17,7 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Type, Union, Tuple
 
-from version import __version__
+from autocoder_nano.version import __version__
 
 import yaml
 import tabulate
