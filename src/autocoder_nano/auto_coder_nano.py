@@ -4,6 +4,7 @@ import glob
 import hashlib
 import inspect
 import os
+import sys
 import re
 import json
 import subprocess
@@ -11,6 +12,7 @@ import tempfile
 import textwrap
 import time
 import traceback
+import threading
 import uuid
 from difflib import SequenceMatcher
 from enum import Enum
@@ -66,7 +68,10 @@ memory = {
     "mode": "normal",  # 新增mode字段,默认为normal模式
     "models": {}
 }
-
+# 全局变量，用于控制加载动画的停止
+stop_buffering_event = threading.Event()
+# 全局变量，用于初始测试连接状态次数
+DEFAULT_CONN_TRY:int = 1
 
 class AutoCoderArgs(BaseModel):
     request_id: Optional[str] = None  #
@@ -1403,9 +1408,46 @@ class AutoLLM:
         self.default_model_name = None
         self.sub_clients = {}
 
-    def setup_sub_client(self, client_name: str, api_key: str, base_url: str):
+    def setup_sub_client(self, client_name: str, api_key: str, base_url: str, conn_try: int | None = None)-> Tuple[bool, str]:
         self.sub_clients[client_name] = OpenAI(api_key=api_key, base_url=base_url)
-
+        # test connection with ping-pong 
+        def _test_client(client, name):
+            start_time = time.monotonic()
+            try:
+                response = client.chat.completions.create(
+                    model=memory["models"][name]["model"],
+                    messages=[{"role": "user", "content": "ping, are you there?"}],
+                    max_tokens=10,
+                    stream=True
+                )
+                # stream read
+                for chunk in response:
+                    pass
+                latency = time.monotonic() - start_time
+                return True, latency
+            except Exception as e:
+                return False, str(e)
+        # Try connection test {conn_try} times 
+        ok = False
+        total_latency = 0
+        success_count = 0
+        try:
+            for _ in range(conn_try or DEFAULT_CONN_TRY):
+                attempt_ok, attempt_latency = _test_client(self.sub_clients[client_name], client_name)
+                if attempt_ok:
+                    success_count += 1
+                total_latency += attempt_latency
+                time.sleep(0.01)  # Add delay between attempts
+        except KeyboardInterrupt:
+            print("\n连接尝试被用户中断。")
+        if success_count > 0:
+            ok = True
+            latency = total_latency / success_count
+        else:
+            ok = False
+            latency = f"Connection failed after {conn_try or DEFAULT_CONN_TRY} attempts"
+        return ok, latency
+    
     def remove_sub_client(self, client_name: str):
         if client_name in self.sub_clients:
             del self.sub_clients[client_name]
@@ -4053,6 +4095,20 @@ def print_status(message, status):
         print(f"\033[33m! {message}\033[0m")
     elif status == "error":
         print(f"\033[31m✗ {message}\033[0m")
+    elif status == "buffering":  # Add buffering status
+        chars = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷']
+        def show_loading():
+            while not stop_buffering_event.is_set():
+                for char in chars:
+                    if stop_buffering_event.is_set():
+                        break
+                    sys.stdout.write(f'\r\033[33m{char} {message}\033[0m')
+                    sys.stdout.flush()
+                    time.sleep(0.1)
+        # 创建并启动加载动画线程
+        loading_thread = threading.Thread(target=show_loading)
+        loading_thread.start()
+        return loading_thread
     else:
         print(f"  {message}")
 
@@ -4446,12 +4502,69 @@ def main():
 
     auto_llm = AutoLLM()  # 创建模型
     if len(memory["models"]) > 0:
+        conn_dict = {}
         for _model_name in memory["models"]:
-            print_status(f"正在部署 {_model_name} 模型...", "warning")
-            auto_llm.setup_sub_client(_model_name,
-                                      memory["models"][_model_name]["api_key"],
-                                      memory["models"][_model_name]["base_url"])
+            if memory["models"][_model_name].get("skip","false") == "true":
+                print_status(f"跳过 {_model_name} 模型...", "warning")
+                continue
+            else:
+                try:
+                    buffer_thread = print_status(f"正在部署 {_model_name} 模型", "buffering")
+                    _conn, _lag = auto_llm.setup_sub_client(_model_name,
+                                    memory["models"][_model_name]["api_key"],
+                                    memory["models"][_model_name]["base_url"])
+                    # 设置停止标志
+                    stop_buffering_event.set()
+                    buffer_thread.join()
+                    conn_dict[_model_name] = (_conn,_lag)
+                    # 重置事件标志，以便下一个线程能正常工作
+                    stop_buffering_event.clear()
+                    print_status(f"", "success")
+                except Exception as e:
+                    stop_buffering_event.set()
+                    print_status(f"部署 {_model_name} 模型时出错: {e}", "error")
+                    # 重置事件标志，以便下一个线程能正常工作
+                    stop_buffering_event.clear()
 
+            # print_status(f"正在部署 {_model_name} 模型...", "warning")
+            # auto_llm.setup_sub_client(_model_name,
+            #                           memory["models"][_model_name]["api_key"],
+            #                           memory["models"][_model_name]["base_url"])
+    # Create table to show model status
+    status_table = Table(title="Model Connection Status", show_header=True, header_style="bold magenta")
+    status_table.add_column("Model Name", style="cyan")
+    status_table.add_column("Status", justify="center")
+    status_table.add_column("Latency", justify="right", style="green")
+    # Track best model based on latency
+    best_model = None
+    min_latency = float('inf')
+    # Add rows for each model
+    for _model_name, (_ok, _latency) in conn_dict.items():
+        status = "✓" if _ok else "✗"
+        status_style = "green" if _ok else "red"
+        
+        if _ok:
+            latency_text = f"{_latency:.2f}s"
+            if _latency < min_latency:
+                min_latency = _latency
+                best_model = _model_name
+        else:
+            latency_text = f"Error: {_latency}"
+        
+        status_table.add_row(
+        _model_name,
+        Text(status, style=status_style),
+        latency_text
+        )
+
+    # Add recommendation 
+    if best_model:
+        status_table.caption = f"[green]Recommendation: Use '{best_model}' for best performance (lowest latency)[/green]"
+    else:
+        status_table.caption = "[red]Warning: No working models found[/red]"
+        
+    console.print(status_table)
+    #回到原始setup_subclient步骤
     print_status("初始化完成。", "success")
 
     if memory["conf"]["current_chat_model"] not in memory["models"].keys():
