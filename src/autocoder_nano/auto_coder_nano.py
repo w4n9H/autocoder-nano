@@ -1,8 +1,6 @@
 import argparse
-import dataclasses
 import glob
 import hashlib
-import inspect
 import os
 import re
 import json
@@ -13,15 +11,15 @@ import time
 import traceback
 import uuid
 from difflib import SequenceMatcher
-from enum import Enum
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Type, Union, Tuple
 
 from autocoder_nano.version import __version__
+from autocoder_nano.llm_types import *
+from autocoder_nano.llm_prompt import prompt, extract_code
+from autocoder_nano.templates import create_actions
+from autocoder_nano.git_utils import repo_init, commit_changes, revert_changes
 
 import yaml
 import tabulate
-from git import Repo, GitCommandError
 from jinja2 import Template
 from loguru import logger
 from openai import OpenAI, Stream
@@ -107,114 +105,6 @@ class AutoCoderArgs(BaseModel):
 
 
 args: AutoCoderArgs = AutoCoderArgs()
-
-
-class SourceCode(BaseModel):
-    module_name: str
-    source_code: str
-    tag: str = ""
-    tokens: int = -1
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-
-
-class LLMRequest(BaseModel):
-    model: str  # 指定使用的语言模型名称
-    messages: List[Dict[str, str]]  # 包含对话消息的列表，每个消息是一个字典，包含 "role"（角色）和 "content"（内容）
-    stream: bool = False  # 是否以流式方式返回响应，默认为 False
-    max_tokens: Optional[int] = None  # 生成的最大 token 数量，如果未指定，则使用模型默认值
-    temperature: Optional[float] = None  # 控制生成文本的随机性，值越高生成的内容越随机，默认为模型默认值
-    top_p: Optional[float] = None  # 控制生成文本的多样性，值越高生成的内容越多样，默认为模型默认值
-    n: Optional[int] = None  # 生成多少个独立的响应，默认为 1
-    stop: Optional[List[str]] = None  # 指定生成文本的停止条件，当生成的内容包含这些字符串时停止生成
-    presence_penalty: Optional[float] = None  # 控制生成文本中是否鼓励引入新主题，值越高越鼓励新主题，默认为 0
-    frequency_penalty: Optional[float] = None  # 控制生成文本中是否减少重复内容，值越高越减少重复，默认为 0
-
-
-class LLMResponse(BaseModel):
-    output: Union[str, List[float]] = ''  # 模型的输出，可以是字符串或浮点数列表
-    input: Union[str, Dict[str, Any]] = ''  # 模型的输入，可以是字符串或字典
-    metadata: Dict[str, Any] = dataclasses.field(
-        default_factory=dict  # 元数据，包含与响应相关的额外信息，默认为空字典
-    )
-
-
-class IndexItem(BaseModel):
-    module_name: str
-    symbols: str
-    last_modified: float
-    md5: str  # 新增文件内容的MD5哈希值字段
-
-
-class TargetFile(BaseModel):
-    file_path: str
-    reason: str = Field(
-        ..., description="The reason why the file is the target file"
-    )
-
-
-class FileList(BaseModel):
-    file_list: List[TargetFile]
-
-
-class SymbolType(Enum):
-    USAGE = "usage"
-    FUNCTIONS = "functions"
-    VARIABLES = "variables"
-    CLASSES = "classes"
-    IMPORT_STATEMENTS = "import_statements"
-
-
-class SymbolsInfo(BaseModel):
-    usage: Optional[str] = Field('', description="用途")
-    functions: List[str] = Field([], description="函数")
-    variables: List[str] = Field([], description="变量")
-    classes: List[str] = Field([], description="类")
-    import_statements: List[str] = Field([], description="导入语句")
-
-
-class VerifyFileRelevance(BaseModel):
-    relevant_score: int
-    reason: str
-
-
-class CodeGenerateResult(BaseModel):
-    contents: List[str]
-    conversations: List[List[Dict[str, Any]]]
-
-
-class PathAndCode(BaseModel):
-    path: str
-    content: str
-
-
-class RankResult(BaseModel):
-    rank_result: List[int]
-
-
-class MergeCodeWithoutEffect(BaseModel):
-    success_blocks: List[Tuple[str, str]]
-    failed_blocks: List[Any]
-
-
-class CommitResult(BaseModel):
-    success: bool
-    commit_message: Optional[str] = None
-    commit_hash: Optional[str] = None
-    changed_files: Optional[List[str]] = None
-    diffs: Optional[dict] = None
-    error_message: Optional[str] = None
-
-
-class Tag(BaseModel):
-    start_tag: str
-    content: str
-    end_tag: str
-
-
-class SymbolItem(BaseModel):
-    symbol_name: str
-    symbol_type: SymbolType
-    file_name: str
 
 
 def print_args_status():
@@ -929,52 +819,6 @@ def load_memory():
     completer.update_current_files(memory["current_files"]["files"])
 
 
-def format_prompt(func, **kargs):
-    """
-    根据函数的文档字符串生成提示模板，并使用提供的参数格式化该模板。
-    参数:
-    - func: 目标函数，其文档字符串将用于生成提示模板。
-    - **kargs: 用于格式化提示模板的参数。
-    返回值:
-    - 格式化后的提示字符串。
-    步骤:
-    1. 获取目标函数的文档字符串。
-    2. 将文档字符串按行分割，并去除每行的前导空白字符。
-    3. 使用 LangChain 的 PromptTemplate 从处理后的文档字符串生成提示模板。
-    4. 使用提供的参数格式化提示模板，返回格式化后的提示字符串。
-    """
-    # from langchain import PromptTemplate
-    from string import Template
-    doc = func.__doc__
-    lines = doc.splitlines()
-    # get the first line to get the whitespace prefix
-    first_non_empty_line = next(line for line in lines if line.strip())
-    prefix_whitespace_length = len(first_non_empty_line) - len(first_non_empty_line.lstrip())
-    _prompt = "\n".join([line[prefix_whitespace_length:] for line in lines])
-    # tpl = PromptTemplate.from_template(_prompt)
-    tpl = Template(_prompt)
-    # return tpl.format(**kargs)
-    return tpl.safe_substitute(**kargs)
-
-
-def format_prompt_jinja2(func, **kargs):
-    from jinja2 import Template
-    doc = func.__doc__
-    lines = doc.splitlines()
-    # get the first line to get the whitespace prefix
-    first_non_empty_line = next(line for line in lines if line.strip())
-    prefix_whitespace_length = len(first_non_empty_line) - len(first_non_empty_line.lstrip())
-    _prompt = "\n".join([line[prefix_whitespace_length:] for line in lines])
-    tpl = Template(_prompt)
-    return tpl.render(kargs)
-
-
-def format_str_jinja2(s, **kargs):
-    from jinja2 import Template
-    tpl = Template(s)
-    return tpl.render(kargs)
-
-
 def symbols_info_to_str(info: SymbolsInfo, symbol_types: List[SymbolType]) -> str:
     result = []
     for symbol_type in symbol_types:
@@ -989,241 +833,6 @@ def symbols_info_to_str(info: SymbolsInfo, symbol_types: List[SymbolType]) -> st
             result.append(f"{symbol_type.value}：{value_str}")
 
     return "\n".join(result)
-
-
-def content_str(content: Union[str, List, None]) -> str:
-    """
-    将 content 转换为字符串格式。
-    此函数处理可能是字符串、混合文本和图像 URL 的列表或 None 的内容，并将其转换为字符串。
-    文本直接附加到结果字符串中，而图像 URL 则由占位符图像标记表示。如果内容为 None，则返回空字符串。
-    参数:
-    - content (Union[str, List, None]): 要处理的内容。可以是字符串、表示文本和图像 URL 的字典列表，或 None。
-    返回:
-    - str: 输入内容的字符串表示形式。图像 URL 被替换为图像标记。
-    注意:
-      该函数期望列表中的每个字典都有一个 "type" 键，其值为 "text" 或 "image_url"。对于 "text" 类型，"text" 键的值将附加到结果中。
-      对于 "image_url"，将附加一个图像标记。
-      此函数适用于处理可能包含文本和图像引用的内容，特别是在需要将图像表示为占位符的上下文中。
-    """
-    if content is None:
-        return ""
-    if isinstance(content, str):
-        return content
-    if not isinstance(content, list):
-        raise TypeError(f"content must be None, str, or list, but got {type(content)}")
-
-    rst = ""
-    for item in content:
-        if not isinstance(item, dict):
-            raise TypeError("Wrong content format: every element should be dict if the content is a list.")
-        assert "type" in item, "Wrong content format. Missing 'type' key in content's dict."
-        if item["type"] == "text":
-            rst += item["text"]
-        elif item["type"] == "image_url":
-            rst += "<image>"
-        else:
-            raise ValueError(f"Wrong content format: unknown type {item['type']} within the content")
-    return rst
-
-
-def extract_code(
-        text: Union[str, List],
-        pattern: str = r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```",
-        detect_single_line_code: bool = False
-) -> List[Tuple[str, str]]:
-    """
-    从文本中提取代码。
-    参数:
-    - text (str 或 List): 要从中提取代码的内容。内容可以是字符串或列表，通常由标准 GPT 或多模态 GPT 返回。
-    - pattern (str, 可选): 用于查找代码块的正则表达式模式。默认为 CODE_BLOCK_PATTERN。
-    - detect_single_line_code (bool, 可选): 启用提取单行代码的新功能。默认为 False。
-    返回:
-    - list: 一个包含元组的列表，每个元组包含语言和代码。
-      - 如果输入文本中没有代码块，则语言为 "unknown"。
-      - 如果有代码块但未指定语言，则语言为 ""。
-    """
-    text = content_str(text)
-    if not detect_single_line_code:
-        match = re.findall(pattern, text, flags=re.DOTALL)
-        return match if match else [("unknown", text)]
-
-    # Extract both multi-line and single-line code block, separated by the | operator
-    # `([^`]+)`: Matches inline code.
-    code_pattern = re.compile(pattern + r"|`([^`]+)`")
-    code_blocks = code_pattern.findall(text)
-
-    # Extract the individual code blocks and languages from the matched groups
-    extracted = []
-    for lang, group1, group2 in code_blocks:
-        if group1:
-            extracted.append((lang.strip(), group1.strip()))
-        elif group2:
-            extracted.append(("", group2.strip()))
-
-    return extracted
-
-
-class _PrompRunner:
-    def __init__(self, func, instance, llm, render: str, check_result: bool, options: Dict[str, Any]) -> None:
-        self.func = func
-        self.instance = instance
-        self.llm = llm
-        self.render = render
-        self.check_result = check_result
-        self._options = options
-        self.response_markers = None
-        self.return_prefix = None
-        self.extractor = None
-        self.model_class = None
-        self.max_turns = 10
-
-    def __call__(self, *args, **kwargs) -> Any:
-        return self.prompt(*args, **kwargs)
-
-    def options(self, options: Dict[str, Any]):
-        self._options = {**self._options, **options}
-        return self
-
-    def prompt(self, *args, **kwargs):
-        signature = inspect.signature(self.func)
-        if self.instance:
-            arguments = signature.bind(self.instance, *args, **kwargs)
-        else:
-            arguments = signature.bind(*args, **kwargs)
-
-        arguments.apply_defaults()
-        input_dict = {}
-        for param in signature.parameters:
-            input_dict.update({param: arguments.arguments[param]})
-
-        new_input_dic = self.func(**input_dict)
-        if new_input_dic and not isinstance(new_input_dic, dict):
-            raise TypeError(f"Return value of {self.func.__name__} should be a dict")
-        if new_input_dic:
-            input_dict = {**input_dict, **new_input_dic}
-
-        if "self" in input_dict:
-            input_dict.pop("self")
-
-        if self.render == "jinja2" or self.render == "jinja":
-            return format_prompt_jinja2(self.func, **input_dict)
-
-        return format_prompt(self.func, **input_dict)
-
-    def with_llm(self, llm):
-        self.llm = llm
-        return self
-
-    def with_return_type(self, model_class: Type[Any]):
-        self.model_class = model_class
-        return self
-
-    def with_extractor(self, func):
-        self.extractor = func
-        return self
-
-    @staticmethod
-    def is_instance_of_generator(v):
-        from typing import get_origin, get_args
-        import collections
-
-        if get_origin(v) is collections.abc.Generator:
-            _args = get_args(v)
-            if _args == (str, type(None), type(None)):
-                return True
-        return False
-
-    def to_model(self, result: str):
-        json_data = {}
-        if not isinstance(result, str):
-            raise ValueError("The decorated function must return a string")
-        try:
-            # quick path for json string
-            if result.startswith("```json") and result.endswith("```"):
-                json_str = result[len("```json"):-len("```")]
-            else:
-                json_str = extract_code(result)[0][1]
-            json_data = json.loads(json_str)
-        except json.JSONDecodeError as e:
-            print(f"The returned string is not a valid JSON, e: {str(e)} string: {result}")
-
-        try:
-            if isinstance(json_data, list):
-                return [self.model_class(**item) for item in json_data]
-            return self.model_class(**json_data)
-        except TypeError:
-            raise TypeError("Unable to create model instance from the JSON data")
-
-    def run(self, *args, **kwargs):
-        llm = self.llm
-
-        if isinstance(llm, AutoLLM):
-            origin_input = self.prompt(*args, **kwargs)
-
-            conversations = [
-                {"role": "system", "content": "You are a programming expert."},
-                {"role": "user", "content": origin_input}
-            ]
-
-            v = llm.chat_ai(conversations)
-
-            if self.model_class:
-                return self.to_model(f"{v.output}")
-
-            return v
-        return None
-
-
-class _DescriptorPrompt:
-    def __init__(self, func, wrapper, llm, render: str, check_result: bool, options: Dict[str, Any]):
-        self.func = func
-        self.wrapper = wrapper
-        self.llm = llm
-        self.render = render
-        self.check_result = check_result
-        self._options = options
-        self.prompt_runner = _PrompRunner(self.wrapper, None, self.llm, self.render, self.check_result,
-                                          options=self._options)
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        else:
-            return _PrompRunner(self.wrapper, instance, self.llm, self.render, self.check_result, options=self._options)
-
-    def __call__(self, *args, **kwargs):
-        return self.prompt_runner(*args, **kwargs)
-
-    def with_llm(self, llm):
-        self.llm = llm
-        self.prompt_runner.with_llm(llm)
-        return self
-
-    def run(self, *args, **kwargs):
-        return self.prompt_runner.run(*args, **kwargs)
-
-    def prompt(self, *args, **kwargs):
-        return self.prompt_runner.prompt(*args, **kwargs)
-
-
-class prompt:
-    """
-    1.LLM 提示管理: 管理和执行与 LLM 相关的提示操作，提供灵活的配置选项。
-    2.结果提取和转换: 支持从 LLM 返回的字符串中提取结果，并将其转换为指定模型实例。
-    """
-    def __init__(self, llm=None, render: str = "jinja2", check_result: bool = False,
-                 options: Optional[Dict[str, Any]] = None):
-        self.llm = llm
-        self.render = render
-        self.check_result = check_result
-        self.options = options if options is not None else {}
-
-    def __call__(self, func):
-        wrapper = func
-        return self._make_wrapper(func, wrapper)
-
-    def _make_wrapper(self, func, wrapper):
-        return _DescriptorPrompt(func, wrapper, self.llm, self.render, self.check_result, options=self.options)
 
 
 class PyProject:
@@ -2217,221 +1826,6 @@ def chat(query: str, llm: AutoLLM):
     return
 
 
-@prompt()
-def base_base(source_dir: str, project_type: str):
-    """
-    project_type: {{ project_type }}
-    source_dir: {{ source_dir }}
-    target_file: {{ target_file }}
-
-    model: deepseek_chat
-    model_max_input_length: 100000
-    index_filter_workers: 1
-    index_build_workers: 1
-    index_filter_level: 2
-
-    execute: true
-    auto_merge: true
-    human_as_model: false
-    """
-    return {
-        "target_file": Path(source_dir) / "output.txt"
-    }
-
-
-@prompt()
-def base_enable_index():
-    """
-    skip_build_index: false
-    anti_quota_limit: 1
-    index_filter_level: 2
-    index_filter_workers: 1
-    index_build_workers: 1
-    """
-
-
-@prompt()
-def base_exclude_files():
-    """
-    exclude_files:
-      - human://所有包含xxxx目录的路径
-      - regex://.*.git.*
-    """
-
-
-@prompt()
-def base_enable_wholefile():
-    """
-    auto_merge: wholefile
-    """
-
-
-@prompt()
-def base_000_example():
-    """
-    include_file:
-      - ./base/base.yml
-      - ./base/enable_index.yml
-      - ./base/enable_wholefile.yml
-
-    query: |
-      YOUR QUERY HERE
-    """
-
-
-@prompt()
-def init_command_template(source_dir: str):
-    """
-    ## 关于配置文件的更多细节可以在这里找到: https://gitcode.com/allwefantasy11/auto-coder/tree/master/docs/zh
-
-    ## 你项目的路径
-    source_dir: {{ source_dir }}
-
-    ## 用于存储 prompt/generated code 或其他信息的目标文件
-    target_file: {{ source_dir }}/output.txt
-
-    ## 一些文档的URL，可以帮助模型了解你当前的工作
-    ## 多个文档可以用逗号分隔
-    # urls: <SOME DOCUMENTATION URLs>
-
-    ## 你项目的类型，py,ts或者你可以使用后缀，例如.java .scala .go
-    ## 如果你使用后缀，你可以使用逗号来组合多个类型，例如.java,.scala
-    project_type: py
-
-    ## 您要驱动AutoCoder运行的模型
-    model: deepseek-chat
-
-    ## 启用索引构建，可以帮助您通过查询找到相关文件
-    skip_build_index: false
-
-    ## 用于查找相关文件的过滤级别
-    ## 0: 仅查找文件名
-    ## 1: 查找文件名和文件中的符号
-    ## 2. 查找0和1中的文件引用的相关文件
-    ## 第一次建议使用0
-    index_filter_level: 0
-    index_model_max_input_length: 30000
-
-    ## 过滤文件的线程数量
-    ## 如果您有一个大项目，可以增加这个数字
-    index_filter_workers: 1
-
-    ## 构建索引的线程数量
-    ## 如果您有一个大项目，可以增加这个数字
-    index_build_workers: 1
-
-    ## 模型将为您生成代码
-    execute: true
-
-    ## 如果您想生成多个文件，可以启用此选项，以便在多个回合中生成代码
-    ## 以避免超过模型的最大令牌限制
-    enable_multi_round_generate: false
-
-    ## AutoCoder将合并生成的代码到您的项目中
-    auto_merge: true
-
-    ## AutoCoder将要求您将内容传递给Web模型，然后将答案粘贴回终端
-    human_as_model: false
-
-    ## 你想让模型做什么
-    query: |
-      YOUR QUERY HERE
-
-    ## 您可以使用以下命令执行此文件
-    ## 并在目标文件中检查输出
-    ## auto-coder --file 101_current_work.yml
-    """
-
-
-def create_actions(source_dir: str, params: Dict[str, str]):
-    mapping = {
-        "base": base_base.prompt(**params),
-        "enable_index": base_enable_index.prompt(),
-        "exclude_files": base_exclude_files.prompt(),
-        # "enable_diff": base_enable_diff.prompt(),
-        "enable_wholefile": base_enable_wholefile.prompt(),
-        "000_example": base_000_example.prompt(),
-    }
-    init_file_path = os.path.join(source_dir, "actions", "101_current_work.yml")
-    with open(init_file_path, "w") as f:
-        f.write(init_command_template.prompt(source_dir=source_dir))
-
-    for k, v in mapping.items():
-        base_dir = os.path.join(source_dir, "actions", "base")
-        if not os.path.exists(base_dir):
-            os.makedirs(base_dir)
-
-        file_path = os.path.join(source_dir, "actions", "base", f"{k}.yml")
-
-        if k == "000_example":
-            file_path = os.path.join(source_dir, "actions", f"{k}.yml")
-
-        with open(file_path, "w") as f:
-            f.write(v)
-
-
-def git_repo_init(repo_path: str) -> bool:
-    if not os.path.exists(repo_path):
-        os.makedirs(repo_path)
-
-    if os.path.exists(os.path.join(repo_path, ".git")):
-        logger.warning(f"目录 {repo_path} 已是一个 Git 仓库，跳过初始化操作。")
-        return False
-    try:
-        Repo.init(repo_path)
-        logger.info(f"已在 {repo_path} 初始化新的 Git 仓库")
-        return True
-    except GitCommandError as e:
-        logger.error(f"Git 初始化过程中发生错误: {e}")
-        return False
-
-
-def git_get_repo(repo_path: str) -> Repo:
-    repo = Repo(repo_path)
-    return repo
-
-
-def git_commit_changes(repo_path: str, message: str) -> CommitResult:
-    repo = git_get_repo(repo_path)
-    if repo is None:
-        return CommitResult(
-            success=False, error_message="Repository is not initialized."
-        )
-
-    try:
-        repo.git.add(all=True)
-        if repo.is_dirty():
-            commit = repo.index.commit(message)
-            result = CommitResult(
-                success=True,
-                commit_message=message,
-                commit_hash=commit.hexsha,
-                changed_files=[],
-                diffs={},
-            )
-            if commit.parents:
-                changed_files = repo.git.diff(
-                    commit.parents[0].hexsha, commit.hexsha, name_only=True
-                ).split("\n")
-                result.changed_files = [file for file in changed_files if file.strip()]
-
-                for file in result.changed_files:
-                    diff = repo.git.diff(
-                        commit.parents[0].hexsha, commit.hexsha, "--", file
-                    )
-                    result.diffs[file] = diff
-            else:
-                result.error_message = (
-                    "This is the initial commit, no parent to compare against."
-                )
-
-            return result
-        else:
-            return CommitResult(success=False, error_message="No changes to commit.")
-    except GitCommandError as e:
-        return CommitResult(success=False, error_message=str(e))
-
-
 def git_print_commit_info(commit_result: CommitResult):
     table = Table(
         title="Commit Information (Use /revert to revert this commit)", show_header=True, header_style="bold magenta"
@@ -2456,53 +1850,6 @@ def git_print_commit_info(commit_result: CommitResult):
             )
 
 
-def git_revert_changes(repo_path: str, message: str) -> bool:
-    repo = git_get_repo(repo_path)
-    if repo is None:
-        logger.error("仓库未初始化。")
-        return False
-
-    try:
-        # 检查当前工作目录是否有未提交的更改
-        if repo.is_dirty():
-            logger.warning("工作目录有未提交的更改，请在回退前提交或暂存您的修改。")
-            return False
-
-        # 通过message定位到commit_hash
-        commit = repo.git.log("--all", f"--grep={message}", "--format=%H", "-n", "1")
-        if not commit:
-            logger.warning(f"未找到提交信息包含 '{message}' 的提交记录。")
-            return False
-
-        commit_hash = commit
-
-        # 获取从指定commit到HEAD的所有提交
-        commits = list(repo.iter_commits(f"{commit_hash}..HEAD"))
-
-        if not commits:
-            repo.git.revert(commit, no_edit=True)
-            logger.info(f"已回退单条提交记录: {commit}")
-        else:
-            # 从最新的提交开始，逐个回滚
-            for commit in reversed(commits):
-                try:
-                    repo.git.revert(commit.hexsha, no_commit=True)
-                    logger.info(f"已回退提交 {commit.hexsha} 的更改")
-                except GitCommandError as e:
-                    logger.error(f"回退提交 {commit.hexsha} 时发生错误: {e}")
-                    repo.git.revert("--abort")
-                    return False
-            # 提交所有的回滚更改
-            repo.git.commit(message=f"Reverted all changes up to {commit_hash}")
-        logger.info(f"已成功回退到提交 {commit_hash} 的状态")
-        # this is a mark, chat_auto_coder.py need this
-        print(f"Successfully reverted changes", flush=True)
-        return True
-    except GitCommandError as e:
-        logger.error(f"回退操作过程中发生错误: {e}")
-        return False
-
-
 def init_project():
     if not args.project_type:
         logger.error(
@@ -2518,7 +1865,7 @@ def init_project():
                 "source_dir": source_dir},
     )
 
-    git_repo_init(source_dir)
+    repo_init(source_dir)
     with open(os.path.join(source_dir, ".gitignore"), "a") as f:
         f.write("\n.auto-coder/")
         f.write("\nactions/")
@@ -3404,7 +2751,7 @@ class CodeAutoMergeEditBlock:
 
         if changes_made and not force_skip_git:
             try:
-                git_commit_changes(self.args.source_dir, f"auto_coder_pre_{file_name}_{md5}")
+                commit_changes(self.args.source_dir, f"auto_coder_pre_{file_name}_{md5}")
             except Exception as e:
                 logger.error(
                     self.git_require_msg(
@@ -3434,7 +2781,7 @@ class CodeAutoMergeEditBlock:
         if changes_made:
             if not force_skip_git:
                 try:
-                    commit_result = git_commit_changes(self.args.source_dir, f"auto_coder_{file_name}_{md5}")
+                    commit_result = commit_changes(self.args.source_dir, f"auto_coder_{file_name}_{md5}")
                     git_print_commit_info(commit_result=commit_result)
                 except Exception as e:
                     logger.error(
@@ -3752,7 +3099,7 @@ def execute_revert():
     md5 = hashlib.md5(file_content.encode("utf-8")).hexdigest()
     file_name = os.path.basename(args.file)
 
-    revert_result = git_revert_changes(repo_path, f"auto_coder_{file_name}_{md5}")
+    revert_result = revert_changes(repo_path, f"auto_coder_{file_name}_{md5}")
     if revert_result:
         os.remove(args.file)
         logger.info(f"已成功回退最后一次 chat action 的更改，并移除 YAML 文件 {args.file}")
