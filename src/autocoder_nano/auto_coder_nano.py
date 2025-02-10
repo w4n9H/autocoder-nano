@@ -252,7 +252,8 @@ COMMANDS = {
     "/models": {
         "/add_model": "",
         "/remove": "",
-        "/list": ""
+        "/list": "",
+        "/check": ""
     }
 }
 
@@ -3730,15 +3731,56 @@ def print_models(content: Dict[str, Any]):
     console.print(table)
 
 
+def check_models(content: Dict[str, Any], llm: AutoLLM):
+
+    status_info = {}
+
+    def _check_single_llm(model):
+        _start_time = time.monotonic()
+        try:
+            _response = llm.stream_chat_ai(
+                conversations=[{"role": "user", "content": "ping, are you there?"}], model=model
+            )
+            for _chunk in _response:
+                pass
+            _latency = time.monotonic() - _start_time
+            return True, _latency
+        except Exception as e:
+            return False, str(e)
+
+    table = Table(title="模型状态检测", show_header=True, header_style="bold magenta")
+    table.add_column("模型", style="cyan")
+    table.add_column("状态", justify="center")
+    table.add_column("延迟", justify="right", style="green")
+    if content:
+        for name in content:
+            logger.info(f"正在测试 {name} 模型")
+            attempt_ok, attempt_latency = _check_single_llm(name)
+            if attempt_ok:
+                table.add_row(
+                    name, Text("✓", style="green"), f"{attempt_latency:.2f}s"
+                )
+            else:
+                table.add_row(
+                    "✗", Text("✓", style="red"), "-"
+                )
+    else:
+        table.add_row("", "", "")
+    console.print(table)
+
+
 def manage_models(models_args, models_data, llm: AutoLLM):
     """
       /models /list - List all models (default + custom)
+      /models /check - Check all models status (Latency)
       /models /add <name> <api_key> - Add model with simplified params
       /models /add_model name=xxx base_url=xxx api_key=xxxx model=xxxxx ... - Add model with custom params
       /models /remove <name> - Remove model by name
     """
     if models_args[0] == "/list":
         print_models(models_data)
+    if models_args[0] == "/check":
+        check_models(models_data, llm)
     elif models_args[0] == "/add_model":
         add_model_args = models_args[1:]
         add_model_info = {item.split('=')[0]: item.split('=')[1] for item in add_model_args if item}
