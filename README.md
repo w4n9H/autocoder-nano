@@ -1,26 +1,22 @@
 # autocoder-nano
 
-<div style="text-align:center">
-  <img src="./assets/WechatIMG28.jpg" alt="项目Logo" style="width:500px; border:1px solid #000;">
-</div>
-
 AutoCoder 社区是一个致力于简化开发者代码开发流程，提升开发效率的社区，开发有 auto-coder.chat (lite/pro), byzerllm 等项目，
 autocoder-nano 是 AutoCoder 社区的全新成员，基于 auto-coder.chat 功能简化，可以理解成 auto-coder.chat 的轻量级版本。
 
-nano/lite/pro 有什么区别？
+#### nano/lite/pro 有什么区别？
 
 - Pro：分布式架构，支持分布式部署模型，支持开源/SaaS模型管理，独特的 `human_as_model` 模式，RAG 支持，Design 设计支持，MCP支持，联网搜索支持，全局记忆支持，适合深度使用各种大模型的用户。
 - Lite：放弃分布式架构，部分功能无法使用，主要针对 Windows 用户（第三方库兼容问题），以及需要快速启动并使用 auto-coder.chat 的用户。
 - Nano：同样放弃分布式架构，为 auto-coder.chat 的移植版本，支持 `/chat`，`/coding`， `/文件管理`，`/索引管理` 等功能，依赖及代码极致精简，适合想要了解大模型辅助编程原理，以及想要实现自己辅助编程框架的用户
 
-为何选择 autocoder-nano？
+#### 为何选择 autocoder-nano？
 
 - 轻量高效：无需复杂部署，极致精简，即装即用，使用 auto-coder 前可以先通过 autocoder-nano 熟悉相关功能。
 - 灵活扩展：第三方依赖及代码精简，非常适合学习及魔改，同时兼容主流大模型，开发者可定制私有化模型链路。
 - 场景全覆盖：从代码生成到运维脚本，一站式解决开发需求。
 - 开源友好：持续迭代中，欢迎贡献代码与反馈！
 
-autocoder-nano 的迭代方向
+#### autocoder-nano 的迭代方向
 
 - 代码结构优化，便于后续维护及其他开发者魔改
 - 并发支持，开发更大的项目
