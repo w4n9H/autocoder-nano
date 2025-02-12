@@ -8,8 +8,9 @@ version=$(python -c "with open('src/autocoder_nano/version.py') as f: print([lin
 echo "Version: $version"
 
 # 清理dist目录
-echo "Clean dist"
+echo "Clean dist / build"
 rm -rf ./dist/*
+rm -rf ./build/*
 
 # 卸载当前安装的项目版本
 echo "Uninstall ${project}"
@@ -29,8 +30,8 @@ export MODE=${MODE:-"dev"}
 
 # 发布模式下的操作
 if [[ ${MODE} == "release" ]]; then
- git tag v${version}
- git push origin v${version}  # 请根据实际情况使用正确的远程仓库名
+ # git tag v${version}
+ # git push origin v${version}  # 请根据实际情况使用正确的远程仓库名
  echo "Upload ${project} ${version}"
  twine upload dist/*
 fi

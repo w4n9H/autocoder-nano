@@ -1561,9 +1561,11 @@ def build_index_and_filter_files(llm, sources: List[SourceCode]) -> str:
     if not args.skip_build_index and llm:
         logger.info("第二阶段：为所有文件构建索引...")
         index_manager = IndexManager(llm=llm, source_codes=sources)
-        index_manager.build_index()
+        index_data = index_manager.build_index()
+        indexed_files_count = len(index_data) if index_data else 0
+        logger.info(f"总索引文件数: {indexed_files_count}")
 
-        if not args.skip_filter_index:
+        if not args.skip_filter_index and args.index_filter_level >= 1:
             logger.info("第三阶段：执行 Level 1 过滤(基于查询) ...")
             target_files = index_manager.get_target_files_by_query(args.query)
             if target_files:
@@ -1581,7 +1583,7 @@ def build_index_and_filter_files(llm, sources: List[SourceCode]) -> str:
                         file_path = file.file_path.strip()
                         final_files[get_file_path(file_path)] = file
 
-            # 如果 Level 1 filtering 和 Level 2 filtering 都为获取路径，则使用全部文件
+            # 如果 Level 1 filtering 和 Level 2 filtering 都未获取路径，则使用全部文件
             if not final_files:
                 logger.warning("Level 1, Level 2 过滤未找到相关文件, 将使用所有文件 ...")
                 for source in sources:
@@ -1595,24 +1597,36 @@ def build_index_and_filter_files(llm, sources: List[SourceCode]) -> str:
             temp_files = list(final_files.values())
             verification_results = []
 
-            def verify_single_file(single_file: TargetFile):
-                for source in sources:
-                    if source.module_name == single_file.file_path:
-                        file_content = source.source_code
+            def _print_verification_results(results):
+                table = Table(title="文件相关性验证结果", expand=True, show_lines=True)
+                table.add_column("文件路径", style="cyan", no_wrap=True)
+                table.add_column("得分", justify="right", style="green")
+                table.add_column("状态", style="yellow")
+                table.add_column("原因/错误")
+                if result:
+                    for _file_path, _score, _status, _reason in results:
+                        table.add_row(_file_path,
+                                      str(_score) if _score is not None else "N/A", _status, _reason)
+                console.print(table)
+
+            def _verify_single_file(single_file: TargetFile):
+                for _source in sources:
+                    if _source.module_name == single_file.file_path:
+                        file_content = _source.source_code
                         try:
-                            result = index_manager.verify_file_relevance.with_llm(llm).with_return_type(
+                            _result = index_manager.verify_file_relevance.with_llm(llm).with_return_type(
                                 VerifyFileRelevance).run(
                                 file_content=file_content,
                                 query=args.query
                             )
-                            if result.relevant_score >= args.verify_file_relevance_score:
+                            if _result.relevant_score >= args.verify_file_relevance_score:
                                 verified_files[single_file.file_path] = TargetFile(
                                     file_path=single_file.file_path,
-                                    reason=f"Score:{result.relevant_score}, {result.reason}"
+                                    reason=f"Score:{_result.relevant_score}, {_result.reason}"
                                 )
-                                return single_file.file_path, result.relevant_score, "PASS", result.reason
+                                return single_file.file_path, _result.relevant_score, "PASS", _result.reason
                             else:
-                                return single_file.file_path, result.relevant_score, "FAIL", result.reason
+                                return single_file.file_path, _result.relevant_score, "FAIL", _result.reason
                         except Exception as e:
                             error_msg = str(e)
                             verified_files[single_file.file_path] = TargetFile(
@@ -1623,13 +1637,28 @@ def build_index_and_filter_files(llm, sources: List[SourceCode]) -> str:
                 return
 
             for pending_verify_file in temp_files:
-                result = verify_single_file(pending_verify_file)
+                result = _verify_single_file(pending_verify_file)
                 if result:
                     verification_results.append(result)
                 time.sleep(args.anti_quota_limit)
 
+            _print_verification_results(verification_results)
             # Keep all files, not just verified ones
             final_files = verified_files
+    else:
+        current_files_list = memory["current_files"]["files"]
+        if current_files_list:
+            current_files_relpaths = [os.path.relpath(i, project_root) for i in current_files_list]
+            logger.warning(f"未开启自动索引, 将使用当前活跃文件共{len(current_files_relpaths)}个 ...")
+            for source in sources:
+                if os.path.relpath(get_file_path(source.module_name), project_root) in current_files_relpaths:
+                    final_files[get_file_path(source.module_name)] = TargetFile(
+                        file_path=source.module_name,
+                        reason="skip_build_index=true, use current files",
+                    )
+        else:
+            logger.error(f"未开启自动索引, 也未配置当前活跃文件，对话过程中断.")
+            return ""
 
     logger.info("第六阶段：筛选文件并应用限制条件 ...")
     if args.index_filter_file_num > 0:
@@ -1640,7 +1669,34 @@ def build_index_and_filter_files(llm, sources: List[SourceCode]) -> str:
     if args.index_filter_file_num > 0:
         final_filenames = final_filenames[: args.index_filter_file_num]
 
+    def _shorten_path(path: str, keep_levels: int = 3) -> str:
+        """
+        优化长路径显示，保留最后指定层级
+        示例：/a/b/c/d/e/f.py -> .../c/d/e/f.py
+        """
+        parts = path.split(os.sep)
+        if len(parts) > keep_levels:
+            return ".../" + os.sep.join(parts[-keep_levels:])
+        return path
+
+    def _print_selected(data):
+        table = Table(title="代码上下文文件", expand=True, show_lines=True)
+        table.add_column("文件路径", style="cyan")
+        table.add_column("原因", style="cyan")
+        for _file, _reason in data:
+            # 路径截取优化：保留最后 3 级路径
+            _processed_path = _shorten_path(_file, keep_levels=3)
+            table.add_row(_processed_path, _reason)
+        console.print(table)
+
     logger.info("第七阶段：准备最终输出 ...")
+    _print_selected(
+        [
+            (file.file_path, file.reason)
+            for file in final_files.values()
+            if file.file_path in final_filenames
+        ]
+    )
     result_source_code = ""
     depulicated_sources = set()
 
@@ -1770,6 +1826,8 @@ def chat(query: str, llm: AutoLLM):
         )
         pre_conversations.append(
             {"role": "assistant", "content": "read"})
+    else:
+        return
 
     loaded_conversations = pre_conversations + chat_history["ask_conversation"]
 
@@ -3821,17 +3879,22 @@ def main():
     load_memory()
 
     if len(memory["models"]) == 0:
-        print_status("正在配置模型...", "warning")
-        _current_model = input(f"  设置你的首选模型名称(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
-        _current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
-        _current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()
-        _current_api_key = input(f"  请输入您的API密钥: ").strip().lower()
-        print_status(f"正在更新缓存...", "warning")
-        memory["conf"]["current_chat_model"] = _current_model
-        memory["conf"]["current_code_model"] = _current_model
-        memory["models"][_current_model] = {
-            "base_url": _current_base_url, "api_key": _current_api_key, "model": _current_model_name
-        }
+        _model_pass = input(f"  是否跳过模型配置(y/n): ").strip().lower()
+        if _model_pass == "n":
+            print_status("正在配置模型...", "warning")
+            _current_model = input(f"  设置你的首选模型名称(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
+            _current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
+            _current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()
+            _current_api_key = input(f"  请输入您的API密钥: ").strip().lower()
+            print_status(f"正在更新缓存...", "warning")
+            memory["conf"]["current_chat_model"] = _current_model
+            memory["conf"]["current_code_model"] = _current_model
+            memory["models"][_current_model] = {
+                "base_url": _current_base_url, "api_key": _current_api_key, "model": _current_model_name
+            }
+        else:
+            print_status("你已跳过模型配置,后续请使用 /models /add_model 添加模型...", "error")
+            print_status("添加示例 /models /add_model name=xxx base_url=xxx api_key=xxxx model=xxxxx", "error")
 
     auto_llm = AutoLLM()  # 创建模型
     if len(memory["models"]) > 0:
