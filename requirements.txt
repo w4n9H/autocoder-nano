@@ -8,3 +8,9 @@ pydantic
 rich
 pylint
 PyYAML
+pdfminer
+pypdf
+uvicorn
+pathspec
+fastapi
+tokenizers
