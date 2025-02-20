@@ -11,7 +11,9 @@ import time
 import traceback
 import uuid
 from difflib import SequenceMatcher
+from typing import Generator
 
+from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.version import __version__
 from autocoder_nano.llm_types import *
 from autocoder_nano.llm_prompt import prompt, extract_code
@@ -22,8 +24,8 @@ import yaml
 import tabulate
 from jinja2 import Template
 from loguru import logger
-from openai import OpenAI, Stream
-from openai.types.chat import ChatCompletion, ChatCompletionChunk
+# from openai import OpenAI, Stream
+# from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from prompt_toolkit import prompt as _toolkit_prompt, PromptSession
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -32,7 +34,7 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.shortcuts import confirm
 from prompt_toolkit.styles import Style
-from pydantic import BaseModel, Field
+# from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
@@ -64,44 +66,6 @@ memory = {
     "mode": "normal",  # 新增mode字段,默认为normal模式
     "models": {}
 }
-
-
-class AutoCoderArgs(BaseModel):
-    request_id: Optional[str] = None  #
-    file: Optional[str] = ''  #
-    source_dir: Optional[str] = None  # 项目的路径
-    git_url: Optional[str] = None  #
-    target_file: Optional[str] = None  # 用于存储 提示词/生成代码 或其他信息的目标文件
-    query: Optional[str] = None  # 你想让模型做什么
-    template: Optional[str] = 'common'  #
-    project_type: Optional[str] = None  # 项目的类型
-    index_build_workers: Optional[int] = 1  # 构建索引的线程数量
-    index_filter_level: Optional[int] = 0  # 用于查找相关文件的过滤级别
-    index_filter_file_num: Optional[int] = -1  #
-    index_filter_workers: Optional[int] = 1  # 过滤文件的线程数量
-    filter_batch_size: Optional[int] = 5  #
-    anti_quota_limit: Optional[int] = 1  # 请求模型时的间隔时间(s)
-    skip_build_index: Optional[bool] = False  # 是否跳过索引构建(索引可以帮助您通过查询找到相关文件)
-    skip_filter_index: Optional[bool] = False  #
-    verify_file_relevance_score: Optional[int] = 6  #
-    auto_merge: Optional[Union[bool, str]] = False  # 自动合并代码 True or False, 'editblock'
-    enable_multi_round_generate: Optional[bool] = False  # 启用多轮生成
-    editblock_similarity: Optional[float] = 0.9  # 编辑块相似性
-    execute: Optional[bool] = None  # 模型是否生成代码
-    context: Optional[str] = None  #
-    human_as_model: Optional[bool] = False  #
-    human_model_num: Optional[int] = 1  #
-    include_project_structure: Optional[bool] = False  #
-    urls: Optional[Union[str, List[str]]] = ""  # 一些文档的URL/路径，可以帮助模型了解你当前的工作
-    model: Optional[str] = ""  # 您要驱动运行的模型
-    model_max_input_length: Optional[int] = 6000  # 模型最大输入长度
-    skip_confirm: Optional[bool] = False
-    silence: Optional[bool] = False
-    current_chat_model: Optional[str] = ""
-    current_code_model: Optional[str] = ""
-
-    class Config:
-        protected_namespaces = ()
 
 
 args: AutoCoderArgs = AutoCoderArgs()
@@ -889,6 +853,16 @@ class PyProject:
     def is_python_file(file_path):  # 判断是否为py文件
         return file_path.endswith(".py")
 
+    def get_rest_source_codes(self):
+        source_codes = []
+        if args.urls:
+            urls = args.urls
+            for url in urls:
+                source_codes.append(self.convert_to_source_code(url))
+            for source in source_codes:
+                source.tag = "REST"
+        return source_codes
+
     def get_source_codes(self):
         for root, dirs, files in os.walk(self.directory):
             dirs[:] = [d for d in dirs if d not in self.default_exclude_dirs]
@@ -906,16 +880,21 @@ class PyProject:
 
     def run(self):
         if self.target_file:
-            # v1:写入文件版本
             with open(self.target_file, "w") as file:
+
+                for code in self.get_rest_source_codes():
+                    self.sources.append(code)
+                    file.write(f"##File: {code.module_name}\n")
+                    file.write(f"{code.source_code}\n\n")
+
                 for code in self.get_source_codes():
                     self.sources.append(code)
                     file.write(f"##File: {code.module_name}\n")
                     file.write(f"{code.source_code}\n\n")
-        else:
-            # v2:写入self.sources版本
-            for code in self.get_source_codes():
-                self.sources.append(code)
+        # else:
+        #     # v2:写入self.sources版本
+        #     for code in self.get_source_codes():
+        #         self.sources.append(code)
 
 
 class SuffixProject:
@@ -975,6 +954,16 @@ class SuffixProject:
     def is_suffix_file(self, file_path):
         return any([file_path.endswith(suffix) for suffix in self.suffixs])
 
+    def get_rest_source_codes(self):
+        source_codes = []
+        if args.urls:
+            urls = args.urls
+            for url in urls:
+                source_codes.append(self.convert_to_source_code(url))
+            for source in source_codes:
+                source.tag = "REST"
+        return source_codes
+
     def get_source_codes(self):
         for root, dirs, files in os.walk(self.directory, followlinks=True):
             dirs[:] = [d for d in dirs if d not in self.default_exclude_dirs]
@@ -994,98 +983,20 @@ class SuffixProject:
         if self.target_file:
             # v1:写入文件版本
             with open(self.target_file, "w") as file:
+
+                for code in self.get_rest_source_codes():
+                    self.sources.append(code)
+                    file.write(f"##File: {code.module_name}\n")
+                    file.write(f"{code.source_code}\n\n")
+
                 for code in self.get_source_codes():
                     self.sources.append(code)
                     file.write(f"##File: {code.module_name}\n")
                     file.write(f"{code.source_code}\n\n")
-        else:
-            # v2:写入self.sources版本
-            for code in self.get_source_codes():
-                self.sources.append(code)
-
-
-class AutoLLM:
-    # def __init__(self, api_key: str, base_url: Optional[str] = None):
-    def __init__(self):
-        # self.api_key = api_key
-        # self.url = base_url
-        # self.client = OpenAI(api_key=self.api_key, base_url=self.url)
-        self.default_model_name = None
-        self.sub_clients = {}
-
-    def setup_sub_client(self, client_name: str, api_key: str, base_url: str):
-        self.sub_clients[client_name] = OpenAI(api_key=api_key, base_url=base_url)
-
-    def remove_sub_client(self, client_name: str):
-        if client_name in self.sub_clients:
-            del self.sub_clients[client_name]
-
-    def get_sub_client(self, client_name: str):
-        return self.sub_clients.get(client_name, None)
-
-    def setup_default_model_name(self, model_name: str):
-        self.default_model_name = model_name
-
-    def stream_chat_ai(self, conversations, model=None) -> Stream[ChatCompletionChunk]:
-        if not model and not self.default_model_name:
-            raise Exception("model name is required")
-
-        if not model:
-            model = self.default_model_name
-
-        model_name = memory["models"][model]["model"]
-        logger.info(f"正在使用 {model} 模型, 模型名称 {model_name}")
-        request = LLMRequest(
-            model=model_name,
-            messages=conversations
-        )
-        res = self._query(model, request, stream=True)
-        return res
-
-    def chat_ai(self, conversations, model=None) -> LLMResponse:
-        # conversations = [{"role": "user", "content": prompt_str}]  deepseek-chat
-        if not model and not self.default_model_name:
-            raise Exception("model name is required")
-
-        if not model:
-            model = self.default_model_name
-
-        if isinstance(conversations, str):
-            conversations = [{"role": "user", "content": conversations}]
-
-        model_name = memory["models"][model]["model"]
-        logger.info(f"正在使用 {model} 模型, 模型名称 {model_name}")
-        request = LLMRequest(
-            model=model_name,
-            messages=conversations
-        )
-
-        res = self._query(model, request)
-        return LLMResponse(
-            output=res.choices[0].message.content,
-            input="",
-            metadata={
-                "id": res.id,
-                "model": res.model,
-                "created": res.created
-            }
-        )
-
-    def _query(self, model_name: str, request: LLMRequest, stream=False) -> ChatCompletion | Stream[ChatCompletionChunk]:
-        """ 与 LLM 交互 """
-        response = self.sub_clients[model_name].chat.completions.create(
-            model=request.model,
-            messages=request.messages,
-            stream=stream,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature,
-            top_p=request.top_p,
-            n=request.n,
-            stop=request.stop,
-            presence_penalty=request.presence_penalty,
-            frequency_penalty=request.frequency_penalty,
-        )
-        return response
+        # else:
+        #     # v2:写入self.sources版本
+        #     for code in self.get_source_codes():
+        #         self.sources.append(code)
 
 
 class IndexManager:
@@ -1343,8 +1254,12 @@ class IndexManager:
 
         index_items = []
         for module_name, data in index_data.items():
-            index_item = IndexItem(module_name=module_name, symbols=data["symbols"], last_modified=data["last_modified"],
-                                   md5=data["md5"])
+            index_item = IndexItem(
+                module_name=module_name,
+                symbols=data["symbols"],
+                last_modified=data["last_modified"],
+                md5=data["md5"]
+            )
             index_items.append(index_item)
 
         return index_items
@@ -1556,7 +1471,11 @@ def build_index_and_filter_files(llm, sources: List[SourceCode]) -> str:
 
     final_files: Dict[str, TargetFile] = {}
     logger.info("第一阶段：处理 REST/RAG/Search 资源(开发中)...")
-    # ...
+    for source in sources:
+        if source.tag in ["REST", "RAG", "SEARCH"]:
+            final_files[get_file_path(source.module_name)] = TargetFile(
+                file_path=source.module_name, reason="Rest/Rag/Search"
+            )
 
     if not args.skip_build_index and llm:
         logger.info("第二阶段：为所有文件构建索引...")
@@ -1645,20 +1564,20 @@ def build_index_and_filter_files(llm, sources: List[SourceCode]) -> str:
             _print_verification_results(verification_results)
             # Keep all files, not just verified ones
             final_files = verified_files
-    else:
-        current_files_list = memory["current_files"]["files"]
-        if current_files_list:
-            current_files_relpaths = [os.path.relpath(i, project_root) for i in current_files_list]
-            logger.warning(f"未开启自动索引, 将使用当前活跃文件共{len(current_files_relpaths)}个 ...")
-            for source in sources:
-                if os.path.relpath(get_file_path(source.module_name), project_root) in current_files_relpaths:
-                    final_files[get_file_path(source.module_name)] = TargetFile(
-                        file_path=source.module_name,
-                        reason="skip_build_index=true, use current files",
-                    )
-        else:
-            logger.error(f"未开启自动索引, 也未配置当前活跃文件，对话过程中断.")
-            return ""
+    # else:
+    #     current_files_list = memory["current_files"]["files"]
+    #     if current_files_list:
+    #         current_files_relpaths = [os.path.relpath(i, project_root) for i in current_files_list]
+    #         logger.warning(f"未开启自动索引, 将使用当前活跃文件共{len(current_files_relpaths)}个 ...")
+    #         for source in sources:
+    #             if os.path.relpath(get_file_path(source.module_name), project_root) in current_files_relpaths:
+    #                 final_files[get_file_path(source.module_name)] = TargetFile(
+    #                     file_path=source.module_name,
+    #                     reason="skip_build_index=true, use current files",
+    #                 )
+    #     else:
+    #         logger.error(f"未开启自动索引, 也未配置当前活跃文件，对话过程中断.")
+    #         return ""
 
     logger.info("第六阶段：筛选文件并应用限制条件 ...")
     if args.index_filter_file_num > 0:
@@ -3513,6 +3432,7 @@ def show_help():
     print(f"  \033[94m/help\033[0m - \033[92m显示此帮助消息\033[0m")
     print(f"  \033[94m/exclude_dirs\033[0m \033[93m<dir1>,<dir2> ...\033[0m - \033[92m添加要从项目中排除的目录\033[0m")
     print(f"  \033[94m/shell\033[0m \033[93m<command>\033[0m - \033[92m执行shell命令\033[0m")
+    print(f"  \033[94m/models\033[0m - \033[92m管理模型配置,新增/删除/测试模型\033[0m")
     print(f"  \033[94m/exit\033[0m - \033[92m退出程序\033[0m")
     print()
 
@@ -3853,7 +3773,7 @@ def manage_models(models_args, models_data, llm: AutoLLM):
         else:
             logger.error(f"{_name} 已经存在, 请执行 /models /remove <name> 进行删除")
         logger.info(f"正在部署 {_name} 模型")
-        llm.setup_sub_client(_name, add_model_info["api_key"], add_model_info["base_url"])
+        llm.setup_sub_client(_name, add_model_info["api_key"], add_model_info["base_url"], add_model_info["model"])
     elif models_args[0] == "/remove":
         remove_model_name = models_args[1]
         logger.info(f"正在清理 {remove_model_name} 缓存信息")
@@ -3866,6 +3786,76 @@ def manage_models(models_args, models_data, llm: AutoLLM):
             logger.warning(f"当前首选 Chat 模型 {remove_model_name} 已被删除, 请立即 /conf current_chat_model: 调整 !!!")
         if remove_model_name == memory["conf"]["current_code_model"]:
             logger.warning(f"当前首选 Code 模型 {remove_model_name} 已被删除, 请立即 /conf current_code_model: 调整 !!!")
+
+
+def configure_project_model():
+    from prompt_toolkit.formatted_text import HTML
+    from prompt_toolkit.shortcuts import print_formatted_text
+    from prompt_toolkit.styles import Style
+    from html import escape
+
+    style = Style.from_dict(
+        {
+            "info": "#ansicyan",
+            "warning": "#ansiyellow",
+            "input-area": "#ansigreen",
+            "header": "#ansibrightyellow bold",
+        }
+    )
+
+    def print_info(text):
+        print_formatted_text(
+            HTML(f"<info>{escape(text)}</info>"), style=style)
+
+    def print_header(text):
+        print_formatted_text(
+            HTML(f"<header>{escape(text)}</header>"), style=style)
+
+    default_model = {
+        "1": {"name": "ark-deepseek-r1", "base_url": "https://ark.cn-beijing.volces.com/api/v3"},
+        "2": {"name": "ark-deepseek-v3", "base_url": "https://ark.cn-beijing.volces.com/api/v3"},
+        "3": {"name": "sili-deepseek-r1", "base_url": "https://api.siliconflow.cn/v1",
+              "model_name": "deepseek-ai/DeepSeek-R1"},
+        "4": {"name": "sili-deepseek-v3", "base_url": "https://api.siliconflow.cn/v1",
+              "model_name": "deepseek-ai/DeepSeek-V3"},
+        "5": {"name": "deepseek-r1", "base_url": "https://api.deepseek.com", "model_name": "deepseek-reasoner"},
+        "6": {"name": "deepseek-v3", "base_url": "https://api.deepseek.com", "model_name": "deepseek-chat"},
+    }
+
+    print_header(f"\n=== 正在配置项目模型 ===\n")
+    print_info("选择您的首选模型供应商: ")
+    print_info(f"  1. 火山方舟 DeepSeek-R1")
+    print_info(f"  2. 火山方舟 DeepSeek-V3")
+    print_info(f"  3. 硅基流动 DeepSeek-R1(非Pro)")
+    print_info(f"  4. 硅基流动 DeepSeek-V3(非Pro)")
+    print_info(f"  5. 官方 DeepSeek-R1")
+    print_info(f"  6. 官方 DeepSeek-V3")
+    print_info(f"  7. 其他供应商")
+    model_num = input(f"  请选择您想使用的模型供应商编号(1-6): ").strip().lower()
+
+    if int(model_num) < 1 or int(model_num) > 7:
+        print_status(f"请选择 1-7", "error")
+        exit(1)
+
+    if model_num == "7":
+        current_model = input(f"  设置你的首选模型别名(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
+        current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
+        current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()
+        current_api_key = input(f"  请输入您的API密钥: ").strip().lower()
+        return current_model, current_model_name, current_base_url, current_api_key
+
+    model_endpoint_id = None
+    if model_num in ("1", "2"):
+        model_endpoint_id = input(f"请输入您的火山方舟推理点(格式如: ep-20250204215011-vzbsg)：").strip().lower()
+    model_name_value = default_model[model_num].get("model_name", model_endpoint_id)
+
+    model_api_key = input(f"请输入您的 API 密钥：").strip().lower()
+    return (
+        default_model[model_num]["name"],
+        model_name_value,
+        default_model[model_num]["base_url"],
+        model_api_key
+    )
 
 
 def main():
@@ -3881,17 +3871,12 @@ def main():
     if len(memory["models"]) == 0:
         _model_pass = input(f"  是否跳过模型配置(y/n): ").strip().lower()
         if _model_pass == "n":
-            print_status("正在配置模型...", "warning")
-            _current_model = input(f"  设置你的首选模型名称(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
-            _current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
-            _current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()
-            _current_api_key = input(f"  请输入您的API密钥: ").strip().lower()
+            m1, m2, m3, m4 = configure_project_model()
             print_status(f"正在更新缓存...", "warning")
-            memory["conf"]["current_chat_model"] = _current_model
-            memory["conf"]["current_code_model"] = _current_model
-            memory["models"][_current_model] = {
-                "base_url": _current_base_url, "api_key": _current_api_key, "model": _current_model_name
-            }
+            memory["conf"]["current_chat_model"] = m1
+            memory["conf"]["current_code_model"] = m1
+            memory["models"][m1] = {"base_url": m3, "api_key": m4, "model": m2}
+            print_status(f"供应商配置已成功完成！后续你可以使用 /models 命令, 查看, 新增和修改所有模型", "success")
         else:
             print_status("你已跳过模型配置,后续请使用 /models /add_model 添加模型...", "error")
             print_status("添加示例 /models /add_model name=xxx base_url=xxx api_key=xxxx model=xxxxx", "error")
@@ -3902,7 +3887,8 @@ def main():
             print_status(f"正在部署 {_model_name} 模型...", "warning")
             auto_llm.setup_sub_client(_model_name,
                                       memory["models"][_model_name]["api_key"],
-                                      memory["models"][_model_name]["base_url"])
+                                      memory["models"][_model_name]["base_url"],
+                                      memory["models"][_model_name]["model"])
 
     print_status("初始化完成。", "success")
 

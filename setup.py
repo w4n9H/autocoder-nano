@@ -33,7 +33,8 @@ setup(
     long_description_content_type="text/markdown",
     entry_points={
         'console_scripts': [
-            'auto-coder.nano = autocoder_nano.auto_coder_nano:main'
+            'auto-coder.nano = autocoder_nano.auto_coder_nano:main',
+            'auto-coder.nano.rag = autocoder_nano.auto_coder_nano_rag:main'
         ],
     },
     package_dir={"": "src"},
