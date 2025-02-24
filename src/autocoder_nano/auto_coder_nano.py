@@ -4,6 +4,7 @@ import hashlib
 import os
 import re
 import json
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -212,7 +213,7 @@ COMMANDS = {
         "/refresh": {},
     },
     "/coding": {"/apply": {}, "/next": {}},
-    "/chat": {"/review": {}},
+    "/chat": {"/history": {}, "/new": {}},
     "/models": {
         "/add_model": "",
         "/remove": "",
@@ -807,6 +808,7 @@ class PyProject:
         self.exclude_files = exclude_files
         self.exclude_patterns = self.parse_exclude_files(self.exclude_files)
         self.sources = []
+        self.sources_set = set()
         self.default_exclude_dirs = [".git", ".svn", ".hg", "build", "dist", "__pycache__", "node_modules",
                                      ".auto-coder", "actions", ".vscode", ".idea",]
 
@@ -824,9 +826,7 @@ class PyProject:
                 pattern = pattern[8:]
                 exclude_patterns.append(re.compile(pattern))
             else:
-                raise ValueError(
-                    "Invalid exclude_files format. Expected 'regex://<pattern>' or 'human://<description>' "
-                )
+                raise ValueError("Invalid exclude_files format. Expected 'regex://<pattern>' ")
         return exclude_patterns
 
     def should_exclude(self, file_path):
@@ -882,19 +882,19 @@ class PyProject:
         if self.target_file:
             with open(self.target_file, "w") as file:
 
-                for code in self.get_rest_source_codes():
-                    self.sources.append(code)
-                    file.write(f"##File: {code.module_name}\n")
-                    file.write(f"{code.source_code}\n\n")
+                for code in self.get_rest_source_codes():  # 手动添加/RAG/SEARCH等来源
+                    if code.module_name not in self.sources_set:
+                        self.sources_set.add(code.module_name)
+                        self.sources.append(code)
+                        file.write(f"##File: {code.module_name}\n")
+                        file.write(f"{code.source_code}\n\n")
 
-                for code in self.get_source_codes():
-                    self.sources.append(code)
-                    file.write(f"##File: {code.module_name}\n")
-                    file.write(f"{code.source_code}\n\n")
-        # else:
-        #     # v2:写入self.sources版本
-        #     for code in self.get_source_codes():
-        #         self.sources.append(code)
+                for code in self.get_source_codes():  # 当前目录遍历获取
+                    if code.module_name not in self.sources_set:
+                        self.sources_set.add(code.module_name)
+                        self.sources.append(code)
+                        file.write(f"##File: {code.module_name}\n")
+                        file.write(f"{code.source_code}\n\n")
 
 
 class SuffixProject:
@@ -909,6 +909,7 @@ class SuffixProject:
         self.exclude_files = exclude_files
         self.exclude_patterns = self.parse_exclude_files(self.exclude_files)
         self.sources = []
+        self.sources_set = set()
         self.default_exclude_dirs = [".git", ".svn", ".hg", "build", "dist", "__pycache__", "node_modules",
                                      ".auto-coder", "actions", ".vscode", ".idea", ]
 
@@ -927,7 +928,7 @@ class SuffixProject:
                 exclude_patterns.append(re.compile(pattern))
             else:
                 raise ValueError(
-                    "Invalid exclude_files format. Expected 'regex://<pattern>' or 'human://<description>' "
+                    "Invalid exclude_files format. Expected 'regex://<pattern>' "
                 )
         return exclude_patterns
 
@@ -985,18 +986,18 @@ class SuffixProject:
             with open(self.target_file, "w") as file:
 
                 for code in self.get_rest_source_codes():
-                    self.sources.append(code)
-                    file.write(f"##File: {code.module_name}\n")
-                    file.write(f"{code.source_code}\n\n")
+                    if code.module_name not in self.sources_set:
+                        self.sources_set.add(code.module_name)
+                        self.sources.append(code)
+                        file.write(f"##File: {code.module_name}\n")
+                        file.write(f"{code.source_code}\n\n")
 
                 for code in self.get_source_codes():
-                    self.sources.append(code)
-                    file.write(f"##File: {code.module_name}\n")
-                    file.write(f"{code.source_code}\n\n")
-        # else:
-        #     # v2:写入self.sources版本
-        #     for code in self.get_source_codes():
-        #         self.sources.append(code)
+                    if code.module_name not in self.sources_set:
+                        self.sources_set.add(code.module_name)
+                        self.sources.append(code)
+                        file.write(f"##File: {code.module_name}\n")
+                        file.write(f"{code.source_code}\n\n")
 
 
 class IndexManager:
@@ -1398,6 +1399,35 @@ class IndexManager:
 
 
 def index_command(llm):
+    conf = memory.get("conf", {})
+    # 默认 chat 配置
+    yaml_config = {
+        "include_file": ["./base/base.yml"],
+        "include_project_structure": conf.get("include_project_structure", "true") in ["true", "True"],
+        "human_as_model": conf.get("human_as_model", "false") == "true",
+        "skip_build_index": conf.get("skip_build_index", "true") == "true",
+        "skip_confirm": conf.get("skip_confirm", "true") == "true",
+        "silence": conf.get("silence", "true") == "true",
+        "query": ""
+    }
+    current_files = memory["current_files"]["files"]  # get_llm_friendly_package_docs
+    yaml_config["urls"] = current_files
+    yaml_config["query"] = ""
+
+    # 如果 conf 中有设置, 则以 conf 配置为主
+    for key, value in conf.items():
+        converted_value = convert_config_value(key, value)
+        if converted_value is not None:
+            yaml_config[key] = converted_value
+
+    yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
+    execute_file = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
+
+    with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
+        f.write(yaml_content)
+
+    convert_yaml_to_config(execute_file)  # 更新到args
+
     source_dir = os.path.abspath(args.source_dir)
     logger.info(f"开始对目录 {source_dir} 中的源代码进行索引")
     if args.project_type == "py":
@@ -1408,6 +1438,71 @@ def index_command(llm):
     _sources = pp.sources
     index_manager = IndexManager(source_codes=_sources, llm=llm)
     index_manager.build_index()
+
+
+def index_export(export_path: str) -> bool:
+    try:
+        index_path = os.path.join(project_root, ".auto-coder", "index.json")
+        if not os.path.exists(index_path):
+            console.print(f"索引文件不存在", style="bold red")
+            return False
+
+        with open(index_path, "r", encoding="utf-8") as f:
+            index_data = json.load(f)
+
+        converted_data = {}
+        for abs_path, data in index_data.items():
+            try:
+                rel_path = os.path.relpath(abs_path, project_root)
+                data["module_name"] = rel_path
+                converted_data[rel_path] = data
+            except ValueError:
+                console.print(f"索引转换路径失败", style="bold yellow")
+                converted_data[abs_path] = data
+
+        export_file = os.path.join(export_path, "index.json")
+        with open(export_file, "w", encoding="utf-8") as f:
+            json.dump(converted_data, f, indent=2)
+        console.print(f"索引文件导出成功", style="bold green")
+        return True
+    except Exception as err:
+        console.print(f"索引文件导出失败", style="bold red")
+        return False
+
+
+def index_import(import_path: str):
+    try:
+        import_file = os.path.join(import_path, "index.json")
+        if not os.path.exists(import_file):
+            console.print(f"导入索引文件不存在", style="bold red")
+            return False
+        # Read and convert paths
+        with open(import_file, "r", encoding="utf-8") as f:
+            index_data = json.load(f)
+            # Convert relative paths to absolute
+        converted_data = {}
+        for rel_path, data in index_data.items():
+            try:
+                abs_path = os.path.join(project_root, rel_path)
+                data["module_name"] = abs_path
+                converted_data[abs_path] = data
+            except Exception as err:
+                console.print(f"索引转换路径失败: {err}", style="bold yellow")
+                converted_data[rel_path] = data
+        # Backup existing index
+        index_path = os.path.join(project_root, ".auto-coder", "index.json")
+        if os.path.exists(index_path):
+            console.print(f"原索引文件不存在", style="bold yellow")
+            backup_path = index_path + ".bak"
+            shutil.copy2(index_path, backup_path)
+
+        # Write new index
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump(converted_data, f, indent=2)
+        return True
+    except Exception as err:
+        console.print(f"索引文件导入失败: {err}", style="bold red")
+        return False
 
 
 def wrap_text_in_table(data, max_width=60):
@@ -1427,6 +1522,35 @@ def wrap_text_in_table(data, max_width=60):
 
 
 def index_query_command(query: str, llm: AutoLLM):
+    conf = memory.get("conf", {})
+    # 默认 chat 配置
+    yaml_config = {
+        "include_file": ["./base/base.yml"],
+        "include_project_structure": conf.get("include_project_structure", "true") in ["true", "True"],
+        "human_as_model": conf.get("human_as_model", "false") == "true",
+        "skip_build_index": conf.get("skip_build_index", "true") == "true",
+        "skip_confirm": conf.get("skip_confirm", "true") == "true",
+        "silence": conf.get("silence", "true") == "true",
+        "query": query
+    }
+    current_files = memory["current_files"]["files"]  # get_llm_friendly_package_docs
+    yaml_config["urls"] = current_files
+    yaml_config["query"] = query
+
+    # 如果 conf 中有设置, 则以 conf 配置为主
+    for key, value in conf.items():
+        converted_value = convert_config_value(key, value)
+        if converted_value is not None:
+            yaml_config[key] = converted_value
+
+    yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
+    execute_file = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
+
+    with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
+        f.write(yaml_content)
+
+    convert_yaml_to_config(execute_file)  # 更新到args
+
     # args.query = query
     if args.project_type == "py":
         pp = PyProject()
@@ -1470,7 +1594,7 @@ def build_index_and_filter_files(llm, sources: List[SourceCode]) -> str:
         return _file_path
 
     final_files: Dict[str, TargetFile] = {}
-    logger.info("第一阶段：处理 REST/RAG/Search 资源(开发中)...")
+    logger.info("第一阶段：处理 REST/RAG/Search 资源...")
     for source in sources:
         if source.tag in ["REST", "RAG", "SEARCH"]:
             final_files[get_file_path(source.module_name)] = TargetFile(
@@ -1564,20 +1688,6 @@ def build_index_and_filter_files(llm, sources: List[SourceCode]) -> str:
             _print_verification_results(verification_results)
             # Keep all files, not just verified ones
             final_files = verified_files
-    # else:
-    #     current_files_list = memory["current_files"]["files"]
-    #     if current_files_list:
-    #         current_files_relpaths = [os.path.relpath(i, project_root) for i in current_files_list]
-    #         logger.warning(f"未开启自动索引, 将使用当前活跃文件共{len(current_files_relpaths)}个 ...")
-    #         for source in sources:
-    #             if os.path.relpath(get_file_path(source.module_name), project_root) in current_files_relpaths:
-    #                 final_files[get_file_path(source.module_name)] = TargetFile(
-    #                     file_path=source.module_name,
-    #                     reason="skip_build_index=true, use current files",
-    #                 )
-    #     else:
-    #         logger.error(f"未开启自动索引, 也未配置当前活跃文件，对话过程中断.")
-    #         return ""
 
     logger.info("第六阶段：筛选文件并应用限制条件 ...")
     if args.index_filter_file_num > 0:
@@ -1678,7 +1788,32 @@ def convert_config_value(key, value):
         return None
 
 
+def print_chat_history(history, max_entries=5):
+    recent_history = history[-max_entries:]
+    table = Table(show_header=False, padding=(0, 1), expand=True, show_lines=True)
+    # 遍历聊天记录
+    for entry in recent_history:
+        role = entry["role"]
+        content = entry["content"]
+
+        # 根据角色设置样式
+        if role == "user":
+            role_text = Text("提问")
+        else:
+            role_text = Text("模型返回")
+        markdown_content = Markdown(content)
+        # 将内容和角色添加到表格中
+        table.add_row(role_text, markdown_content)
+    # 使用 Panel 包裹表格，增加美观性
+    panel = Panel(table, title="历史聊天记录", border_style="bold yellow")
+    console.print(panel)
+
+
 def chat(query: str, llm: AutoLLM):
+    is_history = query.strip().startswith("/history")
+    is_new = "/new" in query
+    if is_new:
+        query = query.replace("/new", "", 1).strip()
     conf = memory.get("conf", {})
     # 默认 chat 配置
     yaml_config = {
@@ -1713,6 +1848,34 @@ def chat(query: str, llm: AutoLLM):
     os.makedirs(memory_dir, exist_ok=True)
     memory_file = os.path.join(memory_dir, "chat_history.json")
 
+    if is_new:
+        if os.path.exists(memory_file):
+            with open(memory_file, "r") as f:
+                old_chat_history = json.load(f)
+            if "conversation_history" not in old_chat_history:
+                old_chat_history["conversation_history"] = []
+            old_chat_history["conversation_history"].append(
+                old_chat_history.get("ask_conversation", []))
+            chat_history = {"ask_conversation": [
+            ], "conversation_history": old_chat_history["conversation_history"]}
+        else:
+            chat_history = {"ask_conversation": [],
+                            "conversation_history": []}
+        with open(memory_file, "w") as fp:
+            json_str = json.dumps(chat_history, ensure_ascii=False)
+            fp.write(json_str)
+
+        console.print(
+            Panel(
+                "新会话已开始, 之前的聊天历史已存档。",
+                title="Session Status",
+                expand=False,
+                border_style="green",
+            )
+        )
+        if not query:
+            return
+
     if os.path.exists(memory_file):
         with open(memory_file, "r") as f:
             chat_history = json.load(f)
@@ -1721,6 +1884,15 @@ def chat(query: str, llm: AutoLLM):
     else:
         chat_history = {"ask_conversation": [],
                         "conversation_history": []}
+
+    if is_history:
+        show_chat = []
+        # if "conversation_history" in chat_history:
+        #     show_chat.extend(chat_history["conversation_history"])
+        if "ask_conversation" in chat_history:
+            show_chat.extend(chat_history["ask_conversation"])
+        print_chat_history(show_chat)
+        return
 
     chat_history["ask_conversation"].append(
         {"role": "user", "content": query}
@@ -3995,6 +4167,12 @@ def main():
             elif user_input.startswith("/index/query"):
                 query = user_input[len("/index/query"):].strip()
                 index_query_command(query=query, llm=auto_llm)
+            elif user_input.startswith("/index/export"):
+                export_path = user_input[len("/index/export"):].strip()
+                index_export(export_path)
+            elif user_input.startswith("/index/import"):
+                import_path = user_input[len("/index/import"):].strip()
+                index_import(import_path)
             elif user_input.startswith("/list_files"):
                 list_files()
             elif user_input.startswith("/conf"):
