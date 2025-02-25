@@ -12,21 +12,19 @@ import time
 import traceback
 import uuid
 from difflib import SequenceMatcher
-from typing import Generator
 
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.version import __version__
 from autocoder_nano.llm_types import *
 from autocoder_nano.llm_prompt import prompt, extract_code
 from autocoder_nano.templates import create_actions
-from autocoder_nano.git_utils import repo_init, commit_changes, revert_changes
+from autocoder_nano.git_utils import (repo_init, commit_changes, revert_changes,
+                                      get_uncommitted_changes, generate_commit_message)
 
 import yaml
 import tabulate
 from jinja2 import Template
 from loguru import logger
-# from openai import OpenAI, Stream
-# from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from prompt_toolkit import prompt as _toolkit_prompt, PromptSession
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -35,7 +33,6 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.shortcuts import confirm
 from prompt_toolkit.styles import Style
-# from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
@@ -52,7 +49,7 @@ defaut_exclude_dirs = [".git", ".svn", "node_modules", "dist", "build", "__pycac
                        ".vscode", ".idea", ".hg"]
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
-    "/index/build", "/exclude_dirs", "/help", "/shell", "/exit", "/mode", "/models",
+    "/index/build", "/exclude_dirs", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
 ]
 
 memory = {
@@ -2899,7 +2896,7 @@ class CodeAutoMergeEditBlock:
                 if not pylint_passed:
                     logger.warning(f"代码文件 {file_path} 的 Pylint 检查未通过，本次更改未应用。错误信息: {error_message}")
 
-        if changes_made and not force_skip_git:
+        if changes_made and not force_skip_git and not self.args.skip_commit:
             try:
                 commit_changes(self.args.source_dir, f"auto_coder_pre_{file_name}_{md5}")
             except Exception as e:
@@ -2929,7 +2926,7 @@ class CodeAutoMergeEditBlock:
                 )
 
         if changes_made:
-            if not force_skip_git:
+            if not force_skip_git and not self.args.skip_commit:
                 try:
                     commit_result = commit_changes(self.args.source_dir, f"auto_coder_{file_name}_{md5}")
                     git_print_commit_info(commit_result=commit_result)
@@ -3268,6 +3265,102 @@ def revert():
         logger.warning("No previous chat action found to revert.")
 
 
+def print_commit_info(commit_result: CommitResult):
+    table = Table(title="提交信息 (使用 /revert 撤销此提交)", show_header=True, header_style="bold magenta")
+    table.add_column("属性", style="cyan", no_wrap=True)
+    table.add_column("值", style="green")
+    table.add_row("提交哈希", commit_result.commit_hash)
+    table.add_row("提交信息", commit_result.commit_message)
+    table.add_row(
+        "更改的文件",
+        "\n".join(commit_result.changed_files) if commit_result.changed_files else "No files changed"
+    )
+
+    console.print(
+        Panel(table, expand=False, border_style="green", title="Git 提交摘要")
+    )
+
+    if commit_result.diffs:
+        for file, diff in commit_result.diffs.items():
+            console.print(f"\n[bold blue]File: {file}[/bold blue]")
+            syntax = Syntax(diff, "diff", theme="monokai", line_numbers=True)
+            console.print(Panel(syntax, expand=False, border_style="yellow", title="File Diff"))
+
+
+def commit_info(query: str, llm: AutoLLM):
+    repo_path = args.source_dir
+    prepare_chat_yaml()  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
+
+    latest_yaml_file = get_last_yaml_file(os.path.join(args.source_dir, "actions"))
+
+    conf = memory.get("conf", {})
+    current_files = memory["current_files"]["files"]
+    execute_file = None
+
+    if latest_yaml_file:
+        try:
+            execute_file = os.path.join(args.source_dir, "actions", latest_yaml_file)
+            yaml_config = {
+                "include_file": ["./base/base.yml"],
+                "auto_merge": conf.get("auto_merge", "editblock"),
+                "human_as_model": conf.get("human_as_model", "false") == "true",
+                "skip_build_index": conf.get("skip_build_index", "true") == "true",
+                "skip_confirm": conf.get("skip_confirm", "true") == "true",
+                "silence": conf.get("silence", "true") == "true",
+                "include_project_structure": conf.get("include_project_structure", "true") == "true",
+            }
+            for key, value in conf.items():
+                converted_value = convert_config_value(key, value)
+                if converted_value is not None:
+                    yaml_config[key] = converted_value
+
+            yaml_config["urls"] = current_files
+
+            # 临时保存yaml文件，然后读取yaml文件，更新args
+            temp_yaml = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
+            try:
+                with open(temp_yaml, "w", encoding="utf-8") as f:
+                    f.write(convert_yaml_config_to_str(yaml_config=yaml_config))
+                convert_yaml_to_config(temp_yaml)
+            finally:
+                if os.path.exists(temp_yaml):
+                    os.remove(temp_yaml)
+
+            # commit_message = ""
+            commit_llm = llm
+            commit_llm.setup_default_model_name(memory["conf"]["current_chat_model"])
+            console.print(f"Commit 信息生成中...", style="yellow")
+
+            try:
+                uncommitted_changes = get_uncommitted_changes(repo_path)
+                commit_message = generate_commit_message.with_llm(commit_llm).run(
+                    uncommitted_changes
+                )
+                memory["conversation"].append({"role": "user", "content": commit_message.output})
+            except Exception as err:
+                console.print(f"Commit 信息生成失败: {err}", style="red")
+                return
+
+            yaml_config["query"] = commit_message.output
+            yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
+            with open(os.path.join(execute_file), "w", encoding="utf-8") as f:
+                f.write(yaml_content)
+
+            file_content = open(execute_file).read()
+            md5 = hashlib.md5(file_content.encode("utf-8")).hexdigest()
+            file_name = os.path.basename(execute_file)
+            commit_result = commit_changes(repo_path, f"auto_coder_nano_{file_name}_{md5}\n{commit_message}")
+            print_commit_info(commit_result=commit_result)
+            if commit_message:
+                console.print(f"Commit 成功", style="green")
+        except Exception as err:
+            import traceback
+            traceback.print_exc()
+            logger.error(f"Commit 失败: {err}")
+            if execute_file:
+                os.remove(execute_file)
+
+
 @prompt()
 def _generate_shell_script(user_input: str) -> str:
     """
@@ -3594,6 +3687,7 @@ def show_help():
     print(f"  \033[94m/chat\033[0m \033[93m<query>\033[0m - \033[92m与AI聊天，获取关于当前活动文件的见解\033[0m")
     print(f"  \033[94m/coding\033[0m \033[93m<query>\033[0m - \033[92m根据需求请求AI修改代码\033[0m")
     print(f"  \033[94m/revert\033[0m - \033[92m撤销上次代码聊天的提交\033[0m")
+    print(f"  \033[94m/commit\033[0m - \033[92m根据用户人工修改的代码自动生成yaml文件并提交更改\033[0m")
     print(
         f"  \033[94m/conf\033[0m \033[93m<key>:<value>\033[0m  - \033[92m设置配置。使用 /conf project_type:<type> "
         f"设置索引的项目类型\033[0m"
@@ -3984,8 +4078,10 @@ def configure_project_model():
             HTML(f"<header>{escape(text)}</header>"), style=style)
 
     default_model = {
-        "1": {"name": "ark-deepseek-r1", "base_url": "https://ark.cn-beijing.volces.com/api/v3"},
-        "2": {"name": "ark-deepseek-v3", "base_url": "https://ark.cn-beijing.volces.com/api/v3"},
+        "1": {"name": "ark-deepseek-r1", "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+              "model_name": "deepseek-r1-250120"},
+        "2": {"name": "ark-deepseek-v3", "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+              "model_name": "deepseek-v3-241226"},
         "3": {"name": "sili-deepseek-r1", "base_url": "https://api.siliconflow.cn/v1",
               "model_name": "deepseek-ai/DeepSeek-R1"},
         "4": {"name": "sili-deepseek-v3", "base_url": "https://api.siliconflow.cn/v1",
@@ -4016,11 +4112,7 @@ def configure_project_model():
         current_api_key = input(f"  请输入您的API密钥: ").strip().lower()
         return current_model, current_model_name, current_base_url, current_api_key
 
-    model_endpoint_id = None
-    if model_num in ("1", "2"):
-        model_endpoint_id = input(f"请输入您的火山方舟推理点(格式如: ep-20250204215011-vzbsg)：").strip().lower()
-    model_name_value = default_model[model_num].get("model_name", model_endpoint_id)
-
+    model_name_value = default_model[model_num].get("model_name", "")
     model_api_key = input(f"请输入您的 API 密钥：").strip().lower()
     return (
         default_model[model_num]["name"],
@@ -4184,6 +4276,9 @@ def main():
                     configure(conf)
             elif user_input.startswith("/revert"):
                 revert()
+            elif user_input.startswith("/commit"):
+                query = user_input[len("/commit"):].strip()
+                commit_info(query, auto_llm)
             elif user_input.startswith("/help"):
                 show_help()
             elif user_input.startswith("/exit"):

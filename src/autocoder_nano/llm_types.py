@@ -58,6 +58,9 @@ class AutoCoderArgs(BaseModel):
     disable_segment_reorder: bool = False
     disable_inference_enhance: bool = False
 
+    # Git 相关参数
+    skip_commit: Optional[bool] = False
+
     class Config:
         protected_namespaces = ()
 
