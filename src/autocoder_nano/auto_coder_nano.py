@@ -69,18 +69,6 @@ memory = {
 args: AutoCoderArgs = AutoCoderArgs()
 
 
-def print_args_status():
-    if not args.silence:
-        print("Command Line Arguments:")
-        print("-" * 50)
-        for arg, value in vars(args).items():
-            if arg == "context" and value:
-                print(f"{arg:20}: {value[:30]}...")
-            else:
-                print(f"{arg:20}: {value}")
-        print("-" * 50)
-
-
 def extract_symbols(text: str) -> SymbolsInfo:
     patterns = {
         "usage": r"用途：(.+)",
@@ -209,7 +197,7 @@ COMMANDS = {
         "/group": {"/add": "", "/drop": "", "/reset": ""},
         "/refresh": {},
     },
-    "/coding": {"/apply": {}, "/next": {}},
+    "/coding": {"/apply": {}},
     "/chat": {"/history": {}, "/new": {}},
     "/models": {
         "/add_model": "",
@@ -1806,11 +1794,39 @@ def print_chat_history(history, max_entries=5):
     console.print(panel)
 
 
+@prompt()
+def code_review(query: str) -> str:
+    """
+    前面提供了上下文，对代码进行review，参考如下检查点。
+    1. 有没有调用不符合方法，类的签名的调用，包括对第三方类，模块，方法的检查（如果上下文提供了这些信息）
+    2. 有没有未声明直接使用的变量，方法，类
+    3. 有没有明显的语法错误
+    4. 如果是python代码，检查有没有缩进方面的错误
+    5. 如果是python代码，检查是否 try 后面缺少 except 或者 finally
+    {% if query %}
+    6. 用户的额外的检查需求：{{ query }}
+    {% endif %}
+
+    如果用户的需求包含了@一个文件名 或者 @@符号， 那么重点关注这些文件或者符号（函数，类）进行上述的review。
+    review 过程中严格遵循上述的检查点，不要遗漏，没有发现异常的点直接跳过，只对发现的异常点，给出具体的修改后的代码。
+    """
+
+
 def chat(query: str, llm: AutoLLM):
     is_history = query.strip().startswith("/history")
     is_new = "/new" in query
     if is_new:
         query = query.replace("/new", "", 1).strip()
+
+    if "/review" in query and "/commit" in query:
+        pass  # 审核最近的一次commit代码，开发中
+    else:
+        #
+        is_review = query.strip().startswith("/review")
+        if is_review:
+            query = query.replace("/review", "", 1).strip()
+            query = code_review.prompt(query)
+
     conf = memory.get("conf", {})
     # 默认 chat 配置
     yaml_config = {

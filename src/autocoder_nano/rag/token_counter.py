@@ -1,3 +1,5 @@
+import json
+
 from loguru import logger
 from tokenizers import Tokenizer
 from multiprocessing import Pool, cpu_count
@@ -22,7 +24,11 @@ class RemoteTokenCounter:
 
 def initialize_tokenizer(tokenizer_path):
     global tokenizer_model
-    tokenizer_model = Tokenizer.from_file(tokenizer_path)
+    try:
+        tokenizer_model = Tokenizer.from_file(tokenizer_path)
+    except Exception as err:
+        logger.critical(f"Failed to initialize tokenizer: {str(err)}")
+        raise  # 显式抛出异常，避免静默失败
 
 
 def count_tokens(text: str) -> int:
@@ -48,7 +54,8 @@ def count_tokens_worker(text: str) -> int:
 class TokenCounter:
     def __init__(self, tokenizer_path: str):
         self.tokenizer_path = tokenizer_path
-        self.num_processes = cpu_count() - 1 if cpu_count() > 1 else 1
+        initialize_tokenizer(self.tokenizer_path)
+        self.num_processes = max(1, cpu_count() // 2)
         self.pool = Pool(
             processes=self.num_processes,
             initializer=initialize_tokenizer,

@@ -44,7 +44,7 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
                 self.process_queue()
             except Exception as e:
                 logger.error(f"Error in process_queue: {e}")
-            time.sleep(60)  # 避免过于频繁的检查
+            time.sleep(600)  # 避免过于频繁的检查
 
     def load_first(self):
         if self.cache:
