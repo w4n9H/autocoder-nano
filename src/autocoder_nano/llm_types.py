@@ -80,6 +80,18 @@ class ServerArgs(BaseModel):
     tokenizer_path: Optional[str] = None
 
 
+class EnvInfo(BaseModel):
+    os_name: str
+    os_version: str
+    python_version: str
+    conda_env: Optional[str]
+    virtualenv: Optional[str]
+    has_bash: bool
+    default_shell: Optional[str]
+    home_dir: Optional[str]
+    cwd: Optional[str]
+
+
 class SourceCode(BaseModel):
     module_name: str
     source_code: str

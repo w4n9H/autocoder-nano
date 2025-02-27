@@ -13,6 +13,7 @@ import traceback
 import uuid
 from difflib import SequenceMatcher
 
+from autocoder_nano.helper import show_help
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.version import __version__
 from autocoder_nano.llm_types import *
@@ -20,6 +21,7 @@ from autocoder_nano.llm_prompt import prompt, extract_code
 from autocoder_nano.templates import create_actions
 from autocoder_nano.git_utils import (repo_init, commit_changes, revert_changes,
                                       get_uncommitted_changes, generate_commit_message)
+from autocoder_nano.sys_utils import default_exclude_dirs, detect_env
 
 import yaml
 import tabulate
@@ -45,8 +47,8 @@ from rich.text import Text
 console = Console()
 project_root = os.getcwd()
 base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-auto-coder")
-defaut_exclude_dirs = [".git", ".svn", "node_modules", "dist", "build", "__pycache__", ".auto-coder", "actions",
-                       ".vscode", ".idea", ".hg"]
+# defaut_exclude_dirs = [".git", ".svn", "node_modules", "dist", "build", "__pycache__", ".auto-coder", "actions",
+#                        ".vscode", ".idea", ".hg"]
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
     "/index/build", "/exclude_dirs", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
@@ -94,7 +96,7 @@ def extract_symbols(text: str) -> SymbolsInfo:
 
 def get_all_file_names_in_project() -> List[str]:
     file_names = []
-    final_exclude_dirs = defaut_exclude_dirs + memory.get("exclude_dirs", [])
+    final_exclude_dirs = default_exclude_dirs + memory.get("exclude_dirs", [])
     for root, dirs, files in os.walk(project_root, followlinks=True):
         dirs[:] = [d for d in dirs if d not in final_exclude_dirs]
         file_names.extend(files)
@@ -103,7 +105,7 @@ def get_all_file_names_in_project() -> List[str]:
 
 def get_all_file_in_project() -> List[str]:
     file_names = []
-    final_exclude_dirs = defaut_exclude_dirs + memory.get("exclude_dirs", [])
+    final_exclude_dirs = default_exclude_dirs + memory.get("exclude_dirs", [])
     for root, dirs, files in os.walk(project_root, followlinks=True):
         dirs[:] = [d for d in dirs if d not in final_exclude_dirs]
         for file in files:
@@ -113,7 +115,7 @@ def get_all_file_in_project() -> List[str]:
 
 def get_all_dir_names_in_project() -> List[str]:
     dir_names = []
-    final_exclude_dirs = defaut_exclude_dirs + memory.get("exclude_dirs", [])
+    final_exclude_dirs = default_exclude_dirs + memory.get("exclude_dirs", [])
     for root, dirs, files in os.walk(project_root, followlinks=True):
         dirs[:] = [d for d in dirs if d not in final_exclude_dirs]
         for _dir in dirs:
@@ -123,7 +125,7 @@ def get_all_dir_names_in_project() -> List[str]:
 
 def get_all_file_in_project_with_dot() -> List[str]:
     file_names = []
-    final_exclude_dirs = defaut_exclude_dirs + memory.get("exclude_dirs", [])
+    final_exclude_dirs = default_exclude_dirs + memory.get("exclude_dirs", [])
     for root, dirs, files in os.walk(project_root, followlinks=True):
         dirs[:] = [d for d in dirs if d not in final_exclude_dirs]
         for file in files:
@@ -195,15 +197,26 @@ def find_files_in_project(patterns: List[str]) -> List[str]:
 COMMANDS = {
     "/add_files": {
         "/group": {"/add": "", "/drop": "", "/reset": ""},
-        "/refresh": {},
+        "/refresh": "",
     },
-    "/coding": {"/apply": {}},
-    "/chat": {"/history": {}, "/new": {}},
+    "/remove_files": {"/all": ""},
+    "/coding": {"/apply": ""},
+    "/chat": {"/history": "", "/new": "", "/review": ""},
     "/models": {
         "/add_model": "",
         "/remove": "",
         "/list": "",
         "/check": ""
+    },
+    "/help": {
+        "/add_files": "",
+        "/remove_files": "",
+        "/chat": "",
+        "/coding": "",
+        "/commit": "",
+        "/conf": "",
+        "/mode": "",
+        "/models": ""
     }
 }
 
@@ -691,6 +704,15 @@ class CommandCompleter(Completer):
                     if command.startswith(current_word):
                         yield Completion(command, start_position=-len(current_word))
 
+            elif words[0] == "/help":
+                new_text = text[len("/help"):]
+                parser = CommandTextParser(new_text, words[0])
+                parser.add_files()
+                current_word = parser.current_word()
+                for command in parser.get_sub_commands():
+                    if command.startswith(current_word):
+                        yield Completion(command, start_position=-len(current_word))
+
             elif words[0] == "/conf":
                 new_words = text[len("/conf"):].strip().split()
                 is_at_space = text[-1] == " "
@@ -794,8 +816,7 @@ class PyProject:
         self.exclude_patterns = self.parse_exclude_files(self.exclude_files)
         self.sources = []
         self.sources_set = set()
-        self.default_exclude_dirs = [".git", ".svn", ".hg", "build", "dist", "__pycache__", "node_modules",
-                                     ".auto-coder", "actions", ".vscode", ".idea",]
+        self.default_exclude_dirs = default_exclude_dirs
 
     @staticmethod
     def parse_exclude_files(exclude_files):
@@ -895,8 +916,7 @@ class SuffixProject:
         self.exclude_patterns = self.parse_exclude_files(self.exclude_files)
         self.sources = []
         self.sources_set = set()
-        self.default_exclude_dirs = [".git", ".svn", ".hg", "build", "dist", "__pycache__", "node_modules",
-                                     ".auto-coder", "actions", ".vscode", ".idea", ]
+        self.default_exclude_dirs = default_exclude_dirs
 
     @staticmethod
     def parse_exclude_files(exclude_files):
@@ -3380,18 +3400,37 @@ def commit_info(query: str, llm: AutoLLM):
 @prompt()
 def _generate_shell_script(user_input: str) -> str:
     """
-    根据用户的输入以及当前的操作系统生成合适的 shell 脚本。
+    环境信息如下:
+
+    操作系统: {{ env_info.os_name }} {{ env_info.os_version }}
+    Python版本: {{ env_info.python_version }}
+    终端类型: {{ env_info.shell_type }}
+    终端编码: {{ env_info.shell_encoding }}
+    {%- if env_info.conda_env %}
+    Conda环境: {{ env_info.conda_env }}
+    {%- endif %}
+    {%- if env_info.virtualenv %}
+    虚拟环境: {{ env_info.virtualenv }}
+    {%- endif %}
+
+    根据用户的输入以及当前的操作系统和终端类型以及脚本类型生成脚本，
+    注意只能生成一个shell脚本，不要生成多个。
 
     用户输入: {{ user_input }}
 
-    请生成一个适当的 shell 脚本来执行用户的请求。确保脚本是安全的，并且可以在 Linux/Mac 操作系统支持的 shell 中运行。
+    请生成一个适当的 shell 脚本来执行用户的请求。确保脚本是安全的, 并且可以在当前Shell环境中运行。
     脚本应该包含必要的注释来解释每个步骤。
+    脚本应该以注释的方式告知我当前操作系统版本, Python版本, 终端类型, 终端编码, Conda环境 等信息。
     脚本内容请用如下方式返回：
 
-    ```shell
-    # 你的 shell 脚本内容
+    ```script
+    # 你的 script 脚本内容
     ```
     """
+    env_info = detect_env()
+    return {
+        "env_info": env_info
+    }
 
 
 def generate_shell_command(input_text: str, llm: AutoLLM):
@@ -3693,30 +3732,6 @@ def initialize_system():
         print_status("项目初始化完成。", "success")
 
     _init_project()
-
-
-def show_help():
-    print(f"\033[1m支持的命令：\033[0m")
-    print(f"  \033[94m命令\033[0m - \033[93m描述\033[0m")
-    print(f"  \033[94m/add_files\033[0m \033[93m<file1> <file2> ...\033[0m - \033[92m将文件添加到当前会话\033[0m")
-    print(f"  \033[94m/remove_files\033[0m \033[93m<file1>,<file2> ...\033[0m - \033[92m从当前会话中移除文件\033[0m")
-    print(f"  \033[94m/chat\033[0m \033[93m<query>\033[0m - \033[92m与AI聊天，获取关于当前活动文件的见解\033[0m")
-    print(f"  \033[94m/coding\033[0m \033[93m<query>\033[0m - \033[92m根据需求请求AI修改代码\033[0m")
-    print(f"  \033[94m/revert\033[0m - \033[92m撤销上次代码聊天的提交\033[0m")
-    print(f"  \033[94m/commit\033[0m - \033[92m根据用户人工修改的代码自动生成yaml文件并提交更改\033[0m")
-    print(
-        f"  \033[94m/conf\033[0m \033[93m<key>:<value>\033[0m  - \033[92m设置配置。使用 /conf project_type:<type> "
-        f"设置索引的项目类型\033[0m"
-    )
-    print(f"  \033[94m/index/build\033[0m - \033[92m触发构建项目索引\033[0m")
-    print(f"  \033[94m/index/query\033[0m \033[93m<args>\033[0m - \033[92m查询项目索引进行查询\033[0m")
-    print(f"  \033[94m/list_files\033[0m - \033[92m列出当前会话中的所有活动文件\033[0m")
-    print(f"  \033[94m/help\033[0m - \033[92m显示此帮助消息\033[0m")
-    print(f"  \033[94m/exclude_dirs\033[0m \033[93m<dir1>,<dir2> ...\033[0m - \033[92m添加要从项目中排除的目录\033[0m")
-    print(f"  \033[94m/shell\033[0m \033[93m<command>\033[0m - \033[92m执行shell命令\033[0m")
-    print(f"  \033[94m/models\033[0m - \033[92m管理模型配置,新增/删除/测试模型\033[0m")
-    print(f"  \033[94m/exit\033[0m - \033[92m退出程序\033[0m")
-    print()
 
 
 def add_files(add_files_args: List[str]):
@@ -4296,7 +4311,8 @@ def main():
                 query = user_input[len("/commit"):].strip()
                 commit_info(query, auto_llm)
             elif user_input.startswith("/help"):
-                show_help()
+                query = user_input[len("/help"):].strip()
+                show_help(query)
             elif user_input.startswith("/exit"):
                 raise EOFError()
             elif user_input.startswith("/coding"):
