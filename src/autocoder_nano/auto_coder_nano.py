@@ -165,7 +165,7 @@ def get_symbol_list() -> List[SymbolItem]:
 
 def find_files_in_project(patterns: List[str]) -> List[str]:
     matched_files = []
-    final_exclude_dirs = defaut_exclude_dirs + memory.get("exclude_dirs", [])
+    final_exclude_dirs = default_exclude_dirs + memory.get("exclude_dirs", [])
 
     for pattern in patterns:
         if "*" in pattern or "?" in pattern:
