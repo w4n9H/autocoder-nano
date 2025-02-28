@@ -22,6 +22,7 @@ from autocoder_nano.templates import create_actions
 from autocoder_nano.git_utils import (repo_init, commit_changes, revert_changes,
                                       get_uncommitted_changes, generate_commit_message)
 from autocoder_nano.sys_utils import default_exclude_dirs, detect_env
+from autocoder_nano.project import PyProject, SuffixProject
 
 import yaml
 import tabulate
@@ -808,203 +809,6 @@ def symbols_info_to_str(info: SymbolsInfo, symbol_types: List[SymbolType]) -> st
     return "\n".join(result)
 
 
-class PyProject:
-    def __init__(self, exclude_files=""):
-        self.target_file = args.target_file
-        self.directory = args.source_dir
-        self.exclude_files = exclude_files
-        self.exclude_patterns = self.parse_exclude_files(self.exclude_files)
-        self.sources = []
-        self.sources_set = set()
-        self.default_exclude_dirs = default_exclude_dirs
-
-    @staticmethod
-    def parse_exclude_files(exclude_files):
-        if not exclude_files:
-            return []
-
-        if isinstance(exclude_files, str):
-            exclude_files = [exclude_files]
-
-        exclude_patterns = []
-        for pattern in exclude_files:
-            if pattern.startswith("regex://"):
-                pattern = pattern[8:]
-                exclude_patterns.append(re.compile(pattern))
-            else:
-                raise ValueError("Invalid exclude_files format. Expected 'regex://<pattern>' ")
-        return exclude_patterns
-
-    def should_exclude(self, file_path):
-        for pattern in self.exclude_patterns:
-            if pattern.search(file_path):
-                return True
-        return False
-
-    @staticmethod
-    def read_file_content(file_path):  # 读取代码文件
-        with open(file_path, "r") as file:
-            return file.read()
-
-    def convert_to_source_code(self, file_path):
-        module_name = file_path
-        try:
-            source_code = self.read_file_content(file_path)
-        except Exception as e:
-            logger.warning(f"Failed to read file: {file_path}. Error: {str(e)}")
-            return None
-        return SourceCode(module_name=module_name, source_code=source_code)
-
-    @staticmethod
-    def is_python_file(file_path):  # 判断是否为py文件
-        return file_path.endswith(".py")
-
-    def get_rest_source_codes(self):
-        source_codes = []
-        if args.urls:
-            urls = args.urls
-            for url in urls:
-                source_codes.append(self.convert_to_source_code(url))
-            for source in source_codes:
-                source.tag = "REST"
-        return source_codes
-
-    def get_source_codes(self):
-        for root, dirs, files in os.walk(self.directory):
-            dirs[:] = [d for d in dirs if d not in self.default_exclude_dirs]
-            for file in files:
-                file_path = os.path.join(root, file)
-                if self.should_exclude(file_path):  # 应该排除掉的
-                    continue
-                if self.is_python_file(file_path):
-                    source_code = self.convert_to_source_code(file_path)
-                    if source_code is not None:
-                        yield source_code
-
-    def output(self):
-        return open(self.target_file, "r").read()
-
-    def run(self):
-        if self.target_file:
-            with open(self.target_file, "w") as file:
-
-                for code in self.get_rest_source_codes():  # 手动添加/RAG/SEARCH等来源
-                    if code.module_name not in self.sources_set:
-                        self.sources_set.add(code.module_name)
-                        self.sources.append(code)
-                        file.write(f"##File: {code.module_name}\n")
-                        file.write(f"{code.source_code}\n\n")
-
-                for code in self.get_source_codes():  # 当前目录遍历获取
-                    if code.module_name not in self.sources_set:
-                        self.sources_set.add(code.module_name)
-                        self.sources.append(code)
-                        file.write(f"##File: {code.module_name}\n")
-                        file.write(f"{code.source_code}\n\n")
-
-
-class SuffixProject:
-    def __init__(self, exclude_files=""):
-        self.target_file = args.target_file
-        self.directory = args.source_dir
-        self.project_type = args.project_type
-        self.suffixs = [
-            suffix.strip() if suffix.startswith(".") else f".{suffix.strip()}"
-            for suffix in self.project_type.split(",") if suffix.strip()
-        ]
-        self.exclude_files = exclude_files
-        self.exclude_patterns = self.parse_exclude_files(self.exclude_files)
-        self.sources = []
-        self.sources_set = set()
-        self.default_exclude_dirs = default_exclude_dirs
-
-    @staticmethod
-    def parse_exclude_files(exclude_files):
-        if not exclude_files:
-            return []
-
-        if isinstance(exclude_files, str):
-            exclude_files = [exclude_files]
-
-        exclude_patterns = []
-        for pattern in exclude_files:
-            if pattern.startswith("regex://"):
-                pattern = pattern[8:]
-                exclude_patterns.append(re.compile(pattern))
-            else:
-                raise ValueError(
-                    "Invalid exclude_files format. Expected 'regex://<pattern>' "
-                )
-        return exclude_patterns
-
-    def should_exclude(self, file_path):
-        for pattern in self.exclude_patterns:
-            if pattern.search(file_path):
-                return True
-        return False
-
-    @staticmethod
-    def read_file_content(file_path):  # 读取代码文件
-        with open(file_path, "r") as file:
-            return file.read()
-
-    def convert_to_source_code(self, file_path):
-        module_name = file_path
-        try:
-            source_code = self.read_file_content(file_path)
-        except Exception as e:
-            logger.warning(f"Failed to read file: {file_path}. Error: {str(e)}")
-            return None
-        return SourceCode(module_name=module_name, source_code=source_code)
-
-    def is_suffix_file(self, file_path):
-        return any([file_path.endswith(suffix) for suffix in self.suffixs])
-
-    def get_rest_source_codes(self):
-        source_codes = []
-        if args.urls:
-            urls = args.urls
-            for url in urls:
-                source_codes.append(self.convert_to_source_code(url))
-            for source in source_codes:
-                source.tag = "REST"
-        return source_codes
-
-    def get_source_codes(self):
-        for root, dirs, files in os.walk(self.directory, followlinks=True):
-            dirs[:] = [d for d in dirs if d not in self.default_exclude_dirs]
-            for file in files:
-                file_path = os.path.join(root, file)
-                if self.should_exclude(file_path):
-                    continue
-                if self.is_suffix_file(file_path):
-                    source_code = self.convert_to_source_code(file_path)
-                    if source_code is not None:
-                        yield source_code
-
-    def output(self):
-        return open(self.target_file, "r").read()
-
-    def run(self):
-        if self.target_file:
-            # v1:写入文件版本
-            with open(self.target_file, "w") as file:
-
-                for code in self.get_rest_source_codes():
-                    if code.module_name not in self.sources_set:
-                        self.sources_set.add(code.module_name)
-                        self.sources.append(code)
-                        file.write(f"##File: {code.module_name}\n")
-                        file.write(f"{code.source_code}\n\n")
-
-                for code in self.get_source_codes():
-                    if code.module_name not in self.sources_set:
-                        self.sources_set.add(code.module_name)
-                        self.sources.append(code)
-                        file.write(f"##File: {code.module_name}\n")
-                        file.write(f"{code.source_code}\n\n")
-
-
 class IndexManager:
     def __init__(self, source_codes: List[SourceCode], llm: AutoLLM = None):
         self.args = args
@@ -1436,9 +1240,9 @@ def index_command(llm):
     source_dir = os.path.abspath(args.source_dir)
     logger.info(f"开始对目录 {source_dir} 中的源代码进行索引")
     if args.project_type == "py":
-        pp = PyProject()
+        pp = PyProject(args=args)
     else:
-        pp = SuffixProject()
+        pp = SuffixProject(args=args)
     pp.run()
     _sources = pp.sources
     index_manager = IndexManager(source_codes=_sources, llm=llm)
@@ -1558,9 +1362,9 @@ def index_query_command(query: str, llm: AutoLLM):
 
     # args.query = query
     if args.project_type == "py":
-        pp = PyProject()
+        pp = PyProject(args=args)
     else:
-        pp = SuffixProject()
+        pp = SuffixProject(args=args)
     pp.run()
     _sources = pp.sources
 
@@ -1935,9 +1739,9 @@ def chat(query: str, llm: AutoLLM):
     pre_conversations = []
 
     if args.project_type == "py":
-        pp = PyProject()
+        pp = PyProject(args=args)
     else:
-        pp = SuffixProject()
+        pp = SuffixProject(args=args)
     pp.run()
     _sources = pp.sources
     s = build_index_and_filter_files(llm=llm, sources=_sources)
@@ -3015,7 +2819,7 @@ class ActionPyProject(BaseAction):
     def run(self):
         if self.args.project_type != "py":
             return False
-        pp = PyProject()
+        pp = PyProject(args=args)
         self.pp = pp
         pp.run()
         source_code = pp.output()
@@ -3074,7 +2878,7 @@ class ActionSuffixProject(BaseAction):
         self.pp = None
 
     def run(self):
-        pp = SuffixProject()
+        pp = SuffixProject(args=args)
         self.pp = pp
         pp.run()
         source_code = pp.output()
