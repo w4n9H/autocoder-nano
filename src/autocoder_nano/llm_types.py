@@ -236,3 +236,20 @@ class FilterDoc(BaseModel):
 class RagConfig(BaseModel):
     filter_config: Optional[str] = None
     answer_config: Optional[str] = None
+
+
+# New model class for cache items
+class CacheItem(BaseModel):
+    file_path: str
+    relative_path: str
+    content: List[Dict[str, Any]]  # Serialized SourceCode objects
+    modify_time: float
+    md5: str
+
+
+# New model class for file information
+class FileInfo(BaseModel):
+    file_path: str
+    relative_path: str
+    modify_time: float
+    file_md5: str

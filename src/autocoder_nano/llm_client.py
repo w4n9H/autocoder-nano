@@ -1,3 +1,5 @@
+from typing import List
+
 from loguru import logger
 from openai import OpenAI, Stream
 from openai.types.chat import ChatCompletionChunk, ChatCompletion
@@ -87,3 +89,28 @@ class AutoLLM:
             frequency_penalty=request.frequency_penalty,
         )
         return response
+
+    def embedding(self, text: List, model=None):
+        if not model and not self.default_model_name:
+            raise Exception("model name is required")
+
+        if not model:
+            model = self.default_model_name
+
+        model_name = self.sub_clients[model]["model_name"]
+        logger.info(f"正在使用 {model} 模型, 模型名称 {model_name}")
+
+        res = self.sub_clients[model]["client"].embeddings.create(
+            model=model_name,
+            input=text,
+            encoding_format="float"
+        )
+        return LLMResponse(
+            output=res.data[0].embedding,
+            input="",
+            metadata={
+                "id": res.id,
+                "model": res.model,
+                "created": res.created
+            }
+        )

@@ -86,6 +86,7 @@ class LongContextRAG:
 
         retriever_class = self._get_document_retriever_class()
         self.document_retriever = retriever_class(
+            self.llm,
             self.path,
             self.ignore_spec,
             self.required_exts,

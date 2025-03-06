@@ -67,6 +67,18 @@ def main(input_args: Optional[List[str]] = None):
     serve_parser.add_argument("--base_url", default="", help="Base URL")
     serve_parser.add_argument("--model_name", default="", help="Model Name")
 
+    # Build hybrid index command
+    build_index_parser = subparsers.add_parser(
+        "build_hybrid_index", help="Build hybrid index for RAG"
+    )
+    build_index_parser.add_argument("--emb_model", default="", help="")
+    build_index_parser.add_argument(
+        "--tokenizer_path", default=tokenizer_path, help="预训练分词器路径(必填参数)")
+    build_index_parser.add_argument("--doc_dir", default="", help="文档存储目录路径(必填参数)")
+    build_index_parser.add_argument("--enable_hybrid_index", action="store_true", help="启用混合索引")
+    build_index_parser.add_argument(
+        "--required_exts", default="", help="文档构建所需的文件扩展名, 默认为空字符串")
+
     args = parser.parse_args(input_args)
 
     if args.command == "benchmark":
@@ -117,7 +129,31 @@ def main(input_args: Optional[List[str]] = None):
         )
         serve(rag=rag, ser=server_args)
     elif args.command == "build_hybrid_index":
-        pass
+        auto_coder_args = AutoCoderArgs(
+            **{arg: getattr(args, arg) for arg in vars(AutoCoderArgs()) if hasattr(args, arg)}
+        )
+
+        auto_coder_args.enable_hybrid_index = True
+        auto_coder_args.rag_type = "simple"
+        auto_coder_args.tokenizer_path = "/Users/moofs/Code/antiy-rag/tokenizer.json"
+
+        auto_llm = AutoLLM()
+        auto_llm.setup_sub_client("emb_model",
+                                  "",
+                                  "https://ark.cn-beijing.volces.com/api/v3",
+                                  "")
+
+        rag = RAGFactory.get_rag(
+            llm=auto_llm,
+            args=auto_coder_args,
+            path="",
+            tokenizer_path="",
+        )
+
+        if hasattr(rag.document_retriever, "cacher"):
+            rag.document_retriever.cacher.build_cache()
+        else:
+            raise ValueError(f"文档检索器不支持混合索引构建")
 
 
 if __name__ == '__main__':
