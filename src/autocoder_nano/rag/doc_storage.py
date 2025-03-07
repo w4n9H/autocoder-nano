@@ -112,14 +112,45 @@ class DuckDBVectorStore:
             self._conn.install_extension(ext)
             self._conn.load_extension(ext)
 
-    def _embedding(self, context: str, norm: bool = True) -> List[float]:
+    @staticmethod
+    def _apply_pca(embedding, target_dim):
+        # 生成固定随机投影矩阵（避免每次调用重新生成）
+        np.random.seed(42)  # 固定随机种子保证一致性
+        source_dim = len(embedding)
+        projection_matrix = np.random.randn(source_dim, target_dim) / np.sqrt(source_dim)
+
+        # 执行投影
+        reduced = np.dot(embedding, projection_matrix)
+        return reduced
+
+    @staticmethod
+    def _generate_dynamic_score(scores: List[float], sigma: int | float = 1):
+        """
+        高精度要求,减少误召回,mean + 3*std,预计保留约 0.1%
+        mean + 2*std, 预计保留约 2.5%
+        高召回率要求,避免漏检,mean + 1*std, 预计保留约 16%
+        对抗数据偏移,自适应调整,自动根据当次查询结果调整
+        """
+        scores = np.array(scores)
+
+        # 异常值过滤（剔除前1%高分）
+        q99 = np.quantile(scores, 0.99)
+        filtered = scores[scores < q99]
+
+        return np.mean(filtered) + sigma * np.std(filtered)
+
+    def _embedding(self, context: str, norm: bool = True, dim: int | None = None) -> List[float]:
         emb_model = self.llm
         emb_model.setup_default_model_name("emb_model")
         res = emb_model.embedding([context])
         embedding = res.output
-        if not norm:
-            return embedding
-        embedding = embedding / np.linalg.norm(embedding)
+
+        if dim:
+            embedding = self._apply_pca(embedding, target_dim=dim)  # 降维后形状 (1024,)
+
+        if norm:
+            embedding = embedding / np.linalg.norm(embedding)
+
         return embedding.tolist()
 
     def _initialize(self) -> None:
@@ -185,17 +216,17 @@ class DuckDBVectorStore:
                 _final_results = _conn.execute(_delete_query, query_params).fetchall()
         return _final_results
 
-    def _node_to_table_row(self, context_chunk: Dict[str, str | float]) -> Any:
+    def _node_to_table_row(self, context_chunk: Dict[str, str | float], dim: int | None = None) -> Any:
         return (
             context_chunk["_id"],
             context_chunk["file_path"],
             context_chunk["content"],
             context_chunk["raw_content"],
-            self._embedding(context_chunk["raw_content"], norm=True),
+            self._embedding(context_chunk["raw_content"], norm=True, dim=dim),
             context_chunk["mtime"]
         )
 
-    def add_doc(self, context_chunk: Dict[str, str | float]):
+    def add_doc(self, context_chunk: Dict[str, str | float], dim: int | None = None):
         """
         {
             "_id": f"{doc.module_name}_{chunk_idx}",
@@ -208,15 +239,77 @@ class DuckDBVectorStore:
         """
         if self.database_name == ":memory:":
             _table = self._conn.table(self.table_name)
-            _row = self._node_to_table_row(context_chunk)
+            _row = self._node_to_table_row(context_chunk, dim=dim)
             _table.insert(_row)
         elif self.database_path is not None:
             with DuckDBLocalContext(self.database_path) as _conn:
                 _table = _conn.table(self.table_name)
-                _row = self._node_to_table_row(context_chunk)
+                _row = self._node_to_table_row(context_chunk, dim=dim)
                 _table.insert(_row)
 
-    def vector_search(self, query: str, similarity_value: float = 0.7, similarity_top_k: int = 10):
+    def vector_zscore_search(
+            self, query, similarity_value: float = 0.7, similarity_top_k: int = 10, query_dim: int | None = None
+    ):
+        # -- 计算相对相似度排名
+        _query = f"""
+            SELECT _id, file_path, mtime, normalized_score
+            FROM (
+                SELECT _id, file_path, mtime, 
+                       (score - MIN(score) OVER()) / (MAX(score) OVER() - MIN(score) OVER()) AS normalized_score
+                FROM (
+                  SELECT *, list_cosine_similarity(vector, ?) AS score
+                  FROM {self.table_name}
+                )
+            )
+            WHERE normalized_score IS NOT NULL
+            AND normalized_score >= ?
+            ORDER BY normalized_score DESC LIMIT ?;
+        """
+        query_params = [
+            self._embedding(query, norm=True, dim=query_dim),
+            similarity_value,
+            similarity_top_k,
+        ]
+        _final_results = []
+        if self.database_name == ":memory:":
+            _final_results = self._conn.execute(_query, query_params).fetchall()
+        elif self.database_path is not None:
+            with DuckDBLocalContext(self.database_path) as _conn:
+                _final_results = _conn.execute(_query, query_params).fetchall()
+        return _final_results
+
+    def vector_dynamic_score_search(
+            self, query: str, similarity_top_k: int = 10, query_dim: int | None = None
+    ):
+        _db_query = f"""
+            SELECT _id, file_path, mtime, score
+            FROM (
+                SELECT *, list_cosine_similarity(vector, ?) AS score
+                FROM {self.table_name}
+            ) sq
+            WHERE score IS NOT NULL
+            ORDER BY score DESC LIMIT ?;
+        """
+        query_params = [
+            self._embedding(query, norm=True, dim=query_dim),
+            similarity_top_k,
+        ]
+
+        _final_results = []
+        if self.database_name == ":memory:":
+            _final_results = self._conn.execute(_db_query, query_params).fetchall()
+        elif self.database_path is not None:
+            with DuckDBLocalContext(self.database_path) as _conn:
+                _final_results = _conn.execute(_db_query, query_params).fetchall()
+
+        _scores = [r[3] for r in _final_results]
+        _dynamic_score = self._generate_dynamic_score(_scores)
+
+        return [r for r in _final_results if r[3] >= _dynamic_score]
+
+    def vector_search(
+            self, query: str, similarity_value: float = 0.7, similarity_top_k: int = 10, query_dim: int | None = None
+    ):
         """
         list_cosine_similarity: 计算两个列表之间的余弦相似度
         list_cosine_distance: 计算两个列表之间的余弦距离
@@ -233,7 +326,7 @@ class DuckDBVectorStore:
             ORDER BY score DESC LIMIT ?;
         """
         query_params = [
-            self._embedding(query, norm=True),
+            self._embedding(query, norm=True, dim=query_dim),
             similarity_value,
             similarity_top_k,
         ]
@@ -260,12 +353,12 @@ if __name__ == "__main__":
                               "https://ark.cn-beijing.volces.com/api/v3",
                               "")
     vs = DuckDBVectorStore(
-        llm=auto_llm, database_name="v.db", table_name="test",
-        persist_dir="/Users/moofs/Documents/我的文档/tidb-test"
+        llm=auto_llm, database_name="nano_storage.db", table_name="rag",
+        persist_dir=""
     )
 
     # 测试写入功能
-    # for root, dirs, files in os.walk("/Users/moofs/Documents/我的文档/tidb-test/docs", followlinks=True):
+    # for root, dirs, files in os.walk("", followlinks=True):
     #     for file in files:
     #         file_path = os.path.join(root, file)
     #         with open(file_path, "r", encoding="utf-8") as fp:
@@ -283,18 +376,38 @@ if __name__ == "__main__":
     #         time.sleep(1)
 
     # 测试搜索功能
-    # test_query = "如何在监控tidb？"
-    # search_results = vs.vector_search(test_query, similarity_value=0.75, similarity_top_k=20)
+    test_query = ""
+    search_results = vs.vector_search(test_query, similarity_value=0.6, similarity_top_k=200, query_dim=1024)
+    print(f"使用默认方式, 搜索 '{test_query}'：")
+    print(f"搜索到 {len(set([i[1] for i in search_results]))} 个结果")
+    for result in search_results:
+        print(f"- {result[1]} (相似度: {result[3]:.4f})")
+
+    search_results = vs.vector_zscore_search(test_query, similarity_value=0.6, similarity_top_k=200, query_dim=1024)
+    print(f"使用分数重校准(Z-Score标准化)后, 搜索 '{test_query}'：")
+    print(f"搜索到 {len(set([i[1] for i in search_results]))} 个结果")
+    for result in search_results:
+        print(f"- {result[1]} (相似度: {result[3]:.4f})")
+
+    search_results = vs.vector_dynamic_score_search(test_query, similarity_top_k=200, query_dim=1024)
+    print(f"使用分数重校准(动态score)后, 搜索 '{test_query}'：")
+    print(f"搜索到 {len(set([i[1] for i in search_results]))} 个结果")
+    for result in search_results:
+        print(f"- {result[1]} (相似度: {result[3]:.4f})")
+
+    # 诊断数据分布问题
+    # test_query = ""
+    # search_results = vs.check_vector(test_query)
     # print(f"搜索 '{test_query}' 结果：")
     # for result in search_results:
-    #     print(f"- {result[1]} (相似度: {result[3]:.4f})")
+    #     print(result)
 
     # 测试查询 query_by_path
-    # search_results = vs.query_by_path("/Users/moofs/Documents/我的文档/tidb-test/docs/tidb-monitoring-framework.md")
+    # search_results = vs.query_by_path("")
     # print(search_results)
 
     # 测试 delete_by_ids
-    # search_results = vs.delete_by_ids(["/Users/moofs/Documents/我的文档/tidb-test/docs/tidb-monitoring-framework.md"])
+    # search_results = vs.delete_by_ids([""])
     # print(search_results)
 
     # 测试 truncate_table

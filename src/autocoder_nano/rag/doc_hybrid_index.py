@@ -142,7 +142,7 @@ class HybridIndexCache(BaseCacheManager):
         files_to_process = []
         for file_info in self.get_all_files():
             file_path, _, _, file_md5 = file_info
-            if file_path not in self.cache or self.cache[file_path].get("md5", "") != file_md5:
+            if file_path not in self.cache or self.cache[file_path].md5 != file_md5:
                 files_to_process.append(file_info)
 
         if not files_to_process:
@@ -196,7 +196,7 @@ class HybridIndexCache(BaseCacheManager):
 
             for _chunk in items:
                 try:
-                    self.storage.add_doc(_chunk)
+                    self.storage.add_doc(_chunk, dim=1024)
                     completed_chunks += 1
                     logger.info(f"进度: 已完成 {completed_chunks}/{total_chunks} 个文本块")
                 except Exception as err:
@@ -230,7 +230,7 @@ class HybridIndexCache(BaseCacheManager):
         if items:
             for _chunk in items:
                 try:
-                    self.storage.add_doc(_chunk)
+                    self.storage.add_doc(_chunk, dim=1024)
                 except Exception as err:
                     logger.error(f"Error in saving chunk: {str(err)}")
 
@@ -273,7 +273,7 @@ class HybridIndexCache(BaseCacheManager):
         for file_info in self.get_all_files():
             file_path, _, _, file_md5 = file_info
             current_files.add(file_path)
-            if file_path not in self.cache or self.cache[file_path].get("md5", "") != file_md5:
+            if file_path not in self.cache or self.cache[file_path].md5 != file_md5:
                 files_to_process.append(file_info)
 
         deleted_files = set(self.cache.keys()) - current_files
@@ -330,7 +330,15 @@ class HybridIndexCache(BaseCacheManager):
         # Add vector search if enabled
         if options.get("enable_vector_search", True):
             # 返回值包含  [(_id, file_path, mtime, score,),]
-            results = self.storage.vector_search(query, similarity_value=0.7, similarity_top_k=200)
+            # results = self.storage.vector_search(query, similarity_value=0.7, similarity_top_k=200)
+            zscore_results = self.storage.vector_zscore_search(
+                query, similarity_value=0.7, similarity_top_k=200, query_dim=1024
+            )
+            results.extend(zscore_results)
+            dynamic_score_results = self.storage.vector_dynamic_score_search(
+                query, similarity_top_k=200, query_dim=1024
+            )
+            results.extend(dynamic_score_results)
 
         # Add text search
         # if options.get("enable_text_search", True):
