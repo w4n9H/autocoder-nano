@@ -1,0 +1,368 @@
+import fcntl
+import json
+import os
+import threading
+from abc import ABC, abstractmethod
+from multiprocessing import Pool
+from typing import Optional, Dict, Any, Tuple, List
+
+from loguru import logger
+
+from autocoder_nano.file_utils import generate_file_md5
+from autocoder_nano.llm_client import AutoLLM
+from autocoder_nano.llm_types import CacheItem, FileInfo, VariableHolder, SourceCode, DeleteEvent, AddOrUpdateEvent
+from autocoder_nano.rag.doc_loaders import process_file_in_multi_process, process_file_local
+from autocoder_nano.rag.doc_storage import DuckDBVectorStore
+
+default_ignore_dirs = [
+    "__pycache__",
+    "node_modules",
+    "_images"
+]
+
+
+class BaseCacheManager(ABC):
+    @abstractmethod
+    def get_cache(self, options: Optional[Dict[str, Any]] = None) -> Dict[str, Dict]:
+        pass
+
+
+class HybridIndexCache(BaseCacheManager):
+    def __init__(self, llm: AutoLLM, path, ignore_spec, required_exts):
+        self.llm = llm
+        self.path = path
+        self.ignore_spec = ignore_spec
+        self.required_exts = required_exts
+
+        self.storage = DuckDBVectorStore(
+            llm=self.llm,
+            database_name="nano_storage.db",
+            table_name="rag",
+            persist_dir=self.path
+        )
+        self.queue = []
+        self.chunk_size = 4000
+        self.max_output_tokens = 4000  # hybrid_index_max_output_tokens
+
+        # 设置缓存文件路径
+        self.cache_dir = os.path.join(self.path, ".cache")
+        self.cache_file = os.path.join(self.cache_dir, "nano_storage_speedup.jsonl")
+        self.cache: Dict[str, CacheItem] = {}
+        # 创建缓存目录
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
+
+        self.lock = threading.Lock()
+        self.stop_event = threading.Event()
+        self.thread = threading.Thread(target=self.process_queue)
+        self.thread.daemon = True
+        self.thread.start()
+
+        # 加载缓存
+        self.cache = self._load_cache()
+
+    @staticmethod
+    def _chunk_text(text, max_length=1000):
+        """Split text into chunks"""
+        chunks = []
+        current_chunk = []
+        current_length = 0
+
+        for line in text.split("\n"):
+            if current_length + len(line) > max_length and current_chunk:
+                chunks.append("\n".join(current_chunk))
+                current_chunk = []
+                current_length = 0
+            current_chunk.append(line)
+            current_length += len(line)
+
+        if current_chunk:
+            chunks.append("\n".join(current_chunk))
+
+        return chunks
+
+    def _load_cache(self) -> Dict[str, CacheItem]:
+        """Load cache from file"""
+        if os.path.exists(self.cache_file):
+            try:
+                with open(self.cache_file, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    cache = {}
+                    for line in lines:
+                        try:
+                            data = json.loads(line.strip())
+                            if isinstance(data, dict) and "file_path" in data:
+                                # 转换为 CacheItem 对象
+                                cache_item = CacheItem.model_validate(data)
+                                cache[data["file_path"]] = cache_item
+                        except json.JSONDecodeError:
+                            continue
+                    return cache
+            except Exception as e:
+                logger.error(f"Error loading cache file: {str(e)}")
+                return {}
+        return {}
+
+    def write_cache(self):
+        cache_file = self.cache_file
+        if not fcntl:
+            try:
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    for cache_item in self.cache.values():
+                        # 确保序列化 Pydantic 模型
+                        json.dump(cache_item.model_dump(), f, ensure_ascii=False)
+                        f.write("\n")
+            except IOError as e:
+                logger.error(f"Error writing cache file: {str(e)}")
+        else:
+            lock_file = cache_file + ".lock"
+            with open(lock_file, "w", encoding="utf-8") as lockf:
+                try:
+                    # 获取文件锁
+                    fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    # 写入缓存文件
+                    with open(cache_file, "w", encoding="utf-8") as f:
+                        for cache_item in self.cache.values():
+                            # 确保序列化 Pydantic 模型
+                            json.dump(cache_item.model_dump(), f, ensure_ascii=False)
+                            f.write("\n")
+
+                finally:
+                    # 释放文件锁
+                    fcntl.flock(lockf, fcntl.LOCK_UN)
+
+    @staticmethod
+    def fileinfo_to_tuple(file_info: FileInfo) -> Tuple[str, str, float, str]:
+        return file_info.file_path, file_info.relative_path, file_info.modify_time, file_info.file_md5
+
+    def build_cache(self):
+        """Build the cache by reading files and storing in DuckDBVectorStore"""
+        logger.info(f"Building cache for path: {self.path}")
+
+        files_to_process = []
+        for file_info in self.get_all_files():
+            file_path, _, _, file_md5 = file_info
+            if file_path not in self.cache or self.cache[file_path].md5 != file_md5:
+                files_to_process.append(file_info)
+
+        if not files_to_process:
+            return
+
+        results = []
+        items = []
+        for _process_file in files_to_process:
+            results.append(process_file_in_multi_process(_process_file))
+        for file_info, result in zip(files_to_process, results):
+            if result:  # 只有当result不为空时才更新缓存
+                content: List[SourceCode] = result
+                file_path, relative_path, modify_time, file_md5 = file_info
+                self.cache[file_path] = CacheItem(
+                    file_path=file_path,
+                    relative_path=relative_path,
+                    content=[c.model_dump() for c in content],
+                    modify_time=modify_time,
+                    md5=file_md5,
+                )
+
+                for doc in content:
+                    logger.info(f"正在处理文件: {doc.module_name}")
+                    chunks = self._chunk_text(doc.source_code, self.chunk_size)
+                    for chunk_idx, chunk in enumerate(chunks):
+                        chunk_item = {
+                            "_id": f"{doc.module_name}_{chunk_idx}",
+                            "file_path": file_path,
+                            "content": chunk,
+                            "raw_content": chunk,
+                            "vector": "",
+                            "mtime": modify_time,
+                        }
+                        items.append(chunk_item)
+            else:
+                logger.warning(f"文件 {file_info[0]} 的结果为空，跳过缓存更新")
+
+        # Save to local cache
+        logger.info(f"保存缓存到本地文件: {self.cache_file}")
+        self.write_cache()
+
+        if items:
+            logger.info("清空向量数据库(Truncate Mode)")
+            self.storage.truncate_table()
+            logger.info("正在保存新的数据到向量数据库")
+
+            total_chunks = len(items)
+            completed_chunks = 0
+
+            logger.info(f"进度: 已完成 {0}/{total_chunks} 个文本块")
+
+            for _chunk in items:
+                try:
+                    self.storage.add_doc(_chunk, dim=1024)
+                    completed_chunks += 1
+                    logger.info(f"进度: 已完成 {completed_chunks}/{total_chunks} 个文本块")
+                except Exception as err:
+                    logger.error(f"Error in saving chunk: {str(err)}")
+
+    def update_storage(self, file_info: FileInfo, is_delete: bool):
+        results = self.storage.query_by_path(file_info.file_path)
+        if results:  # [('_id',)]
+            for result in results:
+                self.storage.delete_by_ids([result[0]])
+
+        items = []
+        if not is_delete:
+            content = [
+                SourceCode.model_validate(doc) for doc in self.cache[file_info.file_path].content
+            ]
+            modify_time = self.cache[file_info.file_path].modify_time
+            for doc in content:
+                logger.info(f"正在处理更新文件: {doc.module_name}")
+                chunks = self._chunk_text(doc.source_code, self.chunk_size)
+                for chunk_idx, chunk in enumerate(chunks):
+                    chunk_item = {
+                        "_id": f"{doc.module_name}_{chunk_idx}",
+                        "file_path": file_info.file_path,
+                        "content": chunk,
+                        "raw_content": chunk,
+                        "vector": chunk,
+                        "mtime": modify_time,
+                    }
+                    items.append(chunk_item)
+        if items:
+            for _chunk in items:
+                try:
+                    self.storage.add_doc(_chunk, dim=1024)
+                except Exception as err:
+                    logger.error(f"Error in saving chunk: {str(err)}")
+
+    def process_queue(self):
+        while self.queue:
+            file_list = self.queue.pop(0)
+            if isinstance(file_list, DeleteEvent):
+                for item in file_list.file_paths:
+                    logger.info(f"{item} is detected to be removed")
+                    del self.cache[item]
+                    # 创建一个临时的 FileInfo 对象
+                    file_info = FileInfo(file_path=item, relative_path="", modify_time=0, file_md5="")
+                    self.update_storage(file_info, is_delete=True)
+
+            elif isinstance(file_list, AddOrUpdateEvent):
+                for file_info in file_list.file_infos:
+                    # 处理文件并创建 CacheItem
+                    _file_path, _relative_path, _modify_time, _file_md5 = file_info
+                    logger.info(f"{_file_path} is detected to be updated")
+                    content = process_file_local(_file_path)
+                    self.cache[_file_path] = CacheItem(
+                        file_path=_file_path,
+                        relative_path=_relative_path,
+                        content=[c.model_dump() for c in content],
+                        modify_time=_modify_time,
+                        md5=_file_md5,
+                    )
+                    add_or_update_file_info = FileInfo(
+                        file_path=_file_path,
+                        relative_path=_relative_path,
+                        modify_time=_modify_time,
+                        file_md5=_file_md5)
+                    self.update_storage(add_or_update_file_info, is_delete=False)
+            self.write_cache()
+
+    def trigger_update(self):
+        logger.info("检查文件是否有更新.....")
+        files_to_process = []
+        current_files = set()
+        for file_info in self.get_all_files():
+            file_path, _, _, file_md5 = file_info
+            current_files.add(file_path)
+            if file_path not in self.cache or self.cache[file_path].md5 != file_md5:
+                files_to_process.append(file_info)
+
+        deleted_files = set(self.cache.keys()) - current_files
+        logger.info(f"待处理的文件: {len(files_to_process)}个")
+        logger.info(f"已删除的文件: {len(deleted_files)}个")
+        if deleted_files:
+            with self.lock:
+                self.queue.append(DeleteEvent(file_paths=deleted_files))
+        if files_to_process:
+            with self.lock:
+                self.queue.append(AddOrUpdateEvent(file_infos=files_to_process))
+
+    def get_all_files(self) -> List[Tuple[str, str, float, str]]:
+        all_files = []
+        for root, dirs, files in os.walk(self.path, followlinks=True):
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in default_ignore_dirs]
+
+            if self.ignore_spec:
+                relative_root = os.path.relpath(root, self.path)
+                dirs[:] = [
+                    d for d in dirs
+                    if not self.ignore_spec.match_file(os.path.join(relative_root, d))
+                ]
+                files = [
+                    f for f in files
+                    if not self.ignore_spec.match_file(os.path.join(relative_root, f))
+                ]
+
+            for file in files:
+                if self.required_exts and not any(
+                        file.endswith(ext) for ext in self.required_exts
+                ):
+                    continue
+
+                file_path = os.path.join(root, file)
+                relative_path = os.path.relpath(file_path, self.path)
+                modify_time = os.path.getmtime(file_path)
+                file_md5 = generate_file_md5(file_path)
+                all_files.append((file_path, relative_path, modify_time, file_md5))
+        return all_files
+
+    def get_cache(self, options: Optional[Dict[str, Any]] = None) -> Dict[str, Dict]:
+        """Search cached documents using query"""
+        self.trigger_update()  # 检查更新
+
+        if options is None or "query" not in options:
+            return {file_path: self.cache[file_path].model_dump() for file_path in self.cache}
+
+        query = options.get("query", "")
+        logger.info(f"正在使用向量搜索检索数据, 你的问题: {query}")
+        total_tokens = 0
+        results = []
+
+        # Add vector search if enabled
+        if options.get("enable_vector_search", True):
+            # 返回值包含  [(_id, file_path, mtime, score,),]
+            # results = self.storage.vector_search(query, similarity_value=0.7, similarity_top_k=200)
+            zscore_results = self.storage.vector_zscore_search(
+                query, similarity_value=0.7, similarity_top_k=200, query_dim=1024
+            )
+            results.extend(zscore_results)
+            dynamic_score_results = self.storage.vector_dynamic_score_search(
+                query, similarity_top_k=200, query_dim=1024
+            )
+            results.extend(dynamic_score_results)
+
+        # Add text search
+        # if options.get("enable_text_search", True):
+        #     results = self.storage.full_text_search(query)
+
+        # Group results by file_path and reconstruct documents while preserving order
+        # 这里还可以有排序优化，综合考虑一篇内容出现的次数以及排序位置
+        file_paths = []
+        seen = set()
+        for result in results:
+            _id, _file_path, _mtime, _score = result
+            if _file_path not in seen:
+                seen.add(_file_path)
+                file_paths.append(_file_path)
+
+        # 从缓存中获取文件内容
+        result = {}
+        for file_path in file_paths:
+            if file_path in self.cache:
+                cached_data = self.cache[file_path]
+                # for doc in cached_data.content:
+                #     if total_tokens + doc["tokens"] > self.max_output_tokens:
+                #         return result
+                #     total_tokens += doc["tokens"]
+                result[file_path] = cached_data.model_dump()
+        logger.info(f"经过向量搜索共检索出 {len(result.keys())} 个文档, 共 {len(self.cache.keys())} 个文档")
+        return result

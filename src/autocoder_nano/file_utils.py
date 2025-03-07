@@ -1,5 +1,6 @@
 import hashlib
 from pathlib import Path
+from typing import Union
 
 
 def generate_file_md5(file_path: str) -> str:
@@ -7,6 +8,14 @@ def generate_file_md5(file_path: str) -> str:
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             md5_hash.update(chunk)
+    return md5_hash.hexdigest()
+
+
+def generate_content_md5(content: Union[str, bytes]) -> str:
+    if isinstance(content, str):
+        content = content.encode("utf-8")
+    md5_hash = hashlib.md5()
+    md5_hash.update(content)
     return md5_hash.hexdigest()
 
 

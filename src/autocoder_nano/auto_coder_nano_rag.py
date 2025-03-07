@@ -66,6 +66,24 @@ def main(input_args: Optional[List[str]] = None):
     serve_parser.add_argument("--api_key", default="", help="API key for AI client")
     serve_parser.add_argument("--base_url", default="", help="Base URL")
     serve_parser.add_argument("--model_name", default="", help="Model Name")
+    serve_parser.add_argument("--emb_api_key", default="", help="Emb API key for AI client")
+    serve_parser.add_argument("--emb_base_url", default="", help="Emb Base URL")
+    serve_parser.add_argument("--emb_model_name", default="", help="Emb Model Name")
+
+    # Build hybrid index command
+    build_index_parser = subparsers.add_parser(
+        "build_hybrid_index", help="Build hybrid index for RAG"
+    )
+    build_index_parser.add_argument("--emb_model", default="", help="")
+    build_index_parser.add_argument(
+        "--tokenizer_path", default=tokenizer_path, help="预训练分词器路径(必填参数)")
+    build_index_parser.add_argument("--doc_dir", default="", help="文档存储目录路径(必填参数)")
+    build_index_parser.add_argument("--enable_hybrid_index", action="store_true", help="启用混合索引")
+    build_index_parser.add_argument(
+        "--required_exts", default="", help="文档构建所需的文件扩展名, 默认为空字符串")
+    build_index_parser.add_argument("--emb_api_key", default="", help="Emb API key for AI client")
+    build_index_parser.add_argument("--emb_base_url", default="", help="Emb Base URL")
+    build_index_parser.add_argument("--emb_model_name", default="", help="Emb Model Name")
 
     args = parser.parse_args(input_args)
 
@@ -80,7 +98,10 @@ def main(input_args: Optional[List[str]] = None):
         )
 
         # 优化后的版本
-        if any([not args.api_key, not args.base_url, not args.model_name]):
+        if any(
+                [not args.api_key, not args.base_url, not args.model_name,
+                 not args.emb_api_key, not args.emb_base_url, not args.emb_model_name,]
+        ):
             missing = []
             if not args.api_key:
                 missing.append("api_key")
@@ -92,12 +113,14 @@ def main(input_args: Optional[List[str]] = None):
 
         auto_llm = AutoLLM()
         # 将整个 RAG 召回划分成三个大的阶段
+        # 开启混合索引(预处理步骤): 使用向量搜索/全文检索进行首轮过滤
         # 1. recall_model: Recall召回阶段
         # 2. chunk_model: 动态片段抽取阶段
         # 3. qa_model: 问题回答阶段
         auto_llm.setup_sub_client("recall_model", args.api_key, args.base_url, args.model_name)
         auto_llm.setup_sub_client("chunk_model", args.api_key, args.base_url, args.model_name)
         auto_llm.setup_sub_client("qa_model", args.api_key, args.base_url, args.model_name)
+        auto_llm.setup_sub_client("emb_model", args.emb_api_key, args.emb_base_url, args.emb_model_name)
 
         # 启动示例
         # auto-coder.nano.rag serve --port 8102 --doc_dir /Users/moofs/Code/antiy-rag/data --tokenizer_path
@@ -117,7 +140,24 @@ def main(input_args: Optional[List[str]] = None):
         )
         serve(rag=rag, ser=server_args)
     elif args.command == "build_hybrid_index":
-        pass
+        auto_coder_args = AutoCoderArgs(
+            **{arg: getattr(args, arg) for arg in vars(AutoCoderArgs()) if hasattr(args, arg)}
+        )
+
+        auto_llm = AutoLLM()
+        auto_llm.setup_sub_client("emb_model", args.emb_api_key, args.emb_base_url, args.emb_model_name)
+
+        rag = RAGFactory.get_rag(
+            llm=auto_llm,
+            args=auto_coder_args,
+            path=args.doc_dir,
+            tokenizer_path=args.tokenizer_path
+        )
+
+        if hasattr(rag.document_retriever, "cacher"):
+            rag.document_retriever.cacher.build_cache()
+        else:
+            raise ValueError(f"文档检索器不支持混合索引构建")
 
 
 if __name__ == '__main__':
