@@ -14,3 +14,5 @@ uvicorn
 pathspec
 fastapi
 tokenizers
+duckdb
+numpy
