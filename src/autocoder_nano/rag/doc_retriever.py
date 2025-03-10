@@ -5,7 +5,7 @@ from uuid import uuid4
 from loguru import logger
 
 from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import SourceCode
+from autocoder_nano.llm_types import SourceCode, AutoCoderArgs
 from autocoder_nano.rag.doc_cache import AutoCoderRAGAsyncUpdateQueue
 from autocoder_nano.rag.doc_hybrid_index import HybridIndexCache
 
@@ -26,10 +26,12 @@ class BaseDocumentRetriever(ABC):
 class LocalDocumentRetriever(BaseDocumentRetriever):
     """Local filesystem document retriever implementation."""
     def __init__(
-        self, llm: AutoLLM, path: str, ignore_spec, required_exts: list, on_ray: bool = False, monitor_mode: bool = False,
+        self, llm: AutoLLM, args: AutoCoderArgs, path: str, ignore_spec, required_exts: list,
+        on_ray: bool = False, monitor_mode: bool = False,
         single_file_token_limit: int = 60000, disable_auto_window: bool = False, enable_hybrid_index: bool = False
     ) -> None:
         self.llm = llm
+        self.args = args
         self.path = path
         self.ignore_spec = ignore_spec
         self.required_exts = required_exts
@@ -45,7 +47,7 @@ class LocalDocumentRetriever(BaseDocumentRetriever):
         self.small_file_merge_limit = self.single_file_token_limit / 2
 
         if self.enable_hybrid_index:
-            self.cacher = HybridIndexCache(self.llm, path, ignore_spec, required_exts)
+            self.cacher = HybridIndexCache(self.llm, self.args, path, ignore_spec, required_exts)
         else:
             if self.monitor_mode:
                 pass

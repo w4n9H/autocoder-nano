@@ -2,6 +2,7 @@ import fcntl
 import json
 import os
 import threading
+import time
 from abc import ABC, abstractmethod
 from multiprocessing import Pool
 from typing import Optional, Dict, Any, Tuple, List
@@ -10,14 +11,16 @@ from loguru import logger
 
 from autocoder_nano.file_utils import generate_file_md5
 from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import CacheItem, FileInfo, VariableHolder, SourceCode, DeleteEvent, AddOrUpdateEvent
+from autocoder_nano.llm_types import CacheItem, FileInfo, VariableHolder, SourceCode, DeleteEvent, AddOrUpdateEvent, \
+    AutoCoderArgs
 from autocoder_nano.rag.doc_loaders import process_file_in_multi_process, process_file_local
 from autocoder_nano.rag.doc_storage import DuckDBVectorStore
 
 default_ignore_dirs = [
     "__pycache__",
     "node_modules",
-    "_images"
+    "_images",
+    ".cache"
 ]
 
 
@@ -28,8 +31,9 @@ class BaseCacheManager(ABC):
 
 
 class HybridIndexCache(BaseCacheManager):
-    def __init__(self, llm: AutoLLM, path, ignore_spec, required_exts):
+    def __init__(self, llm: AutoLLM, args: AutoCoderArgs, path, ignore_spec, required_exts):
         self.llm = llm
+        self.args = args
         self.path = path
         self.ignore_spec = ignore_spec
         self.required_exts = required_exts
@@ -42,7 +46,7 @@ class HybridIndexCache(BaseCacheManager):
         )
         self.queue = []
         self.chunk_size = 4000
-        self.max_output_tokens = 4000  # hybrid_index_max_output_tokens
+        self.max_output_tokens = self.args.hybrid_index_max_output_tokens
 
         # 设置缓存文件路径
         self.cache_dir = os.path.join(self.path, ".cache")
@@ -60,6 +64,7 @@ class HybridIndexCache(BaseCacheManager):
 
         # 加载缓存
         self.cache = self._load_cache()
+        logger.info(f"缓存加载完成, 文件数: {len(self.cache.keys())}")
 
     @staticmethod
     def _chunk_text(text, max_length=1000):
@@ -196,9 +201,10 @@ class HybridIndexCache(BaseCacheManager):
 
             for _chunk in items:
                 try:
-                    self.storage.add_doc(_chunk, dim=1024)
+                    self.storage.add_doc(_chunk, dim=self.args.duckdb_vector_dim)
                     completed_chunks += 1
                     logger.info(f"进度: 已完成 {completed_chunks}/{total_chunks} 个文本块")
+                    time.sleep(self.args.anti_quota_limit)
                 except Exception as err:
                     logger.error(f"Error in saving chunk: {str(err)}")
 
@@ -230,7 +236,8 @@ class HybridIndexCache(BaseCacheManager):
         if items:
             for _chunk in items:
                 try:
-                    self.storage.add_doc(_chunk, dim=1024)
+                    self.storage.add_doc(_chunk, dim=self.args.duckdb_vector_dim)
+                    time.sleep(self.args.anti_quota_limit)
                 except Exception as err:
                     logger.error(f"Error in saving chunk: {str(err)}")
 
@@ -274,6 +281,7 @@ class HybridIndexCache(BaseCacheManager):
             file_path, _, _, file_md5 = file_info
             current_files.add(file_path)
             if file_path not in self.cache or self.cache[file_path].md5 != file_md5:
+                print(file_path)
                 files_to_process.append(file_info)
 
         deleted_files = set(self.cache.keys()) - current_files
@@ -331,14 +339,19 @@ class HybridIndexCache(BaseCacheManager):
         if options.get("enable_vector_search", True):
             # 返回值包含  [(_id, file_path, mtime, score,),]
             # results = self.storage.vector_search(query, similarity_value=0.7, similarity_top_k=200)
-            zscore_results = self.storage.vector_zscore_search(
-                query, similarity_value=0.7, similarity_top_k=200, query_dim=1024
+            search_results = self.storage.vector_search(
+                query,
+                similarity_value=self.args.duckdb_query_similarity,
+                similarity_top_k=self.args.duckdb_query_top_k,
+                query_dim=self.args.duckdb_vector_dim
             )
-            results.extend(zscore_results)
-            dynamic_score_results = self.storage.vector_dynamic_score_search(
-                query, similarity_top_k=200, query_dim=1024
-            )
-            results.extend(dynamic_score_results)
+            results.extend(search_results)
+            # dynamic_score_results = self.storage.vector_dynamic_score_search(
+            #     query,
+            #     similarity_top_k=self.args.duckdb_query_top_k,
+            #     query_dim=self.args.duckdb_vector_dim
+            # )
+            # results.extend(dynamic_score_results)
 
         # Add text search
         # if options.get("enable_text_search", True):
@@ -359,10 +372,17 @@ class HybridIndexCache(BaseCacheManager):
         for file_path in file_paths:
             if file_path in self.cache:
                 cached_data = self.cache[file_path]
-                # for doc in cached_data.content:
-                #     if total_tokens + doc["tokens"] > self.max_output_tokens:
-                #         return result
-                #     total_tokens += doc["tokens"]
+                for doc in cached_data.content:
+                    if total_tokens + doc["tokens"] > self.max_output_tokens:
+                        logger.info(
+                            f"当前检索已超出用户设置 Hybrid Index Max Tokens:{self.max_output_tokens}，"
+                            f"累计tokens: {total_tokens}, "
+                            f"经过向量搜索共检索出 {len(result.keys())} 个文档, 共 {len(self.cache.keys())} 个文档")
+                        return result
+                    total_tokens += doc["tokens"]
                 result[file_path] = cached_data.model_dump()
-        logger.info(f"经过向量搜索共检索出 {len(result.keys())} 个文档, 共 {len(self.cache.keys())} 个文档")
+        logger.info(
+            f"用户Hybrid Index Max Tokens设置为:{self.max_output_tokens}，"
+            f"累计tokens: {total_tokens}, "
+            f"经过向量搜索共检索出 {len(result.keys())} 个文档, 共 {len(self.cache.keys())} 个文档")
         return result
