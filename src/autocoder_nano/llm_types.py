@@ -50,13 +50,16 @@ class AutoCoderArgs(BaseModel):
     monitor_mode: bool = False  # 监控模式,会监控doc_dir目录中的文件变化
     enable_hybrid_index: bool = False  # 开启混合索引
     disable_auto_window: bool = False
-    hybrid_index_max_output_tokens: Optional[int] = 1000000
+    hybrid_index_max_output_tokens: Optional[int] = 30000
     rag_type: Optional[str] = "simple"
     tokenizer_path: Optional[str] = None
     enable_rag_search: Optional[Union[bool, str]] = False
     enable_rag_context: Optional[Union[bool, str]] = False
     disable_segment_reorder: bool = False
     disable_inference_enhance: bool = False
+    duckdb_vector_dim: Optional[int] = 1024    # DuckDB 向量化存储的维度
+    duckdb_query_similarity: Optional[float] = 0.7  # DuckDB 向量化检索 相似度 阈值
+    duckdb_query_top_k: Optional[int] = 50    # DuckDB 向量化检索 返回 TopK个结果(且大于相似度)
 
     # Git 相关参数
     skip_commit: Optional[bool] = False

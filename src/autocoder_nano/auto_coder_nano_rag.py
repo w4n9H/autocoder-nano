@@ -54,7 +54,7 @@ def main(input_args: Optional[List[str]] = None):
     serve_parser.add_argument("--enable_hybrid_index", action="store_true", help="启用混合索引", )
     serve_parser.add_argument("--disable_auto_window", action="store_true", help="禁用文档的自动窗口适配", )
     serve_parser.add_argument(
-        "--hybrid_index_max_output_tokens", type=int, default=1000000,
+        "--hybrid_index_max_output_tokens", type=int, default=30000,
         help="输出中的最大令牌数。仅在启用混合索引时使用。",
     )
     serve_parser.add_argument(
