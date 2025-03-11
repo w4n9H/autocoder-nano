@@ -1240,9 +1240,9 @@ def index_command(llm):
     source_dir = os.path.abspath(args.source_dir)
     logger.info(f"开始对目录 {source_dir} 中的源代码进行索引")
     if args.project_type == "py":
-        pp = PyProject(args=args)
+        pp = PyProject(llm=llm, args=args)
     else:
-        pp = SuffixProject(args=args)
+        pp = SuffixProject(llm=llm, args=args)
     pp.run()
     _sources = pp.sources
     index_manager = IndexManager(source_codes=_sources, llm=llm)
@@ -1362,9 +1362,9 @@ def index_query_command(query: str, llm: AutoLLM):
 
     # args.query = query
     if args.project_type == "py":
-        pp = PyProject(args=args)
+        pp = PyProject(llm=llm, args=args)
     else:
-        pp = SuffixProject(args=args)
+        pp = SuffixProject(llm=llm, args=args)
     pp.run()
     _sources = pp.sources
 
@@ -1739,9 +1739,9 @@ def chat(query: str, llm: AutoLLM):
     pre_conversations = []
 
     if args.project_type == "py":
-        pp = PyProject(args=args)
+        pp = PyProject(llm=llm, args=args)
     else:
-        pp = SuffixProject(args=args)
+        pp = SuffixProject(llm=llm, args=args)
     pp.run()
     _sources = pp.sources
     s = build_index_and_filter_files(llm=llm, sources=_sources)
@@ -2819,7 +2819,7 @@ class ActionPyProject(BaseAction):
     def run(self):
         if self.args.project_type != "py":
             return False
-        pp = PyProject(args=args)
+        pp = PyProject(llm=self.llm, args=args)
         self.pp = pp
         pp.run()
         source_code = pp.output()
@@ -2878,7 +2878,7 @@ class ActionSuffixProject(BaseAction):
         self.pp = None
 
     def run(self):
-        pp = SuffixProject(args=args)
+        pp = SuffixProject(llm=self.llm, args=args)
         self.pp = pp
         pp.run()
         source_code = pp.output()

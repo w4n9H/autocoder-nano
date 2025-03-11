@@ -43,6 +43,7 @@ class AutoCoderArgs(BaseModel):
     rag_url: Optional[str] = ""
     rag_doc_filter_relevance: int = 6  # 文档过滤相关性阈值,高于该值才会被认为高度相关
     rag_context_window_limit: Optional[int] = 30000  # RAG上下文窗口大小 120k 60k 30k
+    rag_params_max_tokens: Optional[int] = 4096
     full_text_ratio: Optional[float] = 0.7
     segment_ratio: Optional[float] = 0.2
     buff_ratio: Optional[float] = 0.1
