@@ -229,7 +229,7 @@ class LongContextRAG:
         logger.info("正在从 RAG 中搜索.....")
         logger.info(f"查询内容: {target_query[0:100]}... only_contexts: {only_contexts}")
 
-        if self.client:
+        if self.client:  # 设置的 http:// 即 url 类型的 rag
             new_query = json.dumps(
                 {"query": target_query, "only_contexts": only_contexts},
                 ensure_ascii=False,
@@ -245,7 +245,7 @@ class LongContextRAG:
 
             json_lines = [json.loads(line) for line in v.split("\n") if line.strip()]
             return [SourceCode.model_validate(json_line) for json_line in json_lines]
-        else:
+        else:  # 设置的本地 path 类型的 rag
             if only_contexts:
                 return [
                     doc.source_code

@@ -3,12 +3,15 @@ import re
 
 from loguru import logger
 
+from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.llm_types import AutoCoderArgs, SourceCode
+from autocoder_nano.rag.doc_entry import RAGFactory
 from autocoder_nano.sys_utils import default_exclude_dirs
 
 
 class TSProject:
-    def __init__(self, args: AutoCoderArgs, exclude_files=""):
+    def __init__(self, llm: AutoLLM, args: AutoCoderArgs, exclude_files=""):
+        self.llm = llm
         self.args = args
         self.directory = args.source_dir
         self.target_file = args.target_file
@@ -107,6 +110,20 @@ class TSProject:
             logger.warning(f"Failed to read file: {file_path}. Error: {str(e)}")
             return None
         return SourceCode(module_name=module_name, source_code=source_code)
+
+    def get_rag_source_codes(self):
+        # /conf enable_rag_search:true
+        # /conf enable_rag_context:true
+        # /conf rag_url:/path
+        # /conf enable_hybrid_index:true
+        if not self.args.enable_rag_search and not self.args.enable_rag_context and not self.args.rag_url:
+            return []
+
+        rag = RAGFactory.get_rag(self.llm, self.args, "")
+        docs = rag.search(self.args.query)
+        for doc in docs:
+            doc.tag = "RAG"
+        return docs
 
     def get_rest_source_codes(self):
         source_codes = []
