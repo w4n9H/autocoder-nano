@@ -98,7 +98,7 @@ class AutoLLM:
             model = self.default_model_name
 
         model_name = self.sub_clients[model]["model_name"]
-        logger.info(f"正在使用 {model} 模型, 模型名称 {model_name}")
+        # logger.info(f"正在使用 {model} 模型, 模型名称 {model_name}")
 
         res = self.sub_clients[model]["client"].embeddings.create(
             model=model_name,

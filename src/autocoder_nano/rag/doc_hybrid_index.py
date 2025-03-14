@@ -5,6 +5,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from multiprocessing import Pool
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, Any, Tuple, List
 
 from loguru import logger
@@ -142,7 +143,7 @@ class HybridIndexCache(BaseCacheManager):
 
     def build_cache(self):
         """Build the cache by reading files and storing in DuckDBVectorStore"""
-        logger.info(f"Building cache for path: {self.path}")
+        logger.info(f"[构建缓存] Building cache for path: {self.path}")
 
         files_to_process = []
         for file_info in self.get_all_files():
@@ -155,58 +156,110 @@ class HybridIndexCache(BaseCacheManager):
 
         results = []
         items = []
-        for _process_file in files_to_process:
-            results.append(process_file_in_multi_process(_process_file))
-        for file_info, result in zip(files_to_process, results):
-            if result:  # 只有当result不为空时才更新缓存
-                content: List[SourceCode] = result
-                file_path, relative_path, modify_time, file_md5 = file_info
-                self.cache[file_path] = CacheItem(
-                    file_path=file_path,
-                    relative_path=relative_path,
-                    content=[c.model_dump() for c in content],
-                    modify_time=modify_time,
-                    md5=file_md5,
-                )
 
-                for doc in content:
-                    logger.info(f"正在处理文件: {doc.module_name}")
-                    chunks = self._chunk_text(doc.source_code, self.chunk_size)
-                    for chunk_idx, chunk in enumerate(chunks):
-                        chunk_item = {
-                            "_id": f"{doc.module_name}_{chunk_idx}",
-                            "file_path": file_path,
-                            "content": chunk,
-                            "raw_content": chunk,
-                            "vector": "",
-                            "mtime": modify_time,
-                        }
-                        items.append(chunk_item)
-            else:
-                logger.warning(f"文件 {file_info[0]} 的结果为空，跳过缓存更新")
+        from autocoder_nano.rag.token_counter import initialize_tokenizer
+
+        initialize_tokenizer(self.args.tokenizer_path)
+        with Pool(
+                processes=max(2, os.cpu_count() // 2),
+                initializer=initialize_tokenizer,
+                initargs=(self.args.tokenizer_path,),
+        ) as pool:
+            target_files_to_process = []
+            for file_info in files_to_process:
+                target_files_to_process.append(file_info)
+            results = pool.map(process_file_in_multi_process, target_files_to_process)
+
+        # for _process_file in files_to_process:
+        #     results.append(process_file_in_multi_process(_process_file))
+
+        for file_info, result in zip(files_to_process, results):
+            content: List[SourceCode] = result
+            file_path, relative_path, modify_time, file_md5 = file_info
+            self.cache[file_path] = CacheItem(
+                file_path=file_path,
+                relative_path=relative_path,
+                content=[c.model_dump() for c in content],
+                modify_time=modify_time,
+                md5=file_md5,
+            )
+
+            for doc in content:
+                logger.info(f"[构建缓存] 正在处理文件: {doc.module_name}")
+                chunks = self._chunk_text(doc.source_code, self.chunk_size)
+                for chunk_idx, chunk in enumerate(chunks):
+                    chunk_item = {
+                        "_id": f"{doc.module_name}_{chunk_idx}",
+                        "file_path": file_path,
+                        "content": chunk,
+                        "raw_content": chunk,
+                        "vector": "",
+                        "mtime": modify_time,
+                    }
+                    items.append(chunk_item)
 
         # Save to local cache
-        logger.info(f"保存缓存到本地文件: {self.cache_file}")
+        logger.info(f"[构建缓存] 保存缓存到本地文件: {self.cache_file}")
         self.write_cache()
 
         if items:
-            logger.info("清空向量数据库(Truncate Mode)")
+            logger.info(f"[构建缓存] 正在从 DuckDB 存储中清除现有缓存")
             self.storage.truncate_table()
-            logger.info("正在保存新的数据到向量数据库")
+            logger.info(f"[构建缓存] 准备写入 DuckDB 存储, 总块数: {len(items)}, 总文件数: {len(files_to_process)}")
 
-            total_chunks = len(items)
-            completed_chunks = 0
+            # Use a fixed optimal batch size instead of dividing by worker count
+            batch_size = 50  # Optimal batch size for Byzer Storage
+            item_batches = [items[i:i + batch_size] for i in range(0, len(items), batch_size)]
 
-            logger.info(f"进度: 已完成 {0}/{total_chunks} 个文本块")
+            total_batches = len(item_batches)
+            completed_batches = 0
 
-            for _chunk in items:
-                try:
-                    self.storage.add_doc(_chunk, dim=self.args.duckdb_vector_dim)
-                    completed_chunks += 1
-                    logger.info(f"进度: 已完成 {completed_chunks}/{total_chunks} 个文本块")
-                    time.sleep(self.args.anti_quota_limit)
-                except Exception as err:
-                    logger.error(f"Error in saving chunk: {str(err)}")
+            logger.info(f"[构建缓存] 开始使用每批次 {batch_size} 条数据写入 DuckDB 存储，总批次数: {total_batches}")
+            start_time = time.time()
+
+            # Use more workers to process the smaller batches efficiently
+            max_workers = min(5, total_batches)  # Cap at 10 workers or total batch count
+            logger.info(f"[构建缓存] 使用 {max_workers} 个并行工作线程进行处理")
+
+            def batch_add_doc(_batch):
+                for b in _batch:
+                    self.storage.add_doc(b, dim=self.args.duckdb_vector_dim)
+
+            with (ThreadPoolExecutor(max_workers=max_workers) as executor):
+                futures = []
+                # Submit all batches to the executor upfront (non-blocking)
+                for batch in item_batches:
+                    futures.append(
+                        executor.submit(
+                            batch_add_doc, batch
+                        )
+                    )
+
+                # Wait for futures to complete
+                for future in as_completed(futures):
+                    try:
+                        future.result()
+                        completed_batches += 1
+                        elapsed = time.time() - start_time
+                        estimated_total = elapsed / completed_batches * total_batches if completed_batches > 0 else 0
+                        remaining = estimated_total - elapsed
+
+                        # Only log progress at reasonable intervals to reduce log spam
+                        if ((completed_batches == 1) or
+                                (completed_batches == total_batches) or
+                                (completed_batches % max(1, total_batches // 10) == 0)):
+                            logger.info(
+                                f"[构建缓存] 进度: {completed_batches}/{total_batches} 批次已完成 "
+                                f"({(completed_batches / total_batches * 100):.1f}%) "
+                                f"预计剩余时间: {remaining:.1f}秒"
+                            )
+                    except Exception as e:
+                        logger.error(f"[构建缓存] 保存批次时发生错误: {str(e)}")
+                        # 添加更详细的错误信息
+                        logger.error(f"[构建缓存] 错误详情: 批次大小:{len(batch) if 'batch' in locals() else '未知'}")
+
+            total_time = time.time() - start_time
+            logger.info(f"[构建缓存] 所有数据块已写入，总耗时: {total_time:.2f}秒")
 
     def update_storage(self, file_info: FileInfo, is_delete: bool):
         results = self.storage.query_by_path(file_info.file_path)
@@ -281,7 +334,6 @@ class HybridIndexCache(BaseCacheManager):
             file_path, _, _, file_md5 = file_info
             current_files.add(file_path)
             if file_path not in self.cache or self.cache[file_path].md5 != file_md5:
-                print(file_path)
                 files_to_process.append(file_info)
 
         deleted_files = set(self.cache.keys()) - current_files
