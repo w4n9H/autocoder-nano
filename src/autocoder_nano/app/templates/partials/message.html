@@ -1,0 +1,41 @@
+<div class="message-area visible">
+    <!-- 标签栏 -->
+<!--    <div class="tab-bar">-->
+<!--        <button class="tab-button active">消息记录</button>-->
+<!--        <button class="tab-button">当前变更</button>-->
+<!--        <button class="tab-button">提交记录</button>-->
+<!--    </div>-->
+
+    <!-- 聊天面板 -->
+    <div class="chat-panel">
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <div class="current-task">
+                <span>当前任务： {{ current_task }} </span>
+                {% if is_search %}
+                <span class="loading"></span>
+                {% endif %}
+            </div>
+            <div class="stats">
+                <span>Tokens: <span class="input-token">↑ 1250</span> <span class="output-token">↓ 780</span></span>
+                <span>Cache: ⊕ 12 → 5</span>
+                <span>API Cost: $0.02350</span>
+            </div>
+        </div>
+
+        <!-- 消息列表 -->
+        <div class="message-list">
+<!--            <div class="message user">-->
+<!--                <div class="content">请添加用户认证功能</div>-->
+<!--                <div class="timestamp">15:30</div>-->
+<!--            </div>-->
+<!--            <div class="message ai">-->
+<!--                <div class="content">正在分析项目结构，检测到当前使用Next.js框架，建议使用Auth.js实现认证...</div>-->
+<!--                <div class="timestamp">15:31</div>-->
+<!--            </div>-->
+<!--            <div class="message thinking">-->
+<!--                <div class="content">生成路由保护中间件...</div>-->
+<!--            </div>-->
+        </div>
+    </div>
+</div>

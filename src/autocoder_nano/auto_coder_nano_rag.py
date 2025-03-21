@@ -1,5 +1,8 @@
 import argparse
+import json
+import os
 from typing import Optional, List
+from importlib import resources
 
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.llm_types import AutoCoderArgs, ServerArgs
@@ -8,7 +11,10 @@ from autocoder_nano.rag.doc_entry import RAGFactory
 
 
 def main(input_args: Optional[List[str]] = None):
-    tokenizer_path = None
+    try:
+        tokenizer_path = resources.files("autocoder_nano").joinpath("data/tokenizer.json").__str__()
+    except FileNotFoundError:
+        tokenizer_path = None
 
     parser = argparse.ArgumentParser(description="Auto Coder Nano RAG Server")
     subparsers = parser.add_subparsers(dest="command", help="可用命令")
@@ -63,27 +69,33 @@ def main(input_args: Optional[List[str]] = None):
     serve_parser.add_argument(
         "--disable_inference_enhance", action="store_true", help="禁用增强推理模式",
     )
-    serve_parser.add_argument("--api_key", default="", help="API key for AI client")
-    serve_parser.add_argument("--base_url", default="", help="Base URL")
-    serve_parser.add_argument("--model_name", default="", help="Model Name")
-    serve_parser.add_argument("--emb_api_key", default="", help="Emb API key for AI client")
-    serve_parser.add_argument("--emb_base_url", default="", help="Emb Base URL")
-    serve_parser.add_argument("--emb_model_name", default="", help="Emb Model Name")
+    serve_parser.add_argument(
+        "--emb_model", default="", help="指定使用的向量化模型",
+    )
+    serve_parser.add_argument(
+        "--recall_model", default="", help="指定Recall召回阶段使用的模型",
+    )
+    serve_parser.add_argument(
+        "--chunk_model", default="", help="指定动态片段抽取阶段使用的模型",
+    )
+    serve_parser.add_argument(
+        "--qa_model", default="", help="指定问题回答阶段使用的模型",
+    )
 
     # Build hybrid index command
     build_index_parser = subparsers.add_parser(
         "build_hybrid_index", help="Build hybrid index for RAG"
     )
-    build_index_parser.add_argument("--emb_model", default="", help="")
+    # build_index_parser.add_argument("--emb_model", default="", help="")
     build_index_parser.add_argument(
         "--tokenizer_path", default=tokenizer_path, help="预训练分词器路径(必填参数)")
     build_index_parser.add_argument("--doc_dir", default="", help="文档存储目录路径(必填参数)")
     build_index_parser.add_argument("--enable_hybrid_index", action="store_true", help="启用混合索引")
     build_index_parser.add_argument(
         "--required_exts", default="", help="文档构建所需的文件扩展名, 默认为空字符串")
-    build_index_parser.add_argument("--emb_api_key", default="", help="Emb API key for AI client")
-    build_index_parser.add_argument("--emb_base_url", default="", help="Emb Base URL")
-    build_index_parser.add_argument("--emb_model_name", default="", help="Emb Model Name")
+    build_index_parser.add_argument(
+        "--emb_model", default="", help="指定使用的向量化模型",
+    )
 
     args = parser.parse_args(input_args)
 
@@ -97,19 +109,37 @@ def main(input_args: Optional[List[str]] = None):
             **{arg: getattr(args, arg) for arg in vars(AutoCoderArgs()) if hasattr(args, arg)}
         )
 
-        # 优化后的版本
-        if any(
-                [not args.api_key, not args.base_url, not args.model_name,
-                 not args.emb_api_key, not args.emb_base_url, not args.emb_model_name,]
-        ):
+        if any([
+            not args.doc_dir,
+            not args.emb_model,
+            not args.recall_model,
+            not args.qa_model
+        ]):
             missing = []
-            if not args.api_key:
-                missing.append("api_key")
-            if not args.base_url:
-                missing.append("base_url")
-            if not args.model_name:
-                missing.append("model_name")
+            if not args.doc_dir:
+                missing.append("doc_dir")
+            if not args.emb_model:
+                missing.append("emb_model")
+            if not args.recall_model:
+                missing.append("recall_model")
+            if not args.qa_model:
+                missing.append("qa_model")
             raise ValueError(f"缺少必要参数: {', '.join(missing)}")
+
+        if not server_args.tokenizer_path:
+            raise Exception("tokenizer_path is required")
+
+        project_root = args.doc_dir
+        base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-auto-coder")
+        memory_path = os.path.join(base_persist_dir, "nano-memory.json")
+
+        if os.path.exists(memory_path):
+            with open(memory_path, "r") as f:
+                memory = json.load(f)
+        else:
+            raise ValueError(f"请运行 auto-coder.nano 对该项目进行初始化")
+
+        models = memory.get("models", {})
 
         auto_llm = AutoLLM()
         # 将整个 RAG 召回划分成三个大的阶段
@@ -117,20 +147,39 @@ def main(input_args: Optional[List[str]] = None):
         # 1. recall_model: Recall召回阶段
         # 2. chunk_model: 动态片段抽取阶段
         # 3. qa_model: 问题回答阶段
-        auto_llm.setup_sub_client("recall_model", args.api_key, args.base_url, args.model_name)
-        auto_llm.setup_sub_client("chunk_model", args.api_key, args.base_url, args.model_name)
-        auto_llm.setup_sub_client("qa_model", args.api_key, args.base_url, args.model_name)
-        auto_llm.setup_sub_client("emb_model", args.emb_api_key, args.emb_base_url, args.emb_model_name)
+        if args.emb_model and args.emb_model in models:
+            auto_llm.setup_sub_client(
+                "emb_model",
+                models[args.emb_model]["api_key"],
+                models[args.emb_model]["base_url"],
+                models[args.emb_model]["model"],
+            )
+        if args.recall_model and args.recall_model in models:
+            auto_llm.setup_sub_client(
+                "recall_model",
+                models[args.recall_model]["api_key"],
+                models[args.recall_model]["base_url"],
+                models[args.recall_model]["model"],
+            )
+        if args.chunk_model and args.chunk_model in models:
+            auto_llm.setup_sub_client(
+                "chunk_model",
+                models[args.chunk_model]["api_key"],
+                models[args.chunk_model]["base_url"],
+                models[args.chunk_model]["model"],
+            )
+        if args.qa_model and args.qa_model in models:
+            auto_llm.setup_sub_client(
+                "qa_model",
+                models[args.qa_model]["api_key"],
+                models[args.qa_model]["base_url"],
+                models[args.qa_model]["model"],
+            )
 
         # 启动示例
         # auto-coder.nano.rag serve --port 8102 --doc_dir /Users/moofs/Code/antiy-rag/data --tokenizer_path
         # /Users/moofs/Code/antiy-rag/tokenizer.json --base_url https://ark.cn-beijing.volces.com/api/v3 --api_key
         # xxxxx --model_name xxxxx --disable_inference_enhance
-
-        if not server_args.doc_dir:
-            raise Exception("doc_dir is required")
-        if not server_args.tokenizer_path:
-            raise Exception("tokenizer_path is required")
 
         rag = RAGFactory.get_rag(
             llm=auto_llm,
@@ -144,8 +193,26 @@ def main(input_args: Optional[List[str]] = None):
             **{arg: getattr(args, arg) for arg in vars(AutoCoderArgs()) if hasattr(args, arg)}
         )
 
+        project_root = args.doc_dir
+        base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-auto-coder")
+        memory_path = os.path.join(base_persist_dir, "nano-memory.json")
+
+        if os.path.exists(memory_path):
+            with open(memory_path, "r") as f:
+                memory = json.load(f)
+        else:
+            raise ValueError(f"请运行 auto-coder.nano 对该项目进行初始化")
+
+        models = memory.get("models", {})
+
         auto_llm = AutoLLM()
-        auto_llm.setup_sub_client("emb_model", args.emb_api_key, args.emb_base_url, args.emb_model_name)
+        if args.emb_model and args.emb_model in models:
+            auto_llm.setup_sub_client(
+                "emb_model",
+                models[args.emb_model]["api_key"],
+                models[args.emb_model]["base_url"],
+                models[args.emb_model]["model"],
+            )
 
         rag = RAGFactory.get_rag(
             llm=auto_llm,

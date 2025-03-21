@@ -38,6 +38,9 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
         # self.process_queue()
         self.cache = self.read_cache()
 
+    def get_cache_size(self):
+        return len(self.cache.keys())
+
     def _process_queue(self):
         while 1:
             try:

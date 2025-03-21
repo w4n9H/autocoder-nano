@@ -67,6 +67,9 @@ class HybridIndexCache(BaseCacheManager):
         self.cache = self._load_cache()
         logger.info(f"缓存加载完成, 文件数: {len(self.cache.keys())}")
 
+    def get_cache_size(self):
+        return len(self.cache.keys())
+
     @staticmethod
     def _chunk_text(text, max_length=1000):
         """Split text into chunks"""

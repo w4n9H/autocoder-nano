@@ -1,0 +1,29 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/ai.css') }}?v={{ timestamp() }}">
+</head>
+<body>
+    <div class="main-container">
+        <!-- 主内容区域 -->
+        <div class="content-container">
+            <!-- 标题 -->
+            {% include "partials/header.html" with context %}
+
+            <!-- 消息区域 -->
+            {% include "partials/message.html" with context %}
+
+            <!-- 输入区域 -->
+            {% include "partials/input.html" with context %}
+
+            <!-- 示例命令 -->
+            {% include "partials/examples.html" with context %}
+        </div>
+    </div>
+    <script src="{{ url_for('static', path='/js/ai.js') }}?v={{ timestamp() }}"></script>
+</body>
+</html>
