@@ -6,6 +6,8 @@ import time
 from contextlib import asynccontextmanager
 from typing import Optional, List, Generator
 from importlib import resources
+from pathlib import Path
+import autocoder_nano
 
 from fastapi import APIRouter, Request
 from fastapi import FastAPI
@@ -36,8 +38,8 @@ router = APIRouter()
 serving_chat: LongContextRAG | None = None
 
 # 配置静态文件
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
+app.mount("/static", StaticFiles(directory=Path(autocoder_nano.__file__).parent / "app/static"), name="static")
+templates = Jinja2Templates(directory=Path(autocoder_nano.__file__).parent / "app/templates")
 
 
 def timestamp() -> str:  # 添加全局模板变量
