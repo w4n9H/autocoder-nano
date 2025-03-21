@@ -16,3 +16,5 @@ fastapi
 tokenizers
 duckdb
 numpy
+requests
+beautifulsoup4

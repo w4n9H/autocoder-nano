@@ -66,6 +66,9 @@ class LocalDocumentRetriever(BaseDocumentRetriever):
     def get_cache(self, options: Optional[Dict[str, Any]] = None):
         return self.cacher.get_cache(options=options)
 
+    def get_cache_size(self):
+        return self.cacher.get_cache_size()
+
     def retrieve_documents(self, options: Optional[Dict[str, Any]] = None) -> Generator[SourceCode, None, None]:
         logger.info("文档检索开始. ")
         waiting_list = []

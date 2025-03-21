@@ -1,0 +1,42 @@
+<div class="input-area">
+    <input type="text" placeholder="输入指令或问题..." class="command-input" id="command-form">
+
+    <!-- 开关区 -->
+    <div class="switch-panel">
+        <!-- 左侧控件 -->
+        <div class="control-group">
+            <select class="mode-select">
+                <option value="RAG">RAG</option>
+                <option value="Auto">Auto</option>
+            </select>
+
+            <label class="switch-item">
+                <input type="checkbox" class="switch-checkbox">
+                <span class="switch-custom">
+                    <svg class="switch-icon" viewBox="0 0 24 24" width="16" height="16">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                    </svg>
+                    联网搜索
+                </span>
+            </label>
+
+            <label class="switch-item">
+                <input type="checkbox" class="switch-checkbox">
+                <span class="switch-custom">
+                    <svg class="switch-icon" viewBox="0 0 24 24" width="16" height="16">
+                        <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/>
+                    </svg>
+                    深度思考
+                </span>
+            </label>
+        </div>
+
+        <!-- 发送按钮 -->
+        <button class="send-button">
+            <svg viewBox="0 0 24 24" width="20" height="20" class="send-icon">
+                <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+        </button>
+    </div>
+
+</div>

@@ -34,11 +34,15 @@ setup(
     entry_points={
         'console_scripts': [
             'auto-coder.nano = autocoder_nano.auto_coder_nano:main',
-            'auto-coder.nano.rag = autocoder_nano.auto_coder_nano_rag:main'
+            'auto-coder.nano.rag = autocoder_nano.auto_coder_nano_rag:main',
+            'auto-coder.nano.ui = autocoder_nano.auto_coder_nano_ui:main'
         ],
     },
     package_dir={"": "src"},
     packages=find_packages("src"),
+    package_data={
+        "autocoder_nano": ["data/**/*"],
+    },
     install_requires=install_requires,
     classifiers=[
         "Topic :: Scientific/Engineering :: Artificial Intelligence",

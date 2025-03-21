@@ -438,3 +438,80 @@ class LongContextRAG:
             return ((chunk.choices[0].delta.content for chunk in chunks
                     if chunk.choices and chunk.choices[0].delta.content),
                     context)
+
+    def search_step1(self, conversations):
+        """ 文件检索步骤, 混合索引将使用duckdb """
+        start_time = time.time()
+        query = conversations[-1]["content"]
+        source_list = []
+        documents = self._retrieve_documents(options={"query": query})
+        for d in documents:
+            source_list.append(d)
+        end_time = time.time() - start_time
+        return source_list, end_time
+
+    def search_step2(self, conversations, source_list):
+        """ 文件过滤步骤 """
+        start_time = time.time()
+        relevant_docs: List[FilterDoc] = self.doc_filter.filter_docs(
+            conversations=conversations, documents=source_list
+        )
+        # 过滤 relevant_docs，仅包含 is_relevant=True 的文档
+        highly_relevant_docs = [
+            doc for doc in relevant_docs if doc.relevance.is_relevant
+        ]
+        if highly_relevant_docs:
+            relevant_docs = highly_relevant_docs
+        end_time = time.time() - start_time
+        return relevant_docs, end_time
+
+    def search_step3(self, conversations, relevant_docs: List[FilterDoc]):
+        """ 文件合并,最终发送到模型的文档数量 """
+        start_time = time.time()
+        # 将 FilterDoc 转化为 SourceCode 方便后续的逻辑继续做处理
+        relevant_docs_source: List[SourceCode] = [doc.source_code for doc in relevant_docs]
+
+        if self.tokenizer is not None:
+            token_limiter = TokenLimiter(
+                count_tokens=self.count_tokens,
+                full_text_limit=self.full_text_limit,
+                segment_limit=self.segment_limit,
+                buff_limit=self.buff_limit,
+                llm=self.llm,
+                disable_segment_reorder=self.args.disable_segment_reorder,
+            )
+            final_relevant_docs = token_limiter.limit_tokens(
+                relevant_docs=relevant_docs_source,
+                conversations=conversations,
+                index_filter_workers=self.args.index_filter_workers or 5,
+            )
+
+            relevant_docs_source = final_relevant_docs
+        else:
+            relevant_docs_source = relevant_docs_source[: self.args.index_filter_file_num]
+
+        end_time = time.time() - start_time
+        return relevant_docs_source, end_time
+
+    def search_step4(self, query, conversations, relevant_docs_source):
+        """ 最终提问阶段 """
+        self.llm.setup_default_model_name("qa_model")
+        qa_model = self.llm
+
+        new_conversations = conversations[:-1] + [
+            {
+                "role": "user",
+                "content": self._answer_question.prompt(
+                    query=query,
+                    relevant_docs=[doc.source_code for doc in relevant_docs_source],
+                ),
+            }
+        ]
+
+        chunks = qa_model.stream_chat_ai(
+            conversations=new_conversations
+        )
+
+        return ((chunk.choices[0].delta.content for chunk in chunks
+                 if chunk.choices and chunk.choices[0].delta.content),
+                "")
