@@ -41,7 +41,11 @@ setup(
     package_dir={"": "src"},
     packages=find_packages("src"),
     package_data={
-        "autocoder_nano": ["data/**/*"],
+        "autocoder_nano": [
+            "data/**/*",
+            'app/static/**/*',
+            'app/templates/**/*'
+        ],
     },
     install_requires=install_requires,
     classifiers=[
