@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/editormd.preview.min.css') }}?v={{ timestamp() }}">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/ai.css') }}?v={{ timestamp() }}">
 </head>
 <body>
@@ -24,6 +25,15 @@
             {% include "partials/examples.html" with context %}
         </div>
     </div>
-    <script src="{{ url_for('static', path='/js/ai.js') }}?v={{ timestamp() }}"></script>
+    <script src="{{ url_for('static', path='/js/jquery-3.7.1.min.js') }}?v={{ timestamp() }}"></script>
+    <script src="{{ url_for('static', path='/js/marked.min.js') }}?v={{ timestamp() }}"></script>
+    <script src="{{ url_for('static', path='/js/prettify.min.js') }}?v={{ timestamp() }}"></script>
+    <script src="{{ url_for('static', path='/js/raphael.min.js') }}?v={{ timestamp() }}"></script>
+    <script src="{{ url_for('static', path='/js/underscore.min.js') }}?v={{ timestamp() }}"></script>
+    <script src="{{ url_for('static', path='/js/sequence-diagram.min.js') }}?v={{ timestamp() }}"></script>
+    <script src="{{ url_for('static', path='/js/flowchart.min.js') }}?v={{ timestamp() }}"></script>
+    <script src="{{ url_for('static', path='/js/jquery.flowchart.min.js') }}?v={{ timestamp() }}"></script>
+    <script src="{{ url_for('static', path='/js/editormd.min.js') }}?v={{ timestamp() }}"></script>
+    <script src="{{ url_for('static', path='/js/jq-ai.js') }}?v={{ timestamp() }}"></script>
 </body>
 </html>

@@ -54,15 +54,19 @@ templates.env.globals.update({
 
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request):
+    cache_size = serving_chat.document_retriever.get_cache_size()
+    project_name = os.path.basename(serving_chat.path)
+    enable_hybrid_index = serving_chat.args.enable_hybrid_index
+    hybrid_index_max_output_tokens = serving_chat.args.hybrid_index_max_output_tokens
     return templates.TemplateResponse(
         "home.html",
         {
             "request": request,
             "title": "AutoCoder Nano UI",
-            "project": "demo-project",
-            "tabs": ["消息记录", "当前变更", "提交记录"],
-            "current_task": "",
-            "is_search": False
+            "project": project_name,
+            "cache_size": cache_size,
+            "enable_hybrid_index": enable_hybrid_index,
+            "hybrid_index_max_output_tokens": hybrid_index_max_output_tokens
         }
     )
 
@@ -130,8 +134,11 @@ async def chat_stream(request: Request):
                 yield f'data: \n\n'  # 初始容器+刷新
                 for content_chunk in content_generator:
                     # 生成标准格式的流式响应
-                    yield f"data: {content_chunk}\n\n"
-                yield "data: \n\n"
+                    # yield f"data: {content_chunk}\n\n"
+                    if content_chunk:
+                        yield f"data: {json.dumps({'content': content_chunk})}\n\n"
+                # yield "data: \n\n"
+                yield "data: [DONE]\n\n"
             except Exception as err:
                 error_json = json.dumps({"error": str(err)})
                 yield f"data: {error_json}\n\n"

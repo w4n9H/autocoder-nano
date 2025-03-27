@@ -171,3 +171,7 @@ cython_debug/
 .pypirc
 
 .idea/
+
+.auto-coder/
+actions/
+output.txt
