@@ -94,10 +94,17 @@ document.addEventListener('DOMContentLoaded', () => {
               })}</div>`
             : '';
 
-        message.innerHTML = `
+        if (type == 'ai') {
+            message.innerHTML = `
+                <div class="content" id="markdown-viewer">${text}</div>
+                ${timestampHtml}
+            `;
+        } else {
+            message.innerHTML = `
             <div class="content">${text}</div>
             ${timestampHtml}
         `;
+        }
 
         messageList.appendChild(message);
         messageList.scrollTop = messageList.scrollHeight;
