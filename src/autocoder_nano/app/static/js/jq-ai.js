@@ -19,6 +19,11 @@ $(function() {
         const text = $commandInput.val().trim();
         if (!text) return;
 
+        // 更新任务状态显示
+        const shortText = text.substring(0, 20) + (text.length > 20 ? "..." : "");
+        $('#current-task-text').text(shortText);
+        $('#current-task-loading').show();
+
         addMessage(text, 'user');
         startAIResponse(text);
         $commandInput.val('').focus();
@@ -43,6 +48,8 @@ $(function() {
         currentEventSource.onmessage = (e) => {
             if (e.data === '[DONE]') { // 假设服务器发送结束标志
                 currentEventSource.close();
+                // 隐藏加载状态
+                $('#current-task-loading').hide();
                 convertToMarkdown(aiId, $aiContentDiv.text());
                 return;
             }
@@ -65,6 +72,8 @@ $(function() {
 
         currentEventSource.onerror = () => {
             currentEventSource.close();
+            // 隐藏加载状态
+            $('#current-task-loading').hide();
             // 确保最终状态更新
             if (!$aiContentDiv.text()) {
                 $aiContentDiv.text('响应中断，请重试');

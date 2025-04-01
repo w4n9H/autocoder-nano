@@ -160,6 +160,9 @@ body {
     border-top-color: #000000;
     border-radius: 50%;
     animation:loading 1s linear infinite;
+    display: inline-block;
+    margin-left: 8px;
+    vertical-align: middle;
 }
 
 @keyframes loading{
@@ -293,14 +296,6 @@ body {
 
 .message.ai li {
     margin: 0.5rem 0;
-    position: relative;
-}
-
-.message.ai li::before {
-    content: "•";
-    color: #48BB78;
-    position: absolute;
-    left: -1.25rem;
 }
 
 .message.thinking {
