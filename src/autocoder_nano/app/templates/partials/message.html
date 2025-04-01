@@ -12,6 +12,8 @@
         <div class="status-bar">
             <div class="current-task">
                 <span>当前任务: </span>
+                <span id="current-task-text"></span>
+                <div id="current-task-loading" class="loading" style="display: none;"></div>
             </div>
             <div class="stats">
                 {% if enable_hybrid_index %}
