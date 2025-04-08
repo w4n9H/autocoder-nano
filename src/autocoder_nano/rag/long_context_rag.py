@@ -264,7 +264,7 @@ class LongContextRAG:
         query = conversations[-1]["content"]
         documents = self._retrieve_documents(options={"query": query})
         return self.doc_filter.filter_docs(
-            conversations=conversations, documents=documents
+            conversations=conversations, documents=[d for d in documents]
         )
 
     def stream_chat_oai(self, conversations, model: Optional[str] = None):

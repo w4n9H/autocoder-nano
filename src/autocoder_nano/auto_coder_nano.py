@@ -13,6 +13,7 @@ import traceback
 import uuid
 from difflib import SequenceMatcher
 
+from autocoder_nano.agent.new.auto_new_project import BuildNewProject
 from autocoder_nano.helper import show_help
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.version import __version__
@@ -52,7 +53,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 #                        ".vscode", ".idea", ".hg"]
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
-    "/index/build", "/exclude_dirs", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
+    "/index/build", "/exclude_dirs", "/help", "/shell", "/exit", "/mode", "/models", "/commit", "/new"
 ]
 
 memory = {
@@ -276,7 +277,7 @@ class CommandTextParser:
     def is_blank(self) -> bool:
         return self.peek() == "\n" or self.peek() == " " or self.peek() == "\t" or self.peek() == "\r"
 
-    def is_sub_command(self) -> bool:
+    def is_sub_command(self) -> bool | None:
         backup_pos = self.pos
         self.consume_blank()
         try:
@@ -331,7 +332,7 @@ class CommandTextParser:
             return self.text[self.pos - 1]
         return None
 
-    def is_start_tag(self) -> bool:
+    def is_start_tag(self) -> bool | None:
         backup_pos = self.pos
         tag = ""
         try:
@@ -3237,7 +3238,7 @@ def _generate_shell_script(user_input: str) -> str:
     }
 
 
-def generate_shell_command(input_text: str, llm: AutoLLM):
+def generate_shell_command(input_text: str, llm: AutoLLM) -> str | None:
     conf = memory.get("conf", {})
     yaml_config = {
         "include_file": ["./base/base.yml"],
@@ -3916,7 +3917,7 @@ def configure_project_model():
         "1": {"name": "ark-deepseek-r1", "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "deepseek-r1-250120"},
         "2": {"name": "ark-deepseek-v3", "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "deepseek-v3-241226"},
+              "model_name": "deepseek-v3-250324"},
         "3": {"name": "sili-deepseek-r1", "base_url": "https://api.siliconflow.cn/v1",
               "model_name": "deepseek-ai/DeepSeek-R1"},
         "4": {"name": "sili-deepseek-v3", "base_url": "https://api.siliconflow.cn/v1",
@@ -3955,6 +3956,60 @@ def configure_project_model():
         default_model[model_num]["base_url"],
         model_api_key
     )
+
+
+def new_project(query, llm):
+    console.print(f"正在基于你的需求 {query} 构建项目 ...", style="bold green")
+    env_info = detect_env()
+    project = BuildNewProject(args=args, llm=llm,
+                              chat_model=memory["conf"]["current_chat_model"],
+                              code_model=memory["conf"]["current_code_model"])
+
+    console.print(f"正在完善项目需求 ...", style="bold green")
+
+    information = project.build_project_information(query, env_info, args.project_type)
+    if not information:
+        raise Exception(f"项目需求未正常生成 .")
+
+    table = Table(title=f"{query}")
+    table.add_column("需求说明", style="cyan")
+    table.add_row(f"{information[:50]}...")
+    console.print(table)
+
+    console.print(f"正在完善项目架构 ...", style="bold green")
+    architecture = project.build_project_architecture(query, env_info, args.project_type, information)
+
+    console.print(f"正在构建项目索引 ...", style="bold green")
+    index_file_list = project.build_project_index(query, env_info, args.project_type, information, architecture)
+
+    table = Table(title=f"索引列表")
+    table.add_column("路径", style="cyan")
+    table.add_column("用途", style="cyan")
+    for index_file in index_file_list.file_list:
+        table.add_row(index_file.file_path, index_file.purpose)
+    console.print(table)
+
+    for index_file in index_file_list.file_list:
+        full_path = os.path.join(args.source_dir, index_file.file_path)
+
+        # 获取目录路径
+        full_dir_path = os.path.dirname(full_path)
+        if not os.path.exists(full_dir_path):
+            os.makedirs(full_dir_path)
+
+        console.print(f"正在编码: {full_path} ...", style="bold green")
+        code = project.build_single_code(query, env_info, args.project_type, information, architecture, index_file)
+
+        with open(full_path, "w") as fp:
+            fp.write(code)
+
+    # 生成 readme
+    readme_context = information + architecture
+    readme_path = os.path.join(args.source_dir, "README.md")
+    with open(readme_path, "w") as fp:
+        fp.write(readme_context)
+
+    console.print(f"项目构建完成", style="bold green")
 
 
 def main():
@@ -4125,6 +4180,12 @@ def main():
                     print("\033[91mPlease enter your request.\033[0m")
                     continue
                 coding(query=query, llm=auto_llm)
+            elif user_input.startswith("/new"):
+                query = user_input[len("/new"):].strip()
+                if not query:
+                    print("\033[91mPlease enter your request.\033[0m")
+                    continue
+                new_project(query=query, llm=auto_llm)
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:
