@@ -36,8 +36,6 @@ class AutoCoderArgs(BaseModel):
     model_max_input_length: Optional[int] = 6000  # 模型最大输入长度
     skip_confirm: Optional[bool] = False
     silence: Optional[bool] = False
-    current_chat_model: Optional[str] = ""
-    current_code_model: Optional[str] = ""
 
     # RAG 相关参数
     rag_url: Optional[str] = ""
@@ -64,6 +62,16 @@ class AutoCoderArgs(BaseModel):
 
     # Git 相关参数
     skip_commit: Optional[bool] = False
+
+    # 模型相关参数
+    current_chat_model: Optional[str] = ""
+    current_code_model: Optional[str] = ""
+    # chat_model: Optional[str] = ""
+    # code_model: Optional[str] = ""
+    # emb_model: Optional[str] = ""
+    # recall_model: Optional[str] = ""
+    # qa_model: Optional[str] = ""
+    # chunk_model: Optional[str] = ""
 
     class Config:
         protected_namespaces = ()
