@@ -205,7 +205,7 @@ class TokenLimiter:
                     .with_llm(llm)
                     .run(conversations, [source_code_with_line_number])
                 )
-                json_str = extract_code(extracted_info)[0][1]
+                json_str = extract_code(extracted_info.output)[0][1]
                 json_objs = json.loads(json_str)
 
                 for json_obj in json_objs:
