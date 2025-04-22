@@ -30,9 +30,9 @@ class AutoCoderArgs(BaseModel):
     context: Optional[str] = None  #
     human_as_model: Optional[bool] = False  #
     human_model_num: Optional[int] = 1  #
-    include_project_structure: Optional[bool] = False  #
+    include_project_structure: Optional[bool] = False  # 在生成代码的提示中是否包含项目目录结构
     urls: Optional[Union[str, List[str]]] = ""  # 一些文档的URL/路径，可以帮助模型了解你当前的工作
-    model: Optional[str] = ""  # 您要驱动运行的模型
+    # model: Optional[str] = ""  # 您要驱动运行的模型
     model_max_input_length: Optional[int] = 6000  # 模型最大输入长度
     skip_confirm: Optional[bool] = False
     silence: Optional[bool] = False
@@ -66,12 +66,16 @@ class AutoCoderArgs(BaseModel):
     # 模型相关参数
     current_chat_model: Optional[str] = ""
     current_code_model: Optional[str] = ""
-    # chat_model: Optional[str] = ""
-    # code_model: Optional[str] = ""
-    # emb_model: Optional[str] = ""
-    # recall_model: Optional[str] = ""
-    # qa_model: Optional[str] = ""
-    # chunk_model: Optional[str] = ""
+    model: Optional[str] = ""    # 默认模型
+    chat_model: Optional[str] = ""    # AI Chat交互模型
+    index_model: Optional[str] = ""    # 代码索引生成模型
+    code_model: Optional[str] = ""    # 编码模型
+    commit_model: Optional[str] = ""    # Git Commit 模型
+    emb_model: Optional[str] = ""    # RAG Emb 模型
+    recall_model: Optional[str] = ""    # RAG 召回阶段模型
+    chunk_model: Optional[str] = ""    # 段落重排序模型
+    qa_model: Optional[str] = ""    # RAG 提问模型
+    vl_model: Optional[str] = ""    # 多模态模型
 
     class Config:
         protected_namespaces = ()

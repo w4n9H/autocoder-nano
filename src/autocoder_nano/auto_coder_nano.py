@@ -15,6 +15,8 @@ from difflib import SequenceMatcher
 
 from autocoder_nano.agent.new.auto_new_project import BuildNewProject
 from autocoder_nano.helper import show_help
+from autocoder_nano.index.entry import build_index_and_filter_files
+from autocoder_nano.index.index_manager import IndexManager
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.version import __version__
 from autocoder_nano.llm_types import *
@@ -61,8 +63,10 @@ memory = {
     "current_files": {"files": [], "groups": {}},
     "conf": {
         "auto_merge": "editblock",
-        "current_chat_model": "",
-        "current_code_model": ""
+        # "current_chat_model": "",
+        # "current_code_model": "",
+        "chat_model": "",
+        "code_model": "",
     },
     "exclude_dirs": [],
     "mode": "normal",  # 新增mode字段,默认为normal模式
@@ -810,433 +814,8 @@ def symbols_info_to_str(info: SymbolsInfo, symbol_types: List[SymbolType]) -> st
     return "\n".join(result)
 
 
-class IndexManager:
-    def __init__(self, source_codes: List[SourceCode], llm: AutoLLM = None):
-        self.args = args
-        self.sources = source_codes
-        self.source_dir = args.source_dir
-        self.index_dir = os.path.join(self.source_dir, ".auto-coder")
-        self.index_file = os.path.join(self.index_dir, "index.json")
-        self.llm = llm
-        self.llm.setup_default_model_name(memory["conf"]["current_chat_model"])
-        self.max_input_length = args.model_max_input_length  # 模型输入最大长度
-        # 使用 time.sleep(self.anti_quota_limit) 防止超过 API 频率限制
-        self.anti_quota_limit = args.anti_quota_limit
-        # 如果索引目录不存在,则创建它
-        if not os.path.exists(self.index_dir):
-            os.makedirs(self.index_dir)
-
-    def build_index(self):
-        """ 构建或更新索引，使用多线程处理多个文件，并将更新后的索引数据写入文件 """
-        if os.path.exists(self.index_file):
-            with open(self.index_file, "r") as file:  # 读缓存
-                index_data = json.load(file)
-        else:  # 首次 build index
-            logger.info("首次生成索引.")
-            index_data = {}
-
-        @prompt()
-        def error_message(source_dir: str, file_path: str):
-            """
-            The source_dir is different from the path in index file (e.g. file_path:{{ file_path }} source_dir:{{
-            source_dir }}). You may need to replace the prefix with the source_dir in the index file or Just delete
-            the index file to rebuild it.
-            """
-
-        for item in index_data.keys():
-            if not item.startswith(self.source_dir):
-                logger.warning(error_message(source_dir=self.source_dir, file_path=item))
-                break
-
-        updated_sources = []
-        wait_to_build_files = []
-        for source in self.sources:
-            source_code = source.source_code
-            md5 = hashlib.md5(source_code.encode("utf-8")).hexdigest()
-            if source.module_name not in index_data or index_data[source.module_name]["md5"] != md5:
-                wait_to_build_files.append(source)
-        counter = 0
-        num_files = len(wait_to_build_files)
-        total_files = len(self.sources)
-        logger.info(f"总文件数: {total_files}, 需要索引文件数: {num_files}")
-
-        for source in wait_to_build_files:
-            build_result = self.build_index_for_single_source(source)
-            if build_result is not None:
-                counter += 1
-                logger.info(f"正在构建索引:{counter}/{num_files}...")
-                module_name = build_result["module_name"]
-                index_data[module_name] = build_result
-                updated_sources.append(module_name)
-        if updated_sources:
-            with open(self.index_file, "w") as fp:
-                json_str = json.dumps(index_data, indent=2, ensure_ascii=False)
-                fp.write(json_str)
-        return index_data
-
-    def split_text_into_chunks(self, text):
-        """ 文本分块,将大文本分割成适合 LLM 处理的小块 """
-        lines = text.split("\n")
-        chunks = []
-        current_chunk = []
-        current_length = 0
-        for line in lines:
-            if current_length + len(line) + 1 <= self.max_input_length:
-                current_chunk.append(line)
-                current_length += len(line) + 1
-            else:
-                chunks.append("\n".join(current_chunk))
-                current_chunk = [line]
-                current_length = len(line) + 1
-        if current_chunk:
-            chunks.append("\n".join(current_chunk))
-        return chunks
-
-    @prompt()
-    def get_all_file_symbols(self, path: str, code: str) -> str:
-        """
-        你的目标是从给定的代码中获取代码里的符号，需要获取的符号类型包括：
-
-        1. 函数
-        2. 类
-        3. 变量
-        4. 所有导入语句
-
-        如果没有任何符号,返回空字符串就行。
-        如果有符号，按如下格式返回:
-
-        ```
-        {符号类型}: {符号名称}, {符号名称}, ...
-        ```
-
-        注意：
-        1. 直接输出结果，不要尝试使用任何代码
-        2. 不要分析代码的内容和目的
-        3. 用途的长度不能超过100字符
-        4. 导入语句的分隔符为^^
-
-        下面是一段示例：
-
-        ## 输入
-        下列是文件 /test.py 的源码：
-
-        import os
-        import time
-        from loguru import logger
-        import byzerllm
-
-        a = ""
-
-        @byzerllm.prompt(render="jinja")
-        def auto_implement_function_template(instruction:str, content:str)->str:
-
-        ## 输出
-        用途：主要用于提供自动实现函数模板的功能。
-        函数：auto_implement_function_template
-        变量：a
-        类：
-        导入语句：import os^^import time^^from loguru import logger^^import byzerllm
-
-        现在，让我们开始一个新的任务:
-
-        ## 输入
-        下列是文件 {{ path }} 的源码：
-
-        {{ code }}
-
-        ## 输出
-        """
-
-    def build_index_for_single_source(self, source: SourceCode):
-        """ 处理单个源文件，提取符号信息并存储元数据 """
-        file_path = source.module_name
-        if not os.path.exists(file_path):  # 过滤不存在的文件
-            return None
-
-        ext = os.path.splitext(file_path)[1].lower()
-        if ext in [".md", ".html", ".txt", ".doc", ".pdf"]:  # 过滤文档文件
-            return None
-
-        if source.source_code.strip() == "":
-            return None
-
-        md5 = hashlib.md5(source.source_code.encode("utf-8")).hexdigest()
-
-        try:
-            start_time = time.monotonic()
-            source_code = source.source_code
-            if len(source.source_code) > self.max_input_length:
-                logger.warning(
-                    f"警告[构建索引]: 源代码({source.module_name})长度过长 "
-                    f"({len(source.source_code)}) > 模型最大输入长度({self.max_input_length})，"
-                    f"正在分割为多个块..."
-                )
-                chunks = self.split_text_into_chunks(source_code)
-                symbols_list = []
-                for chunk in chunks:
-                    chunk_symbols = self.get_all_file_symbols.with_llm(self.llm).run(source.module_name, chunk)
-                    time.sleep(self.anti_quota_limit)
-                    symbols_list.append(chunk_symbols.output)
-                symbols = "\n".join(symbols_list)
-            else:
-                single_symbols = self.get_all_file_symbols.with_llm(self.llm).run(source.module_name, source_code)
-                symbols = single_symbols.output
-                time.sleep(self.anti_quota_limit)
-
-            logger.info(f"解析并更新索引：文件 {file_path}（MD5: {md5}），耗时 {time.monotonic() - start_time:.2f} 秒")
-        except Exception as e:
-            logger.warning(f"源文件 {file_path} 处理失败: {e}")
-            return None
-
-        return {
-            "module_name": source.module_name,
-            "symbols": symbols,
-            "last_modified": os.path.getmtime(file_path),
-            "md5": md5,
-        }
-
-    @prompt()
-    def _get_target_files_by_query(self, indices: str, query: str) -> str:
-        """
-        下面是已知文件以及对应的符号信息：
-
-        {{ indices }}
-
-        用户的问题是：
-
-        {{ query }}
-
-        现在，请根据用户的问题以及前面的文件和符号信息，寻找相关文件路径。返回结果按如下格式：
-
-        ```json
-        {
-            "file_list": [
-                {
-                    "file_path": "path/to/file.py",
-                    "reason": "The reason why the file is the target file"
-                },
-                {
-                    "file_path": "path/to/file.py",
-                    "reason": "The reason why the file is the target file"
-                }
-            ]
-        }
-        ```
-
-        如果没有找到，返回如下 json 即可：
-
-        ```json
-            {"file_list": []}
-        ```
-
-        请严格遵循以下步骤：
-
-        1. 识别特殊标记：
-           - 查找query中的 `@` 符号，它后面的内容是用户关注的文件路径。
-           - 查找query中的 `@@` 符号，它后面的内容是用户关注的符号（如函数名、类名、变量名）。
-
-        2. 匹配文件路径：
-           - 对于 `@` 标记，在indices中查找包含该路径的所有文件。
-           - 路径匹配应该是部分匹配，因为用户可能只提供了路径的一部分。
-
-        3. 匹配符号：
-           - 对于 `@@` 标记，在indices中所有文件的符号信息中查找该符号。
-           - 检查函数、类、变量等所有符号类型。
-
-        4. 分析依赖关系：
-           - 利用 "导入语句" 信息确定文件间的依赖关系。
-           - 如果找到了相关文件，也包括与之直接相关的依赖文件。
-
-        5. 考虑文件用途：
-           - 使用每个文件的 "用途" 信息来判断其与查询的相关性。
-
-        6. 请严格按格式要求返回结果,无需额外的说明
-
-        请确保结果的准确性和完整性，包括所有可能相关的文件。
-        """
-
-    def read_index(self) -> List[IndexItem]:
-        """ 读取并解析索引文件，将其转换为 IndexItem 对象列表 """
-        if not os.path.exists(self.index_file):
-            return []
-
-        with open(self.index_file, "r") as file:
-            index_data = json.load(file)
-
-        index_items = []
-        for module_name, data in index_data.items():
-            index_item = IndexItem(
-                module_name=module_name,
-                symbols=data["symbols"],
-                last_modified=data["last_modified"],
-                md5=data["md5"]
-            )
-            index_items.append(index_item)
-
-        return index_items
-
-    def _get_meta_str(self, includes: Optional[List[SymbolType]] = None):
-        index_items = self.read_index()
-        current_chunk = []
-        for item in index_items:
-            symbols_str = item.symbols
-            if includes:
-                symbol_info = extract_symbols(symbols_str)
-                symbols_str = symbols_info_to_str(symbol_info, includes)
-
-            item_str = f"##{item.module_name}\n{symbols_str}\n\n"
-            if len(current_chunk) > self.args.filter_batch_size:
-                yield "".join(current_chunk)
-                current_chunk = [item_str]
-            else:
-                current_chunk.append(item_str)
-        if current_chunk:
-            yield "".join(current_chunk)
-
-    def get_target_files_by_query(self, query: str):
-        """ 根据查询条件查找相关文件，考虑不同过滤级别 """
-        all_results = []
-        completed = 0
-        total = 0
-
-        includes = None
-        if self.args.index_filter_level == 0:
-            includes = [SymbolType.USAGE]
-        if self.args.index_filter_level >= 1:
-            includes = None
-
-        for chunk in self._get_meta_str(includes=includes):
-            result = self._get_target_files_by_query.with_llm(self.llm).with_return_type(FileList).run(chunk, query)
-            if result is not None:
-                all_results.extend(result.file_list)
-                completed += 1
-            else:
-                logger.warning(f"无法找到分块的目标文件。原因可能是模型响应未返回 JSON 格式数据，或返回的 JSON 为空。")
-            total += 1
-            time.sleep(self.anti_quota_limit)
-
-        logger.info(f"已完成 {completed}/{total} 个分块(基于查询条件)")
-        all_results = list({file.file_path: file for file in all_results}.values())
-        if self.args.index_filter_file_num > 0:
-            limited_results = all_results[: self.args.index_filter_file_num]
-            return FileList(file_list=limited_results)
-        return FileList(file_list=all_results)
-
-    @prompt()
-    def _get_related_files(self, indices: str, file_paths: str) -> str:
-        """
-        下面是所有文件以及对应的符号信息：
-
-        {{ indices }}
-
-        请参考上面的信息，找到被下列文件使用或者引用到的文件列表：
-
-        {{ file_paths }}
-
-        请按如下格式进行输出：
-
-        ```json
-        {
-            "file_list": [
-                {
-                    "file_path": "path/to/file.py",
-                    "reason": "The reason why the file is the target file"
-                },
-                {
-                    "file_path": "path/to/file.py",
-                    "reason": "The reason why the file is the target file"
-                }
-            ]
-        }
-        ```
-
-        如果没有相关的文件，输出如下 json 即可：
-
-        ```json
-        {"file_list": []}
-        ```
-
-        注意，
-        1. 找到的文件名必须出现在上面的文件列表中
-        2. 原因控制在20字以内, 且使用中文
-        3. 请严格按格式要求返回结果,无需额外的说明
-        """
-
-    def get_related_files(self, file_paths: List[str]):
-        """ 根据文件路径查询相关文件 """
-        all_results = []
-
-        completed = 0
-        total = 0
-
-        for chunk in self._get_meta_str():
-            result = self._get_related_files.with_llm(self.llm).with_return_type(
-                FileList).run(chunk, "\n".join(file_paths))
-            if result is not None:
-                all_results.extend(result.file_list)
-                completed += 1
-            else:
-                logger.warning(f"无法找到与分块相关的文件。原因可能是模型限制或查询条件与文件不匹配。")
-            total += 1
-            time.sleep(self.anti_quota_limit)
-        logger.info(f"已完成 {completed}/{total} 个分块(基于相关文件)")
-        all_results = list({file.file_path: file for file in all_results}.values())
-        return FileList(file_list=all_results)
-
-    @prompt()
-    def verify_file_relevance(self, file_content: str, query: str) -> str:
-        """
-        请验证下面的文件内容是否与用户问题相关:
-
-        文件内容:
-        {{ file_content }}
-
-        用户问题:
-        {{ query }}
-
-        相关是指，需要依赖这个文件提供上下文，或者需要修改这个文件才能解决用户的问题。
-        请给出相应的可能性分数：0-10，并结合用户问题，理由控制在50字以内，并且使用中文。
-        请严格按格式要求返回结果。
-        格式如下:
-
-        ```json
-        {
-            "relevant_score": 0-10,
-            "reason": "这是相关的原因..."
-        }
-        ```
-        """
-
-
 def index_command(llm):
-    conf = memory.get("conf", {})
-    # 默认 chat 配置
-    yaml_config = {
-        "include_file": ["./base/base.yml"],
-        "include_project_structure": conf.get("include_project_structure", "true") in ["true", "True"],
-        "human_as_model": conf.get("human_as_model", "false") == "true",
-        "skip_build_index": conf.get("skip_build_index", "true") == "true",
-        "skip_confirm": conf.get("skip_confirm", "true") == "true",
-        "silence": conf.get("silence", "true") == "true",
-        "query": ""
-    }
-    current_files = memory["current_files"]["files"]  # get_llm_friendly_package_docs
-    yaml_config["urls"] = current_files
-    yaml_config["query"] = ""
-
-    # 如果 conf 中有设置, 则以 conf 配置为主
-    for key, value in conf.items():
-        converted_value = convert_config_value(key, value)
-        if converted_value is not None:
-            yaml_config[key] = converted_value
-
-    yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
-    execute_file = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
-
-    with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
-        f.write(yaml_content)
-
-    convert_yaml_to_config(execute_file)  # 更新到args
+    update_config_to_args(query="", delete_execute_file=True)
 
     source_dir = os.path.abspath(args.source_dir)
     logger.info(f"开始对目录 {source_dir} 中的源代码进行索引")
@@ -1246,7 +825,7 @@ def index_command(llm):
         pp = SuffixProject(llm=llm, args=args)
     pp.run()
     _sources = pp.sources
-    index_manager = IndexManager(source_codes=_sources, llm=llm)
+    index_manager = IndexManager(args=args, source_codes=_sources, llm=llm)
     index_manager.build_index()
 
 
@@ -1332,34 +911,7 @@ def wrap_text_in_table(data, max_width=60):
 
 
 def index_query_command(query: str, llm: AutoLLM):
-    conf = memory.get("conf", {})
-    # 默认 chat 配置
-    yaml_config = {
-        "include_file": ["./base/base.yml"],
-        "include_project_structure": conf.get("include_project_structure", "true") in ["true", "True"],
-        "human_as_model": conf.get("human_as_model", "false") == "true",
-        "skip_build_index": conf.get("skip_build_index", "true") == "true",
-        "skip_confirm": conf.get("skip_confirm", "true") == "true",
-        "silence": conf.get("silence", "true") == "true",
-        "query": query
-    }
-    current_files = memory["current_files"]["files"]  # get_llm_friendly_package_docs
-    yaml_config["urls"] = current_files
-    yaml_config["query"] = query
-
-    # 如果 conf 中有设置, 则以 conf 配置为主
-    for key, value in conf.items():
-        converted_value = convert_config_value(key, value)
-        if converted_value is not None:
-            yaml_config[key] = converted_value
-
-    yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
-    execute_file = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
-
-    with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
-        f.write(yaml_content)
-
-    convert_yaml_to_config(execute_file)  # 更新到args
+    update_config_to_args(query=query, delete_execute_file=True)
 
     # args.query = query
     if args.project_type == "py":
@@ -1370,7 +922,7 @@ def index_query_command(query: str, llm: AutoLLM):
     _sources = pp.sources
 
     final_files = []
-    index_manager = IndexManager(source_codes=_sources, llm=llm)
+    index_manager = IndexManager(args=args, source_codes=_sources, llm=llm)
     target_files = index_manager.get_target_files_by_query(query)
 
     if target_files:
@@ -1395,159 +947,6 @@ def index_query_command(query: str, llm: AutoLLM):
     table_output = tabulate.tabulate(table_data, headers, tablefmt="grid")
     print(table_output, flush=True)
     return
-
-
-def build_index_and_filter_files(llm, sources: List[SourceCode]) -> str:
-    def get_file_path(_file_path):
-        if _file_path.startswith("##"):
-            return _file_path.strip()[2:]
-        return _file_path
-
-    final_files: Dict[str, TargetFile] = {}
-    logger.info("第一阶段：处理 REST/RAG/Search 资源...")
-    for source in sources:
-        if source.tag in ["REST", "RAG", "SEARCH"]:
-            final_files[get_file_path(source.module_name)] = TargetFile(
-                file_path=source.module_name, reason="Rest/Rag/Search"
-            )
-
-    if not args.skip_build_index and llm:
-        logger.info("第二阶段：为所有文件构建索引...")
-        index_manager = IndexManager(llm=llm, source_codes=sources)
-        index_data = index_manager.build_index()
-        indexed_files_count = len(index_data) if index_data else 0
-        logger.info(f"总索引文件数: {indexed_files_count}")
-
-        if not args.skip_filter_index and args.index_filter_level >= 1:
-            logger.info("第三阶段：执行 Level 1 过滤(基于查询) ...")
-            target_files = index_manager.get_target_files_by_query(args.query)
-            if target_files:
-                for file in target_files.file_list:
-                    file_path = file.file_path.strip()
-                    final_files[get_file_path(file_path)] = file
-
-            if target_files is not None and args.index_filter_level >= 2:
-                logger.info("第四阶段：执行 Level 2 过滤（基于相关文件）...")
-                related_files = index_manager.get_related_files(
-                    [file.file_path for file in target_files.file_list]
-                )
-                if related_files is not None:
-                    for file in related_files.file_list:
-                        file_path = file.file_path.strip()
-                        final_files[get_file_path(file_path)] = file
-
-            # 如果 Level 1 filtering 和 Level 2 filtering 都未获取路径，则使用全部文件
-            if not final_files:
-                logger.warning("Level 1, Level 2 过滤未找到相关文件, 将使用所有文件 ...")
-                for source in sources:
-                    final_files[get_file_path(source.module_name)] = TargetFile(
-                        file_path=source.module_name,
-                        reason="No related files found, use all files",
-                    )
-
-            logger.info("第五阶段：执行相关性验证 ...")
-            verified_files = {}
-            temp_files = list(final_files.values())
-            verification_results = []
-
-            def _print_verification_results(results):
-                table = Table(title="文件相关性验证结果", expand=True, show_lines=True)
-                table.add_column("文件路径", style="cyan", no_wrap=True)
-                table.add_column("得分", justify="right", style="green")
-                table.add_column("状态", style="yellow")
-                table.add_column("原因/错误")
-                if result:
-                    for _file_path, _score, _status, _reason in results:
-                        table.add_row(_file_path,
-                                      str(_score) if _score is not None else "N/A", _status, _reason)
-                console.print(table)
-
-            def _verify_single_file(single_file: TargetFile):
-                for _source in sources:
-                    if _source.module_name == single_file.file_path:
-                        file_content = _source.source_code
-                        try:
-                            _result = index_manager.verify_file_relevance.with_llm(llm).with_return_type(
-                                VerifyFileRelevance).run(
-                                file_content=file_content,
-                                query=args.query
-                            )
-                            if _result.relevant_score >= args.verify_file_relevance_score:
-                                verified_files[single_file.file_path] = TargetFile(
-                                    file_path=single_file.file_path,
-                                    reason=f"Score:{_result.relevant_score}, {_result.reason}"
-                                )
-                                return single_file.file_path, _result.relevant_score, "PASS", _result.reason
-                            else:
-                                return single_file.file_path, _result.relevant_score, "FAIL", _result.reason
-                        except Exception as e:
-                            error_msg = str(e)
-                            verified_files[single_file.file_path] = TargetFile(
-                                file_path=single_file.file_path,
-                                reason=f"Verification failed: {error_msg}"
-                            )
-                            return single_file.file_path, None, "ERROR", error_msg
-                return
-
-            for pending_verify_file in temp_files:
-                result = _verify_single_file(pending_verify_file)
-                if result:
-                    verification_results.append(result)
-                time.sleep(args.anti_quota_limit)
-
-            _print_verification_results(verification_results)
-            # Keep all files, not just verified ones
-            final_files = verified_files
-
-    logger.info("第六阶段：筛选文件并应用限制条件 ...")
-    if args.index_filter_file_num > 0:
-        logger.info(f"从 {len(final_files)} 个文件中获取前 {args.index_filter_file_num} 个文件(Limit)")
-    final_filenames = [file.file_path for file in final_files.values()]
-    if not final_filenames:
-        logger.warning("未找到目标文件，你可能需要重新编写查询并重试.")
-    if args.index_filter_file_num > 0:
-        final_filenames = final_filenames[: args.index_filter_file_num]
-
-    def _shorten_path(path: str, keep_levels: int = 3) -> str:
-        """
-        优化长路径显示，保留最后指定层级
-        示例：/a/b/c/d/e/f.py -> .../c/d/e/f.py
-        """
-        parts = path.split(os.sep)
-        if len(parts) > keep_levels:
-            return ".../" + os.sep.join(parts[-keep_levels:])
-        return path
-
-    def _print_selected(data):
-        table = Table(title="代码上下文文件", expand=True, show_lines=True)
-        table.add_column("文件路径", style="cyan")
-        table.add_column("原因", style="cyan")
-        for _file, _reason in data:
-            # 路径截取优化：保留最后 3 级路径
-            _processed_path = _shorten_path(_file, keep_levels=3)
-            table.add_row(_processed_path, _reason)
-        console.print(table)
-
-    logger.info("第七阶段：准备最终输出 ...")
-    _print_selected(
-        [
-            (file.file_path, file.reason)
-            for file in final_files.values()
-            if file.file_path in final_filenames
-        ]
-    )
-    result_source_code = ""
-    depulicated_sources = set()
-
-    for file in sources:
-        if file.module_name in final_filenames:
-            if file.module_name in depulicated_sources:
-                continue
-            depulicated_sources.add(file.module_name)
-            result_source_code += f"##File: {file.module_name}\n"
-            result_source_code += f"{file.source_code}\n\n"
-
-    return result_source_code
 
 
 def convert_yaml_config_to_str(yaml_config):
@@ -1598,6 +997,41 @@ def convert_config_value(key, value):
         return None
 
 
+def update_config_to_args(query, delete_execute_file: bool = False):
+    conf = memory.get("conf", {})
+
+    # 默认 chat 配置
+    yaml_config = {
+        "include_file": ["./base/base.yml"],
+        "skip_build_index": conf.get("skip_build_index", "true") == "true",
+        "skip_confirm": conf.get("skip_confirm", "true") == "true",
+        "chat_model": conf.get("chat_model", ""),
+        "code_model": conf.get("code_model", ""),
+        "auto_merge": conf.get("auto_merge", "editblock")
+    }
+    current_files = memory["current_files"]["files"]
+    yaml_config["urls"] = current_files
+    yaml_config["query"] = query
+
+    # 如果 conf 中有设置, 则以 conf 配置为主
+    for key, value in conf.items():
+        converted_value = convert_config_value(key, value)
+        if converted_value is not None:
+            yaml_config[key] = converted_value
+
+    yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
+    execute_file = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
+
+    with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
+        f.write(yaml_content)
+
+    convert_yaml_to_config(execute_file)  # 更新到args
+
+    if delete_execute_file:
+        if os.path.exists(execute_file):
+            os.remove(execute_file)
+
+
 def print_chat_history(history, max_entries=5):
     recent_history = history[-max_entries:]
     table = Table(show_header=False, padding=(0, 1), expand=True, show_lines=True)
@@ -1638,6 +1072,8 @@ def code_review(query: str) -> str:
 
 
 def chat(query: str, llm: AutoLLM):
+    update_config_to_args(query)
+
     is_history = query.strip().startswith("/history")
     is_new = "/new" in query
     if is_new:
@@ -1651,36 +1087,6 @@ def chat(query: str, llm: AutoLLM):
         if is_review:
             query = query.replace("/review", "", 1).strip()
             query = code_review.prompt(query)
-
-    conf = memory.get("conf", {})
-    # 默认 chat 配置
-    yaml_config = {
-        "include_file": ["./base/base.yml"],
-        "include_project_structure": conf.get("include_project_structure", "true") in ["true", "True"],
-        "human_as_model": conf.get("human_as_model", "false") == "true",
-        "skip_build_index": conf.get("skip_build_index", "true") == "true",
-        "skip_confirm": conf.get("skip_confirm", "true") == "true",
-        "silence": conf.get("silence", "true") == "true",
-        "query": query
-    }
-    current_files = memory["current_files"]["files"]  # get_llm_friendly_package_docs
-    yaml_config["urls"] = current_files
-
-    yaml_config["query"] = query
-
-    # 如果 conf 中有设置, 则以 conf 配置为主
-    for key, value in conf.items():
-        converted_value = convert_config_value(key, value)
-        if converted_value is not None:
-            yaml_config[key] = converted_value
-
-    yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
-    execute_file = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
-
-    with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
-        f.write(yaml_content)
-
-    convert_yaml_to_config(execute_file)  # 更新到args
 
     memory_dir = os.path.join(args.source_dir, ".auto-coder", "memory")
     os.makedirs(memory_dir, exist_ok=True)
@@ -1745,7 +1151,7 @@ def chat(query: str, llm: AutoLLM):
         pp = SuffixProject(llm=llm, args=args)
     pp.run()
     _sources = pp.sources
-    s = build_index_and_filter_files(llm=llm, sources=_sources)
+    s = build_index_and_filter_files(args=args, llm=llm, sources=_sources)
     if s:
         pre_conversations.append(
             {
@@ -1760,7 +1166,7 @@ def chat(query: str, llm: AutoLLM):
 
     loaded_conversations = pre_conversations + chat_history["ask_conversation"]
 
-    v = chat_llm.stream_chat_ai(conversations=loaded_conversations, model=memory["conf"]["current_chat_model"])
+    v = chat_llm.stream_chat_ai(conversations=loaded_conversations, model=args.chat_model)
 
     MAX_HISTORY_LINES = 15  # 最大保留历史行数
     lines_buffer = []
@@ -1913,7 +1319,7 @@ def load_include_files(config, base_path, max_depth=10, current_depth=0):
 class CodeAutoGenerateEditBlock:
     def __init__(self, llm: AutoLLM, action=None, fence_0: str = "```", fence_1: str = "```"):
         self.llm = llm
-        self.llm.setup_default_model_name(memory["conf"]["current_code_model"])
+        # self.llm.setup_default_model_name(memory["conf"]["current_code_model"])
         self.args = args
         self.action = action
         self.fence_0 = fence_0
@@ -2108,7 +1514,7 @@ class CodeAutoGenerateEditBlock:
         results = []
 
         for llm in self.llms:
-            v = llm.chat_ai(conversations=conversations)
+            v = llm.chat_ai(conversations=conversations, model=args.code_model)
             results.append(v.output)
         for result in results:
             conversations_list.append(conversations + [{"role": "assistant", "content": result}])
@@ -2285,7 +1691,7 @@ class CodeAutoGenerateEditBlock:
         conversations = [{"role": "user", "content": init_prompt}]
 
         code_llm = self.llms[0]
-        v = code_llm.chat_ai(conversations=conversations)
+        v = code_llm.chat_ai(conversations=conversations, model=args.code_model)
         results.append(v.output)
 
         conversations.append({"role": "assistant", "content": v.output})
@@ -2301,7 +1707,7 @@ class CodeAutoGenerateEditBlock:
             with open(self.args.target_file, "w") as file:
                 file.write("继续")
 
-            t = code_llm.chat_ai(conversations=conversations)
+            t = code_llm.chat_ai(conversations=conversations, model=args.code_model)
 
             results.append(t.output)
             conversations.append({"role": "assistant", "content": t.output})
@@ -2316,7 +1722,7 @@ class CodeAutoGenerateEditBlock:
 class CodeModificationRanker:
     def __init__(self, llm: AutoLLM):
         self.llm = llm
-        self.llm.setup_default_model_name(memory["conf"]["current_code_model"])
+        self.llm.setup_default_model_name(args.code_model)
         self.args = args
         self.llms = [self.llm]
 
@@ -2436,7 +1842,7 @@ class TextSimilarity:
 class CodeAutoMergeEditBlock:
     def __init__(self, llm: AutoLLM, fence_0: str = "```", fence_1: str = "```"):
         self.llm = llm
-        self.llm.setup_default_model_name(memory["conf"]["current_code_model"])
+        self.llm.setup_default_model_name(args.code_model)
         self.args = args
         self.fence_0 = fence_0
         self.fence_1 = fence_1
@@ -2825,7 +2231,7 @@ class ActionPyProject(BaseAction):
         pp.run()
         source_code = pp.output()
         if self.llm:
-            source_code = build_index_and_filter_files(llm=self.llm, sources=pp.sources)
+            source_code = build_index_and_filter_files(args=args, llm=self.llm, sources=pp.sources)
         self.process_content(source_code)
         return True
 
@@ -2884,7 +2290,7 @@ class ActionSuffixProject(BaseAction):
         pp.run()
         source_code = pp.output()
         if self.llm:
-            source_code = build_index_and_filter_files(llm=self.llm, sources=pp.sources)
+            source_code = build_index_and_filter_files(args=args, llm=self.llm, sources=pp.sources)
         self.process_content(source_code)
 
     def process_content(self, content: str):
@@ -3003,12 +2409,11 @@ def coding(query: str, llm: AutoLLM):
     if latest_yaml_file:
         yaml_config = {
             "include_file": ["./base/base.yml"],
-            "auto_merge": conf.get("auto_merge", "editblock"),
-            "human_as_model": conf.get("human_as_model", "false") == "true",
             "skip_build_index": conf.get("skip_build_index", "true") == "true",
             "skip_confirm": conf.get("skip_confirm", "true") == "true",
-            "silence": conf.get("silence", "true") == "true",
-            "include_project_structure": conf.get("include_project_structure", "true") == "true",
+            "chat_model": conf.get("chat_model", ""),
+            "code_model": conf.get("code_model", ""),
+            "auto_merge": conf.get("auto_merge", "editblock"),
             "context": ""
         }
 
@@ -3133,28 +2538,26 @@ def commit_info(query: str, llm: AutoLLM):
     prepare_chat_yaml()  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
 
     latest_yaml_file = get_last_yaml_file(os.path.join(args.source_dir, "actions"))
-
-    conf = memory.get("conf", {})
-    current_files = memory["current_files"]["files"]
     execute_file = None
 
     if latest_yaml_file:
         try:
             execute_file = os.path.join(args.source_dir, "actions", latest_yaml_file)
+            conf = memory.get("conf", {})
             yaml_config = {
                 "include_file": ["./base/base.yml"],
-                "auto_merge": conf.get("auto_merge", "editblock"),
-                "human_as_model": conf.get("human_as_model", "false") == "true",
                 "skip_build_index": conf.get("skip_build_index", "true") == "true",
                 "skip_confirm": conf.get("skip_confirm", "true") == "true",
-                "silence": conf.get("silence", "true") == "true",
-                "include_project_structure": conf.get("include_project_structure", "true") == "true",
+                "chat_model": conf.get("chat_model", ""),
+                "code_model": conf.get("code_model", ""),
+                "auto_merge": conf.get("auto_merge", "editblock")
             }
             for key, value in conf.items():
                 converted_value = convert_config_value(key, value)
                 if converted_value is not None:
                     yaml_config[key] = converted_value
 
+            current_files = memory["current_files"]["files"]
             yaml_config["urls"] = current_files
 
             # 临时保存yaml文件，然后读取yaml文件，更新args
@@ -3169,7 +2572,7 @@ def commit_info(query: str, llm: AutoLLM):
 
             # commit_message = ""
             commit_llm = llm
-            commit_llm.setup_default_model_name(memory["conf"]["current_chat_model"])
+            commit_llm.setup_default_model_name(args.chat_model)
             console.print(f"Commit 信息生成中...", style="yellow")
 
             try:
@@ -3239,20 +2642,7 @@ def _generate_shell_script(user_input: str) -> str:
 
 
 def generate_shell_command(input_text: str, llm: AutoLLM) -> str | None:
-    conf = memory.get("conf", {})
-    yaml_config = {
-        "include_file": ["./base/base.yml"],
-    }
-    if "model" in conf:
-        yaml_config["model"] = conf["model"]
-    yaml_config["query"] = input_text
-
-    yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
-
-    execute_file = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
-
-    with open(os.path.join(execute_file), "w") as f:
-        f.write(yaml_content)
+    update_config_to_args(query=input_text, delete_execute_file=True)
 
     try:
         console.print(
@@ -3262,7 +2652,7 @@ def generate_shell_command(input_text: str, llm: AutoLLM) -> str | None:
                 border_style="green",
             )
         )
-        llm.setup_default_model_name(memory["conf"]["current_code_model"])
+        llm.setup_default_model_name(args.code_model)
         result = _generate_shell_script.with_llm(llm).run(user_input=input_text)
         shell_script = extract_code(result.output)[0][1]
         console.print(
@@ -3274,7 +2664,8 @@ def generate_shell_command(input_text: str, llm: AutoLLM) -> str | None:
         )
         return shell_script
     finally:
-        os.remove(execute_file)
+        pass
+        # os.remove(execute_file)
 
 
 def execute_shell_command(command: str):
@@ -3884,10 +3275,10 @@ def manage_models(models_args, models_data, llm: AutoLLM):
         logger.info(f"正在卸载 {remove_model_name} 模型")
         if llm.get_sub_client(remove_model_name):
             llm.remove_sub_client(remove_model_name)
-        if remove_model_name == memory["conf"]["current_chat_model"]:
-            logger.warning(f"当前首选 Chat 模型 {remove_model_name} 已被删除, 请立即 /conf current_chat_model: 调整 !!!")
-        if remove_model_name == memory["conf"]["current_code_model"]:
-            logger.warning(f"当前首选 Code 模型 {remove_model_name} 已被删除, 请立即 /conf current_code_model: 调整 !!!")
+        if remove_model_name == memory["conf"]["chat_model"]:
+            logger.warning(f"当前首选 Chat 模型 {remove_model_name} 已被删除, 请立即 /conf chat_model: 调整 !!!")
+        if remove_model_name == memory["conf"]["code_model"]:
+            logger.warning(f"当前首选 Code 模型 {remove_model_name} 已被删除, 请立即 /conf code_model: 调整 !!!")
 
 
 def configure_project_model():
@@ -3958,58 +3349,71 @@ def configure_project_model():
     )
 
 
-def new_project(query, llm):
-    console.print(f"正在基于你的需求 {query} 构建项目 ...", style="bold green")
-    env_info = detect_env()
-    project = BuildNewProject(args=args, llm=llm,
-                              chat_model=memory["conf"]["current_chat_model"],
-                              code_model=memory["conf"]["current_code_model"])
+# def new_project(query, llm):
+#     console.print(f"正在基于你的需求 {query} 构建项目 ...", style="bold green")
+#     env_info = detect_env()
+#     project = BuildNewProject(args=args, llm=llm,
+#                               chat_model=memory["conf"]["chat_model"],
+#                               code_model=memory["conf"]["code_model"])
+#
+#     console.print(f"正在完善项目需求 ...", style="bold green")
+#
+#     information = project.build_project_information(query, env_info, args.project_type)
+#     if not information:
+#         raise Exception(f"项目需求未正常生成 .")
+#
+#     table = Table(title=f"{query}")
+#     table.add_column("需求说明", style="cyan")
+#     table.add_row(f"{information[:50]}...")
+#     console.print(table)
+#
+#     console.print(f"正在完善项目架构 ...", style="bold green")
+#     architecture = project.build_project_architecture(query, env_info, args.project_type, information)
+#
+#     console.print(f"正在构建项目索引 ...", style="bold green")
+#     index_file_list = project.build_project_index(query, env_info, args.project_type, information, architecture)
+#
+#     table = Table(title=f"索引列表")
+#     table.add_column("路径", style="cyan")
+#     table.add_column("用途", style="cyan")
+#     for index_file in index_file_list.file_list:
+#         table.add_row(index_file.file_path, index_file.purpose)
+#     console.print(table)
+#
+#     for index_file in index_file_list.file_list:
+#         full_path = os.path.join(args.source_dir, index_file.file_path)
+#
+#         # 获取目录路径
+#         full_dir_path = os.path.dirname(full_path)
+#         if not os.path.exists(full_dir_path):
+#             os.makedirs(full_dir_path)
+#
+#         console.print(f"正在编码: {full_path} ...", style="bold green")
+#         code = project.build_single_code(query, env_info, args.project_type, information, architecture, index_file)
+#
+#         with open(full_path, "w") as fp:
+#             fp.write(code)
+#
+#     # 生成 readme
+#     readme_context = information + architecture
+#     readme_path = os.path.join(args.source_dir, "README.md")
+#     with open(readme_path, "w") as fp:
+#         fp.write(readme_context)
+#
+#     console.print(f"项目构建完成", style="bold green")
 
-    console.print(f"正在完善项目需求 ...", style="bold green")
 
-    information = project.build_project_information(query, env_info, args.project_type)
-    if not information:
-        raise Exception(f"项目需求未正常生成 .")
-
-    table = Table(title=f"{query}")
-    table.add_column("需求说明", style="cyan")
-    table.add_row(f"{information[:50]}...")
-    console.print(table)
-
-    console.print(f"正在完善项目架构 ...", style="bold green")
-    architecture = project.build_project_architecture(query, env_info, args.project_type, information)
-
-    console.print(f"正在构建项目索引 ...", style="bold green")
-    index_file_list = project.build_project_index(query, env_info, args.project_type, information, architecture)
-
-    table = Table(title=f"索引列表")
-    table.add_column("路径", style="cyan")
-    table.add_column("用途", style="cyan")
-    for index_file in index_file_list.file_list:
-        table.add_row(index_file.file_path, index_file.purpose)
-    console.print(table)
-
-    for index_file in index_file_list.file_list:
-        full_path = os.path.join(args.source_dir, index_file.file_path)
-
-        # 获取目录路径
-        full_dir_path = os.path.dirname(full_path)
-        if not os.path.exists(full_dir_path):
-            os.makedirs(full_dir_path)
-
-        console.print(f"正在编码: {full_path} ...", style="bold green")
-        code = project.build_single_code(query, env_info, args.project_type, information, architecture, index_file)
-
-        with open(full_path, "w") as fp:
-            fp.write(code)
-
-    # 生成 readme
-    readme_context = information + architecture
-    readme_path = os.path.join(args.source_dir, "README.md")
-    with open(readme_path, "w") as fp:
-        fp.write(readme_context)
-
-    console.print(f"项目构建完成", style="bold green")
+def is_old_version():
+    """
+    __version__ = "0.1.26" 开始使用兼容 AutoCoder 的 chat_model, code_model 参数
+    不再使用 current_chat_model 和 current_chat_model
+    """
+    if 'current_chat_model' in memory['conf'] and 'current_code_model' in memory['conf']:
+        logger.warning(f"您当前版本使用的版本偏低, 正在进行配置兼容性处理")
+        memory['conf']['chat_model'] = memory['conf']['current_chat_model']
+        memory['conf']['code_model'] = memory['conf']['current_code_model']
+        del memory['conf']['current_chat_model']
+        del memory['conf']['current_code_model']
 
 
 def main():
@@ -4021,14 +3425,15 @@ def main():
         initialize_system()
 
     load_memory()
+    is_old_version()
 
     if len(memory["models"]) == 0:
         _model_pass = input(f"  是否跳过模型配置(y/n): ").strip().lower()
         if _model_pass == "n":
             m1, m2, m3, m4 = configure_project_model()
             print_status(f"正在更新缓存...", "warning")
-            memory["conf"]["current_chat_model"] = m1
-            memory["conf"]["current_code_model"] = m1
+            memory["conf"]["chat_model"] = m1
+            memory["conf"]["code_model"] = m1
             memory["models"][m1] = {"base_url": m3, "api_key": m4, "model": m2}
             print_status(f"供应商配置已成功完成！后续你可以使用 /models 命令, 查看, 新增和修改所有模型", "success")
         else:
@@ -4046,10 +3451,10 @@ def main():
 
     print_status("初始化完成。", "success")
 
-    if memory["conf"]["current_chat_model"] not in memory["models"].keys():
-        print_status("首选 Chat 模型与部署模型不一致, 请使用 /conf current_chat_model:xxx 设置", "error")
-    if memory["conf"]["current_code_model"] not in memory["models"].keys():
-        print_status("首选 Code 模型与部署模型不一致, 请使用 /conf current_code_model:xxx 设置", "error")
+    if memory["conf"]["chat_model"] not in memory["models"].keys():
+        print_status("首选 Chat 模型与部署模型不一致, 请使用 /conf chat_model:xxx 设置", "error")
+    if memory["conf"]["code_model"] not in memory["models"].keys():
+        print_status("首选 Code 模型与部署模型不一致, 请使用 /conf code_model:xxx 设置", "error")
 
     MODES = {
         "normal": "正常模式",
@@ -4180,12 +3585,12 @@ def main():
                     print("\033[91mPlease enter your request.\033[0m")
                     continue
                 coding(query=query, llm=auto_llm)
-            elif user_input.startswith("/new"):
-                query = user_input[len("/new"):].strip()
-                if not query:
-                    print("\033[91mPlease enter your request.\033[0m")
-                    continue
-                new_project(query=query, llm=auto_llm)
+            # elif user_input.startswith("/new"):
+            #     query = user_input[len("/new"):].strip()
+            #     if not query:
+            #         print("\033[91mPlease enter your request.\033[0m")
+            #         continue
+            #     new_project(query=query, llm=auto_llm)
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:
@@ -4223,9 +3628,9 @@ def main():
             break
         except Exception as e:
             print(f"\033[91m发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
-            if runing_args and runing_args.debug:
-                import traceback
-                traceback.print_exc()
+            # if runing_args and runing_args.debug:
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == '__main__':
