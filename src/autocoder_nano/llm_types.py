@@ -36,6 +36,7 @@ class AutoCoderArgs(BaseModel):
     model_max_input_length: Optional[int] = 6000  # 模型最大输入长度
     skip_confirm: Optional[bool] = False
     silence: Optional[bool] = False
+    exclude_files: Optional[Union[str, List[str]]] = ""
 
     # RAG 相关参数
     rag_url: Optional[str] = ""

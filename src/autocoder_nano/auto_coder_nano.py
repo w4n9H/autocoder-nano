@@ -52,7 +52,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 #                        ".vscode", ".idea", ".hg"]
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
-    "/index/build", "/exclude_dirs", "/help", "/shell", "/exit", "/mode", "/models", "/commit", "/new"
+    "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit", "/new"
 ]
 
 memory = {
@@ -197,7 +197,9 @@ COMMANDS = {
         "/conf": "",
         "/mode": "",
         "/models": ""
-    }
+    },
+    "/exclude_files": {"/list", "/drop"},
+    "/exclude_dirs": {}
 }
 
 
@@ -772,6 +774,66 @@ def load_memory():
     completer.update_current_files(memory["current_files"]["files"])
 
 
+def exclude_dirs(dir_names: List[str]):
+    new_dirs = dir_names
+    existing_dirs = memory.get("exclude_dirs", [])
+    dirs_to_add = [d for d in new_dirs if d not in existing_dirs]
+
+    if dirs_to_add:
+        existing_dirs.extend(dirs_to_add)
+        if "exclude_dirs" not in memory:
+            memory["exclude_dirs"] = existing_dirs
+        print(f"Added exclude dirs: {dirs_to_add}")
+        for d in dirs_to_add:
+            exclude_files(f"regex://.*/{d}/*.")
+        # exclude_files([f"regex://.*/{d}/*." for d in dirs_to_add])
+    else:
+        print("All specified dirs are already in the exclude list.")
+    save_memory()
+    completer.refresh_files()
+
+
+def exclude_files(query: str):
+    if "/list" in query:
+        query = query.replace("/list", "", 1).strip()
+        existing_file_patterns = memory.get("exclude_files", [])
+
+        # 打印表格
+        table = Table(title="Exclude Files")
+        table.add_column("File Pattern")
+        for file_pattern in existing_file_patterns:
+            table.add_row(file_pattern)
+        console.print(table)
+        return
+
+    if "/drop" in query:
+        query = query.replace("/drop", "", 1).strip()
+        existing_file_patterns = memory.get("exclude_files", [])
+        existing_file_patterns.remove(query.strip())
+        memory["exclude_files"] = existing_file_patterns
+        save_memory()
+        completer.refresh_files()
+        return
+
+    new_file_patterns = query.strip().split(",")
+
+    existing_file_patterns = memory.get("exclude_files", [])
+    file_patterns_to_add = [f for f in new_file_patterns if f not in existing_file_patterns]
+
+    for file_pattern in file_patterns_to_add:
+        if not file_pattern.startswith("regex://"):
+            raise
+
+    if file_patterns_to_add:
+        existing_file_patterns.extend(file_patterns_to_add)
+        if "exclude_files" not in memory:
+            memory["exclude_files"] = existing_file_patterns
+        save_memory()
+        print(f"Added exclude files: {file_patterns_to_add}")
+    else:
+        print("All specified files are already in the exclude list.")
+
+
 def index_command(llm):
     update_config_to_args(query="", delete_execute_file=True)
 
@@ -965,7 +1027,8 @@ def update_config_to_args(query, delete_execute_file: bool = False):
         "skip_confirm": conf.get("skip_confirm", "true") == "true",
         "chat_model": conf.get("chat_model", ""),
         "code_model": conf.get("code_model", ""),
-        "auto_merge": conf.get("auto_merge", "editblock")
+        "auto_merge": conf.get("auto_merge", "editblock"),
+        "exclude_files": memory.get("exclude_files", [])
     }
     current_files = memory["current_files"]["files"]
     yaml_config["urls"] = current_files
@@ -2509,6 +2572,12 @@ def main():
                     print(f"{memory['mode']} [{MODES[memory['mode']]}]")
                 else:
                     memory["mode"] = conf
+            elif user_input.startswith("/exclude_dirs"):
+                dir_names = user_input[len("/exclude_dirs"):].strip().split(",")
+                exclude_dirs(dir_names)
+            elif user_input.startswith("/exclude_files"):
+                query = user_input[len("/exclude_files"):].strip()
+                exclude_files(query)
             else:
                 command = user_input
                 if user_input.startswith("/shell"):
