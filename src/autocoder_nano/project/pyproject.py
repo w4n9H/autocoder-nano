@@ -15,7 +15,7 @@ class PyProject:
         self.args = args
         self.target_file = args.target_file
         self.directory = args.source_dir
-        self.exclude_files = exclude_files
+        self.exclude_files = args.exclude_files
         self.exclude_patterns = self.parse_exclude_files(self.exclude_files)
         self.sources = []
         self.sources_set = set()

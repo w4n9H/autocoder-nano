@@ -20,7 +20,7 @@ class SuffixProject:
             suffix.strip() if suffix.startswith(".") else f".{suffix.strip()}"
             for suffix in self.project_type.split(",") if suffix.strip()
         ]
-        self.exclude_files = exclude_files
+        self.exclude_files = args.exclude_files
         self.exclude_patterns = self.parse_exclude_files(self.exclude_files)
         self.sources = []
         self.sources_set = set()

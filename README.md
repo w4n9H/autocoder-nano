@@ -1,22 +1,36 @@
-# autocoder-nano
+## 概述
 
-AutoCoder 社区是一个致力于简化开发者代码开发流程，提升开发效率的社区，开发有 auto-coder.chat (lite/pro), byzerllm 等项目，
-autocoder-nano 是 AutoCoder 社区的全新成员，基于 auto-coder.chat 功能简化，可以理解成 auto-coder.chat 的轻量级版本。
+AutoCoder Nano 是一款轻量级的编码助手, 利用大型语言模型（LLMs）帮助开发者编写, 理解和修改代码。
 
-#### nano/lite/pro 有什么区别？
+它提供了一个交互式命令行界面，支持在软件开发场景中与LLMs互动，具备代码生成, 文件管理和上下文代码理解等功能。
+
+本概述介绍了 AutoCoder Nano 的用途, 架构和核心组件。如需了解更多子系统的详细信息，请参阅相关页面，例如
+
+- 命令行界面
+- LLM集成
+- RAG系统
+
+### 1.什么是 AutoCoder Nano？
+
+AutoCoder Nano 是 Auto-Coder 生态系统的简化版本，设计轻量且依赖极少。它旨在通过提供增强AI功能的命令行界面，弥合自然语言指令与代码修改之间的鸿沟。
+ 
+Auto-Coder 主社区[点击跳转](https://github.com/allwefantasy/auto-coder)
+
+**AutoCoder Nano 的主要特点：**
+
+- 轻量级：依赖极少，代码库精简 
+- 交互式：支持丰富补全和建议的命令行界面 
+- AI驱动：集成多种大型语言模型 
+- 上下文感知：利用文件索引和检索实现上下文理解 
+- 多功能：支持多种项目类型和编程语言
+
+**nano/lite/pro 有什么区别？**
 
 - Pro：分布式架构，支持分布式部署模型，支持开源/SaaS模型管理，独特的 `human_as_model` 模式，RAG 支持，Design 设计支持，MCP支持，联网搜索支持，全局记忆支持，适合深度使用各种大模型的用户。
 - Lite：放弃分布式架构，部分功能无法使用，主要针对 Windows 用户（第三方库兼容问题），以及需要快速启动并使用 auto-coder.chat 的用户。
 - Nano：同样放弃分布式架构，为 auto-coder.chat 的移植版本，支持 `/chat`，`/coding`， `/文件管理`，`/索引管理` 等功能，依赖及代码极致精简，适合想要了解大模型辅助编程原理，以及想要实现自己辅助编程框架的用户
 
-#### 为何选择 autocoder-nano？
-
-- 轻量高效：无需复杂部署，极致精简，即装即用，使用 auto-coder 前可以先通过 autocoder-nano 熟悉相关功能。
-- 灵活扩展：第三方依赖及代码精简，非常适合学习及魔改，同时兼容主流大模型，开发者可定制私有化模型链路。
-- 场景全覆盖：从代码生成到运维脚本，一站式解决开发需求。
-- 开源友好：持续迭代中，欢迎贡献代码与反馈！
-
-#### autocoder-nano 的迭代方向
+**autocoder-nano 的迭代方向：**
 
 - 代码结构优化，便于后续维护及其他开发者魔改
 - 并发支持，开发更大的项目
@@ -24,374 +38,369 @@ autocoder-nano 是 AutoCoder 社区的全新成员，基于 auto-coder.chat 功�
 - 候选模型支持，首选模型异常时进行切换
 - RAG能力，支持一个简化的知识库，增强代码能力
 
----
+### 2.系统架构
 
-## 核心功能
+AutoCoder Nano 采用模块化架构，以命令行界面为核心，连接多个子系统。
 
-#### 配置即服务
+#### 2.1.高级架构图
 
-- 开箱即用：项目初始化向导引导配置，5 分钟即可上手。
-- 动态配置：通过 `/conf` 命令实时调整项目类型，模型选择，索引策略等参数。
+### 3.核心组件
 
-#### 智能代码生成
+#### 3.1.命令行界面（CLI）
 
-- 精准控制：通过 `/coding` 命令结合 `@文件` 或 `@@符号`，实现函数级代码生成与修改。
-- 多语言支持：原生支持 Python、TypeScript/JavaScript 等语言，灵活适配混合语言项目。
-- 历史上下文：使用 `/coding /apply` 将对话历史融入代码生成，确保逻辑连贯性。
+CLI 是用户与 AutoCoder Nano 交互的主要入口，负责解析用户命令, 提供自动补全并显示响应。
 
-#### 大模型交互与配置
+主要功能：
 
-- 灵活模型管理：支持 OpenAI 格式的模型接入，一键添加、删除、检测模型状态。
-- 双模型策略：独立配置对话/索引模型（current_chat_model）与代码生成模型（current_code_model），满足不同场景需求。
+- 命令解析与补全 
+- 文件和符号建议 
+- 响应内容的富文本渲染 
+- 交互式会话管理
 
-#### 智能文件管理
+CLI 支持多种命令类别：
 
-- 自动/手动模式：支持自动索引构建或手动管理活动文件。
-- 文件组管理：通过分组快速切换上下文，提升多模块协作效率，轻松实现前后端配合开发。
+| 命令类别     | 示例命令                                         | 用途                  |
+|----------|----------------------------------------------|---------------------|
+| **对话**   | `/chat`, `/coding`                           | 与LLM交互，处理通用查询或代码生成  |
+| **文件管理** | `/add_files`, `/remove_files`, `/list_files` | 管理当前上下文中的活动文件       |
+| **配置**   | `/conf`, `/mode`                             | 配置系统设置和行为           |
+| **模型管理** | `/models /add_model`, `/models /list`        | 管理LLM集成设置           |
+| **索引**   | `/index/build`, `/index/query`               | 构建和查询代码索引           |
+| **工具**   | `/help`, `/shell`, `/exit`                   | 获取帮助、执行Shell命令或退出应用 |
 
-#### 自然语言编程
 
-- 指令即代码：直接输入自然语言，自动生成并执行 Shell/Python 脚本。
-- 模式切换：快捷键 Ctrl+K 快速进入自然语言模式，无缝衔接开发与运维任务。
+#### 3.2.内存系统
 
----
+AutoCoder Nano 使用内存字典存储以下状态：
 
-## 使用场景
+- 对话历史, 即与大模型 `/chat` 的历史
+- 活动文件及文件组 
+- 配置设置 
+- 模型配置 
+- 目录排除设置
 
-1. 代码维护：快速理解项目结构，生成函数级注释或单元测试。
-2. 效率提升：通过自然语言指令完成文件清理、批量重命名等重复任务。
-3. 混合开发：管理多语言项目，智能分析文件依赖关系。
-4. 模型实验：灵活切换不同大模型，对比生成效果，找到最优配置。
+```python
+memory = {
+    "conversation": [],  # 对话历史
+    "current_files": {"files": [], "groups": {}},  # 文件管理
+    "conf": {  # 配置设置
+        "auto_merge": "editblock",
+        "chat_model": "",
+        "code_model": "",
+    },
+    "exclude_dirs": [],  # 目录排除设置
+    "mode": "normal",  # 新增mode字段,默认为normal模式
+    "models": {}  # 模型配置 
+}
+```
 
----
+内存系统支持会话间持久化，确保复杂项目的连续性。
 
-* [安装](#安装)
-* [快速开始](#快速开始)
-* [模型管理](#模型管理)
-* [配置管理](#配置管理)
-* [文件管理](#文件管理)
-* [索引管理](#索引管理)
-* [Chat和Coding](#Chat和Coding)
-* [自然语言模式](#自然语言模式)
 
----
+#### 3.3.项目管理
 
-## 安装
+AutoCoder Nano 支持多种项目类型, 并提供针对性支持:
+
+- Python项目: 处理模块、导入和结构 
+- TypeScript项目: 支持TypeScript/JavaScript文件及依赖 
+- 自定义项目: 基于文件扩展名的通用支持
+
+项目管理子系统负责理解代码库结构, 识别相关文件, 并为LLM提供适当的上下文。
+
+#### 3.4.LLM集成
+
+LLM集成子系统通过以下方式连接 AutoCoder Nano 与多种大型语言模型：
+
+- 模型配置与选择 
+- API通信 
+- 响应处理 
+- Token管理
+
+AutoCoder Nano 支持为聊天/索引和代码生成配置不同模型，以优化任务性能。
+
+
+### 4.用户工作流
+
+#### 4.1.项目初始化与配置
+
+1. 通过 `/chat` 询问有关代码的问题。 
+2. 对于现有项目，配置项目语言（`/conf project_type:py`） 
+3. 配置大语言模型（`/models /add_model`）后 
+4. 即可使用 `/coding` 生成修改代码
+5. `/coding/apply` 使用聊天历史记录
+6. `/index` 管理代码索引
+7. `/models` 配置模型。
+
+#### 4.2.代码生成流程
+
+AutoCoder Nano 的代码生成流程如下：
+
+- 用户通过 `/coding` [请求] 发起代码生成请求 
+- 系统从活动文件中收集上下文 or 通过索引自动获取上下文
+- 将上下文和请求发送至配置的LLM 
+- 生成的代码呈现给用户 
+- 修改可应用于代码库 
+- 可选的Git集成支持版本控制
+
+### 5.关键特性
+
+#### 5.1.文件管理
+
+文件管理包括：
+
+- 查找符合特定模式的文件 
+- 从处理中排除指定目录 
+- 计算文件哈希以检测变更
+
+AutoCoder Nano 提供两种文件管理方式：
+
+- 自动模式: 系统根据查询自动识别相关文件 
+- 手动模式: 用户显式管理活动文件
+
+文件分组功能允许用户为特定任务组织相关文件:
+
+```bash
+coding@auto-coder.nano:~$ /add_files /group /add frontend  
+coding@auto-coder.nano:~$ /add_files /group /add backend  
+coding@auto-coder.nano:~$ /add_files /group frontend  
+```
+
+#### 5.2.自然语言编程
+
+AutoCoder Nano 提供自然语言模式以生成和执行脚本：
+
+1. 通过 /mode auto_detect 或 Ctrl+K 切换模式 
+2. 输入自然语言指令 
+3. 系统生成对应脚本 
+4. 用户可审核并执行脚本
+
+此功能弥合了自然语言指令与可执行命令之间的差距。
+
+
+#### 5.3.代码索引与检索
+
+AutoCoder Nano 构建并维护项目中代码实体的索引：
+
+- 提取函数、类和变量并建立索引 
+- 查询可以检索相关的代码实体 
+- 识别相关文件以提供更好的上下文 
+- 索引系统有助于更有针对性和高效地理解和生成代码。
+
+### 6.安装与设置
+
+#### 6.1.系统要求
+
+在安装 AutoCoder Nano 之前，请确保你的系统满足以下条件：
+ 
+- Python 3.10 或更高版本（推荐 Python 3.11.9 ）
+- 操作系统：Windows、macOS 或 Linux
+- 至少能访问一个与 OpenAI API 格式兼容的大语言模型服务
+
+#### 6.2.安装方法
+
+使用 pip(推荐): 推荐的安装方式是在专用虚拟环境中使用 pip 进行安装
 
 ```shell
-$ conda create --name autocoder python=3.11.9
-$ conda activate autocoder
-$ pip install -U autocoder_nano
+# 创建conda环境
+conda create --name autocoder python=3.11.9
+# 激活环境
+conda activate autocoder
+# 安装AutoCoder Nano
+pip install -U autocoder-nano
 ```
 
-## 快速开始
+从源代码安装
 
 ```shell
-$ cd your-project
-$ auto-coder.nano
+# 克隆仓库  
+git clone https://github.com/w4n9H/autocoder-nano.git 
+# 进入项目目录  
+cd autocoder-nano  
+# 安装依赖  
+pip install -r requirements.txt
+# 以开发模式安装  
+pip install -e .
 ```
 
-#### step 1: 项目初始化
+安装完成后，AutoCoder Nano 提供以下三个主要命令行工具：  
 
-```
-! 正在初始化系统...
-! 当前目录未初始化为auto-coder项目。
-  是否现在初始化项目？(y/n): y
-✓ 项目初始化成功。
-✓ 创建目录：/user/x/code/you-project/.auto-coder/plugins/chat-auto-coder
-```
+| 命令                  | 描述                           |  
+|---------------------|------------------------------|  
+| auto-coder.nano     | 代码生成和聊天交互的主界面                |  
+| auto-coder.nano.rag | 基于检索增强生成的上下文感知响应系统           |  
+| auto-coder.nano.ui  | AutoCoder Nano 的基于 Web 的用户界面 |  
 
-#### step 2: 配置项目语言类型
 
-```
-=== 项目类型配置 ===
+#### 6.3.项目初始化  
 
-项目类型支持：
-  - 语言后缀（例如：.py, .java, .ts）
-  - 预定义类型：py（Python）, ts（TypeScript/JavaScript）
-对于混合语言项目，使用逗号分隔的值。
-示例：'.java,.scala' 或 '.py,.ts'
-如果留空，默认为 'py'。
+安装完成后，需要为项目初始化 AutoCoder Nano。设置过程包括项目初始化、语言配置和 LLM 模型配置。  
+进入项目目录并运行 AutoCoder Nano：  
 
-请输入项目类型：py
+```bash  
+cd your-project  
+auto-coder.nano
+```  
 
-项目类型设置为： py
+首次运行时，系统会检测到当前目录未初始化，并提示初始化：  
 
-您可以稍后使用以下命令更改此设置:
-/conf project_type:<new_type>
-```
-
-#### step 3: 配置大模型
-
-```
-! 正在配置模型...
-  设置你的首选模型名称(例如: deepseek-v3/r1, ark-deepseek-v3/r1): your-user-first-llm-custom-name
-  请输入你使用模型的 Model Name: your-llm-model_name
-  请输入你使用模型的 Base URL: your-llm-base-url
-  请输入您的API密钥: your-llm-api-key
-! 正在更新缓存...
-! 正在部署 your-user-first-llm 模型...
+```  
+! 正在初始化系统...  
+! 当前目录未初始化为 auto-coder 项目。  
+  是否现在初始化项目？(y/n)：y  
+✓ 项目初始化成功。  
+✓ 创建目录：/your-project/.auto-coder/plugins/chat-auto-coder  
 ```
 
-#### step 4: 初始化完成, 开始与大模型交流
-
-```
-✓ 初始化完成。
-AutoCoder Nano   v0.1.5
-输入 /help 可以查看可用的命令.
-
-coding@auto-coder.nano:~$ /chat 描述一下这个项目的主要功能
-```
+> 这将在项目文件夹中创建一个 `.auto-coder` 目录，用于存储配置和索引文件。
 
 
-## 模型管理
+#### 6.4.项目类型配置  
 
-#### 列出模型
+初始化后，系统会提示配置项目类型：  
 
-```
-coding@auto-coder.nano:~$ /models /list
-                                  模型                                                               
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Name                         ┃ Model Name          ┃ Base URL                   ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ xxx-deepseek-v3              │ xxxxxxxxxxxx        │ https://xxxxx.com/api/v3   │
-└──────────────────────────────┴─────────────────────┴────────────────────────────┘
-```
+```  
+=== 项目类型配置 ===  
 
-#### 新增模型
+项目类型支持：  
+- 语言后缀（例如：.py, .java, .ts）  
+- 预定义类型：py (Python)，ts (TypeScript/JavaScript)  
+对于混合语言项目，使用逗号分隔的值。  
+示例：'.java, .scala' 或 '.py, .ts'  
+如果留空，默认为 'py'。  
 
-兼容所有 OpenAI 格式的模型
+请输入项目类型：py  
 
-- name=deepseek-r1，为新增的模型取的一个别名，可以精简，便于后续使用
-- base_url=https://api.deepseek.com， 模型厂商提供的 saas api 接口
-- api_key=sk-xx， 访问模型所需的key
-- model=deepseek-reasoner， 模型厂商内部可能会提供多种可选的能力模型，比如 r1 / v3
+项目类型设置为：py  
 
-```
-coding@auto-coder.nano:~$ /models /add_model name=deepseek-r1 base_url=https://api.deepseek.com api_key=sk-xx model=deepseek-reasoner
-2025-02-11 10:11:22.124 | INFO     | autocoder_nano.auto_coder_nano:manage_models:3788 - 正在为 deepseek-r1 更新缓存信息
-2025-02-11 10:11:22.125 | INFO     | autocoder_nano.auto_coder_nano:manage_models:3797 - 正在部署 deepseek-r1 模型
-coding@auto-coder.nano:~$ /models /list
-                                  模型                                                               
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Name                         ┃ Model Name          ┃ Base URL                   ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ xxx-deepseek-v3              │ xxxxxxxxxxxx        │ https://xxxxx.com/api/v3   │
-├──────────────────────────────┼─────────────────────┼────────────────────────────┤
-│ deepseek-r1                  │ deepseek-reasoner   │ https://api.deepseek.com   │
-└──────────────────────────────┴─────────────────────┴────────────────────────────┘
+您可以稍后使用以下命令更改此设置：  
+/conf project_type:=new_type>  
 ```
 
-#### 删除模型
+支持的项目类型包括：  
 
-```
-coding@auto-coder.nano:~$ /models /remove deepseek-r1
-2025-02-11 10:17:59.930 | INFO     | autocoder_nano.auto_coder_nano:manage_models:3801 - 正在清理 deepseek-r1 缓存信息
-2025-02-11 10:17:59.930 | INFO     | autocoder_nano.auto_coder_nano:manage_models:3804 - 正在卸载 deepseek-r1 模型
-```
+* `py` - Python 项目  
+* `ts` - TypeScript/JavaScript 项目  
+* 自定义文件扩展名（例如 `.py,.ts,.go` 用于混合项目）
 
-#### 模型状态检测
+#### 6.5.LLM 配置
 
-```
-coding@auto-coder.nano:~$ /models /check
-2025-02-11 10:19:23.494 | INFO     | autocoder_nano.auto_coder_nano:check_models:3757 - 正在测试 xxx-deepseek-v3 模型
-2025-02-11 10:19:23.495 | INFO     | autocoder_nano.auto_coder_nano:stream_chat_ai:1037 - 正在使用 xxx-deepseek-v3 模型, 模型名称 xxxxxxxxxxxx
-           模型状态检测           
-┏━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┓
-┃ 模型             ┃ 状态  ┃  延迟 ┃
-┡━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━┩
-│ xxx-deepseek-v3 │  ✓   │ 1.36s │
-└─────────────────┴──────┴───────┘
-```
+#### 6.6.配置管理  
 
-## 配置管理
+初始设置完成后，可以使用 `/conf` 命令查看和修改配置：
 
-#### 列出配置
+```bash  
+coding@auto-coder.nano:~$ /conf  
+    使用 /conf <key>:<value> 修改这些设置  
 
-```
-coding@auto-coder.nano:~$ /conf
-             使用 /conf <key>:<value> 修改这些设置                                              
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃                            键 ┃ 值                            ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│                    auto_merge │ editblock                    │
-├───────────────────────────────┼──────────────────────────────┤
-│            current_chat_model │ xxx-deepseek-v3              │
-├───────────────────────────────┼──────────────────────────────┤
-│            current_code_model │ xxx-deepseek-v3              │
-├───────────────────────────────┼──────────────────────────────┤
-│                  project_type │ py                           │
-├───────────────────────────────┼──────────────────────────────┤
-│              skip_build_index │ false                        │
-└───────────────────────────────┴──────────────────────────────┘
+| 键                | 值            |  
+|-------------------|---------------|  
+| auto_merge        | editblock     |  
+| chat_model| model-name    |  
+| code_model| model-name    |  
+| project_type      | py            |  
+| skip_build_index  | false         |  
 ```
 
-#### 更改配置
+### 关键配置选项  
 
-```
-coding@auto-coder.nano:~$ /conf skip_filter_index:false
-Set skip_filter_index to false
-coding@auto-coder.nano:~$ /conf index_filter_level:2
-Set index_filter_level to 2
-```
+| 选项               | 描述         | 示例值              |  
+|------------------|------------|------------------|  
+| auto_merge       | 代码更改的合并策略  | editblock        |  
+| chat_model       | 用于聊天和索引的模型 | deepseek-v3      |  
+| code_model       | 用于代码生成的模型  | deepseek-v3      |  
+| project_type     | 项目语言类型     | py, ts, .py, .ts |  
+| skip_build_index | 跳过自动索引构建   | true, false      |  
 
-#### 配置当前使用模型
+修改配置的示例：  
 
-当你新增某个模型后，想要进行替换使用，假设你的模型别名为 _t-deepseek-r1_ ， 使用以下命令进行模型配置更改：
+```bash  
+# 更改项目类型为 TypeScript  
+/conf project_type:ts  
 
-```shell
-coding@auto-coder.nano:~$ /conf current_chat_model:t-deepseek-r1
-Set current_chat_model to t-deepseek-r1
-coding@auto-coder.nano:~$ /conf current_code_model:t-deepseek-r1
-Set current_code_model to t-deepseek-r1
-```
-
-- current_chat_model ：配置与大模型聊天以及索引生成所使用的模型
-- current_code_model ：配置代码生成使用的模型
-
-
-## 文件管理
-
-Auto-coder 里有两种方式管理你的项目上下文：
-
-1. 设置 `/conf skip_index_build:false` 后，系统会自动根据你的需求自动查找相关文件。即自动管理模式。
-2. 当你设置 `/conf skip_index_build:true` 后，则通过活动文件来管理，我们提供了 `/add_files /remove_files /list_files` 来组合。即手动管理模式。
-
-Auto-coder 文件组概念：
-
-1. Auto-coder 系列提供了一个活动文件组的概念。 你可以通过 `/add_files /group /add app`  来添加一个叫 app的组，这个组会复制当前的所有活动文件。
-2. 通过手动切换文件组来完成上下文的管理，是手动管理文件的高级方法
-
-
-#### /list_files 命令
-
-```shell
-# 列出当前活跃文件
-coding@auto-coder.nano:~$ /list_files
+# 更改代码生成模型  
+/conf code_model:deepseek-r1
 ```
 
-#### /add_files 命令
+#### 6.7.LLM 管理  
 
-```shell
-# 添加单个/多个文件为活跃文件
-coding@auto-coder.nano:~$ /add_files file1 file2 file3
-coding@auto-coder.nano:~$ /add_files /path/abc/file4 /path/abc/file5
+AutoCoder Nano 需要至少一个配置好的 LLM 才能运行。可以使用 `/models` 命令管理 LLM：  
 
-# 查看当前所有的文件组
-coding@auto-coder.nano:~$ /add_files /group
+**列出可用模型**
 
-# 将当前活跃文件添加进 app 文件组
-coding@auto-coder.nano:~$ /add_files /group /add app
+```bash  
+/models /list  
+```  
 
-# 设置活跃文件组
-coding@auto-coder.nano:~$ /add_files /group app
+**显示已配置模型的表格：**
 
-# 删除文件组
-coding@auto-coder.nano:~$ /add_files /group /drop app
-
-# 合并两个文件组的文件为当前活跃文件
-coding@auto-coder.nano:~$ /add_files /group <groupname>,<groupname>
-
-# 当目录中新增一个文件后，自动补全无法获取该文件，可执行一次刷新
-coding@auto-coder.nano:~$ /add_files /refresh
+```  
+模型  
+Name         | Model Name      | Base URL  
+------------------------------------------  
+| deepseek-v3 | deepseek-coder  | https://api.deepseek.com |  
 ```
 
-- `/add_files` 支持文件匹配符，比如可以通过 `/add_files ./**/*.py` 把当前目录下所有的python文件加到活动文件里去(如果你项目很大，不能这么做，会超出大模型上线文限制)。
+**添加新模型**
 
-
-#### /remove_files 命令
-
-```shell
-# 将 file1 移出当前活跃文件
-coding@auto-coder.nano:~$ /remove_files file1
-
-# 清空当前所有活跃文件
-coding@auto-coder.nano:~$ /remove_files /all
+```bash  
+/models /add_model name=model-alias base_url=https://api.provider.com api_key=sk-xxxx model=provider-model-name  
 ```
 
+参数：
 
-## 索引管理
+- `name`：模型的别名（例如 `deepseek-r1`）  
+- `base_url`：API 端点（例如 `https://api.deepseek.com`）  
+- `api_key`：API 密钥  
+- `model`：服务商指定的具体模型名称
 
+**移除模型**  
 
-## Chat和Coding
+```bash  
+/models /remove model-alias  
+```  
 
-Chat与大模型沟通
+**测试模型连接**  
 
-- 当你设置了活跃文件和 `/conf skip_index_build:true` ， `/chat` 可以方便的针对当前活跃文件进行提问
-- 当你设置了 `/conf skip_index_build:false` ， `/chat` 会根据所有代码文件来回答问题
+```bash  
+/models /check  
+```  
 
-```shell
-coding@auto-coder.nano:~$ /add_files ./**/*.py
+测试所有配置的模型并报告状态：  
 
-coding@auto-coder.nano:~$ /list_files
-
-coding@auto-coder.nano:~$ /chat 请问这些文件之间的关系是什么
-coding@auto-coder.nano:~$ /chat 给我描述一下这个项目的用途
+```  
+模型状态检测  
+模型         | 状态  | 延迟   |  
+deepseek-v3 | ✓     | 1.36s  |  
 ```
 
+#### 6.8.验证与下一步  
 
-Coding使用大模型进行编码
+安装和设置完成后，会看到以下消息：  
 
-- `/coding` 可以根据需求，对当前活跃文件，或者自行匹配候选文件，进行修改
-- `/coding /apply` 此时 Autocoder 会把我们与大模型之间的历史对话记录加入到代码生成的 Prompt 里
+```  
+✓ 初始化完成。  
+AutoCoder Nano v0.1.5  
+输入 /help 可以查看可用的命令。  
 
-```shell
-coding@auto-coder.nano:~$ /coding /apply 新增一个命令行参数 --chat_model
-```
+coding@auto-coder.nano:~$  
+```  
 
-#### 精准控制代码生成
+此时可以：  
 
-Autocoder 提供了两个机制：
-1. 使用 `@` 自动补全文件
-2. 使用 `@@` 自动补全符号（类或者函数）
-
-在 `/coding` 或者 `/chat` 的时候，用户可以通过上述两个语法快速定位到某个文件，类或者函数，然后最小粒度是函数级别，
-让 Autocoder 帮你做修改。比如你 @@函数A， 然后让大模型自动实现该函数或者让大模型给该函数生成测试
-
-
-## 自然语言模式
-
-场景：实际编程的过程中，程序员会大量使用命令行来完成一些工作
-
-- 比如启动一个服务，发现服务端口被占用，这个时候你可能想查看这个端口到底被哪个其他服务占用
-- 想要对目录中的 .jpg 文件进行批量改名
-- 再或者突然忘记某个命令的参数
-
-切换自然语言模式
-
-使用 Ctrl + k 快捷键，或者以下方式可切换模式
-
-```shell
-coding@auto-coder.nano:~$ /mode auto_detect
-```
-
-放终端最下方显示 `当前模式: 自然语言模式 (ctl+k 切换模式)` 即切换成功
-
-```
-coding@auto-coder.nano:~$ 递归删除当前项目所有 __pycache__ 目录
-╭────────────────────────────────────────────────────────── 命令生成 ─────────╮
-│ 正在根据用户输入 递归删除当前项目所有 __pycache__ 目录 生成 Shell 脚本...          │
-╰────────────────────────────────────────────────────────────────────────────╯
-2025-02-11 15:02:31.305 | INFO     | autocoder_nano.auto_coder_nano:chat_ai:1057 - 正在使用 ark-deepseek-v3 模型, 模型名称 ep-20250205104003-d8hqb
-╭───────────────────────────────────────────────────────── Shell 脚本 ──────────────────────╮
-│ #!/bin/bash                                                                              │
-│                                                                                          │
-│ # 递归删除当前项目所有 __pycache__ 目录的脚本                                                 │
-│                                                                                          │
-│ # 使用 find 命令查找当前目录及其子目录中的所有 __pycache__ 目录                                  │
-│ # -type d: 只查找目录                                                                      │
-│ # -name "__pycache__": 匹配名为 __pycache__ 的目录                                          │
-│ # -exec rm -rf {} +: 对找到的每个目录执行 rm -rf 命令，递归删除目录及其内容                      │
-│ # 使用 {} + 而不是 {} \; 是为了将多个结果一次性传递给 rm 命令，提高效率                           │
-│                                                                                          │
-│ find . -type d -name "__pycache__" -exec rm -rf {} +                                      │
-│                                                                                          │
-│ # 提示用户操作完成                                                                          │
-│ echo "所有 __pycache__ 目录已成功删除。"                                                     │
-╰───────────────────────────────────────────────────────────────────────────────────────────╯
-是否要执行此脚本? (y/n) n
-```
+1. 使用 `/chat` 提问关于代码库的问题  
+2. 使用 `/coding` 生成或修改代码  
+3. 使用 `/add_files`、`/remove_files` 等命令管理文件  
+4. 使用 `/help` 获取帮助
 
 
+### 7.总结
 
+AutoCoder Nano 通过命令行界面提供轻量级, 多功能的AI辅助编码工具。通过将LLM与文件管理, 代码索引和上下文理解相结合, 它实现了自然语言指令与代码修改的无缝衔接。
 
+主要优势:
+
+- 安装简便, 依赖极少 
+- 支持多种编程语言和项目类型 
+- 灵活的配置和模型管理 
+- 上下文感知的代码理解与生成 
+- 自然语言编程能力
