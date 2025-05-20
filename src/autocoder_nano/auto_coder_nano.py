@@ -198,7 +198,7 @@ COMMANDS = {
         "/mode": "",
         "/models": ""
     },
-    "/exclude_files": {"/list", "/drop"},
+    "/exclude_files": {"/list": "", "/drop": ""},
     "/exclude_dirs": {}
 }
 
@@ -677,6 +677,15 @@ class CommandCompleter(Completer):
                     if current_word and current_word in file_name:
                         yield Completion(file_name, start_position=-len(current_word))
 
+            elif words[0] == "/exclude_files":
+                new_text = text[len("/exclude_files"):]
+                parser = CommandTextParser(new_text, words[0])
+                parser.add_files()
+                current_word = parser.current_word()
+                for command in parser.get_sub_commands():
+                    if command.startswith(current_word):
+                        yield Completion(command, start_position=-len(current_word))
+
             elif words[0] == "/models":
                 new_text = text[len("/models"):]
                 parser = CommandTextParser(new_text, words[0])
@@ -811,6 +820,11 @@ def exclude_files(query: str):
         existing_file_patterns = memory.get("exclude_files", [])
         existing_file_patterns.remove(query.strip())
         memory["exclude_files"] = existing_file_patterns
+        if query.startswith("regex://.*/") and query.endswith("/*."):
+            existing_dirs_patterns = memory.get("exclude_dirs", [])
+            dir_query = query.replace("regex://.*/", "", 1).replace("/*.", "", 1)
+            if dir_query in existing_dirs_patterns:
+                existing_dirs_patterns.remove(dir_query.strip())
         save_memory()
         completer.refresh_files()
         return
