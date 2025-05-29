@@ -23,11 +23,12 @@ from autocoder_nano.git_utils import (repo_init, commit_changes, revert_changes,
                                       get_uncommitted_changes, generate_commit_message)
 from autocoder_nano.sys_utils import default_exclude_dirs, detect_env
 from autocoder_nano.project import PyProject, SuffixProject
+from autocoder_nano.utils.printer_utils import Printer
 
 import yaml
-import tabulate
+# import tabulate
 from jinja2 import Template
-from loguru import logger
+# from loguru import logger
 from prompt_toolkit import prompt as _toolkit_prompt, PromptSession
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -45,7 +46,9 @@ from rich.table import Table
 from rich.text import Text
 
 
-console = Console()
+printer = Printer()
+console = printer.get_console()
+# console = Console()
 project_root = os.getcwd()
 base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-auto-coder")
 # defaut_exclude_dirs = [".git", ".svn", "node_modules", "dist", "build", "__pycache__", ".auto-coder", "actions",
@@ -792,12 +795,12 @@ def exclude_dirs(dir_names: List[str]):
         existing_dirs.extend(dirs_to_add)
         if "exclude_dirs" not in memory:
             memory["exclude_dirs"] = existing_dirs
-        print(f"Added exclude dirs: {dirs_to_add}")
+        printer.print_text(Text(f"已添加排除目录: {dirs_to_add}", style="bold green"))
         for d in dirs_to_add:
             exclude_files(f"regex://.*/{d}/*.")
         # exclude_files([f"regex://.*/{d}/*." for d in dirs_to_add])
     else:
-        print("All specified dirs are already in the exclude list.")
+        printer.print_text(Text(f"所有指定目录已在排除列表中. ", style="bold green"))
     save_memory()
     completer.refresh_files()
 
@@ -807,12 +810,12 @@ def exclude_files(query: str):
         query = query.replace("/list", "", 1).strip()
         existing_file_patterns = memory.get("exclude_files", [])
 
-        # 打印表格
-        table = Table(title="Exclude Files")
-        table.add_column("File Pattern")
-        for file_pattern in existing_file_patterns:
-            table.add_row(file_pattern)
-        console.print(table)
+        printer.print_table_compact(
+            headers=["File Pattern"],
+            data=[[file_pattern] for file_pattern in existing_file_patterns],
+            title="Exclude Files",
+            show_lines=False
+        )
         return
 
     if "/drop" in query:
@@ -843,16 +846,16 @@ def exclude_files(query: str):
         if "exclude_files" not in memory:
             memory["exclude_files"] = existing_file_patterns
         save_memory()
-        print(f"Added exclude files: {file_patterns_to_add}")
+        printer.print_text(f"已添加排除文件: {file_patterns_to_add}. ", style="green")
     else:
-        print("All specified files are already in the exclude list.")
+        printer.print_text(f"所有指定文件已在排除列表中. ", style="green")
 
 
 def index_command(llm):
     update_config_to_args(query="", delete_execute_file=True)
 
     source_dir = os.path.abspath(args.source_dir)
-    logger.info(f"开始对目录 {source_dir} 中的源代码进行索引")
+    printer.print_text(f"开始对目录 {source_dir} 中的源代码进行索引", style="green")
     if args.project_type == "py":
         pp = PyProject(llm=llm, args=args)
     else:
@@ -867,7 +870,7 @@ def index_export(export_path: str) -> bool:
     try:
         index_path = os.path.join(project_root, ".auto-coder", "index.json")
         if not os.path.exists(index_path):
-            console.print(f"索引文件不存在", style="bold red")
+            printer.print_text(Text(f"索引文件不存在. ", style="bold red"))
             return False
 
         with open(index_path, "r", encoding="utf-8") as f:
@@ -880,16 +883,16 @@ def index_export(export_path: str) -> bool:
                 data["module_name"] = rel_path
                 converted_data[rel_path] = data
             except ValueError:
-                console.print(f"索引转换路径失败", style="bold yellow")
+                printer.print_text(Text(f"索引转换路径失败. ", style="dim yellow"))
                 converted_data[abs_path] = data
 
         export_file = os.path.join(export_path, "index.json")
         with open(export_file, "w", encoding="utf-8") as f:
             json.dump(converted_data, f, indent=2)
-        console.print(f"索引文件导出成功", style="bold green")
+        printer.print_text(Text(f"索引文件导出成功. ", style="bold green"))
         return True
     except Exception as err:
-        console.print(f"索引文件导出失败", style="bold red")
+        printer.print_text(Text(f"索引文件导出失败: {err}", style="bold red"))
         return False
 
 
@@ -897,12 +900,10 @@ def index_import(import_path: str):
     try:
         import_file = os.path.join(import_path, "index.json")
         if not os.path.exists(import_file):
-            console.print(f"导入索引文件不存在", style="bold red")
+            printer.print_text(Text(f"导入索引文件不存在", style="bold red"))
             return False
-        # Read and convert paths
         with open(import_file, "r", encoding="utf-8") as f:
             index_data = json.load(f)
-            # Convert relative paths to absolute
         converted_data = {}
         for rel_path, data in index_data.items():
             try:
@@ -910,12 +911,12 @@ def index_import(import_path: str):
                 data["module_name"] = abs_path
                 converted_data[abs_path] = data
             except Exception as err:
-                console.print(f"索引转换路径失败: {err}", style="bold yellow")
+                printer.print_text(Text(f"{rel_path} 索引转换路径失败: {err}", style="dim yellow"))
                 converted_data[rel_path] = data
         # Backup existing index
         index_path = os.path.join(project_root, ".auto-coder", "index.json")
         if os.path.exists(index_path):
-            console.print(f"原索引文件不存在", style="bold yellow")
+            printer.print_text(Text(f"原索引文件不存在", style="bold yellow"))
             backup_path = index_path + ".bak"
             shutil.copy2(index_path, backup_path)
 
@@ -924,7 +925,7 @@ def index_import(import_path: str):
             json.dump(converted_data, f, indent=2)
         return True
     except Exception as err:
-        console.print(f"索引文件导入失败: {err}", style="bold red")
+        printer.print_text(Text(f"索引文件导入失败: {err}", style="bold red"))
         return False
 
 
@@ -970,16 +971,23 @@ def index_query_command(query: str, llm: AutoLLM):
             final_files.extend(related_fiels.file_list)
 
     all_results = list({file.file_path: file for file in final_files}.values())
-    logger.info(
-        f"索引过滤级别: {args.index_filter_level}，根据查询条件: {args.query}, 过滤后的文件数: {len(all_results)}"
+    printer.print_key_value(
+        {"索引过滤级别": f"{args.index_filter_level}", "查询条件": f"{args.query}", "过滤后的文件数": f"{len(all_results)}"},
+        panel=True
     )
 
-    headers = TargetFile.model_fields.keys()
-    table_data = wrap_text_in_table(
-        [[getattr(file_item, name) for name in headers] for file_item in all_results]
+    # headers = TargetFile.model_fields.keys()
+    # table_data = wrap_text_in_table(
+    #     [[getattr(file_item, name) for name in headers] for file_item in all_results]
+    # )
+    # table_output = tabulate.tabulate(table_data, headers, tablefmt="grid")
+    # print(table_output, flush=True)
+    printer.print_table_compact(
+        headers=["文件路径", "原因"],
+        data=[[_target_file.file_path, _target_file.reason] for _target_file in all_results],
+        title="Index Query 结果",
+        show_lines=True,
     )
-    table_output = tabulate.tabulate(table_data, headers, tablefmt="grid")
-    print(table_output, flush=True)
     return
 
 
@@ -1027,7 +1035,7 @@ def convert_config_value(key, value):
         else:
             return value
     else:
-        logger.error(f"无效的配置项: {key}")
+        printer.print_text(f"无效的配置项: {key}", style="red")
         return None
 
 
@@ -1069,23 +1077,14 @@ def update_config_to_args(query, delete_execute_file: bool = False):
 
 def print_chat_history(history, max_entries=5):
     recent_history = history[-max_entries:]
-    table = Table(show_header=False, padding=(0, 1), expand=True, show_lines=True)
-    # 遍历聊天记录
+    data_list = []
     for entry in recent_history:
         role = entry["role"]
         content = entry["content"]
-
-        # 根据角色设置样式
         if role == "user":
-            role_text = Text("提问")
+            printer.print_text(Text(content, style="bold red"))
         else:
-            role_text = Text("模型返回")
-        markdown_content = Markdown(content)
-        # 将内容和角色添加到表格中
-        table.add_row(role_text, markdown_content)
-    # 使用 Panel 包裹表格，增加美观性
-    panel = Panel(table, title="历史聊天记录", border_style="bold yellow")
-    console.print(panel)
+            printer.print_markdown(content, panel=True)
 
 
 @prompt()
@@ -1144,13 +1143,10 @@ def chat(query: str, llm: AutoLLM):
             json_str = json.dumps(chat_history, ensure_ascii=False)
             fp.write(json_str)
 
-        console.print(
-            Panel(
-                "新会话已开始, 之前的聊天历史已存档。",
-                title="Session Status",
-                expand=False,
-                border_style="green",
-            )
+        printer.print_panel(
+            Text("新会话已开始, 之前的聊天历史已存档.", style="green"),
+            title="Session Status",
+            center=True
         )
         if not query:
             return
@@ -1209,7 +1205,7 @@ def chat(query: str, llm: AutoLLM):
     assistant_response = ""
 
     try:
-        with Live(Panel("", title="Response"), refresh_per_second=12) as live:
+        with Live(Panel("", title="Response", style="dim blue"), refresh_per_second=12) as live:
             for chunk in v:
                 if chunk.choices and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
@@ -1231,7 +1227,7 @@ def chat(query: str, llm: AutoLLM):
                     display_content = '\n'.join(lines_buffer[-MAX_HISTORY_LINES:] + [current_line])
 
                     live.update(
-                        Panel(Markdown(display_content), title="模型返回", border_style="green",
+                        Panel(Markdown(display_content), title="模型返回", border_style="dim blue",
                               height=min(25, live.console.height - 4))
                     )
 
@@ -1241,10 +1237,10 @@ def chat(query: str, llm: AutoLLM):
 
             # 最终完整渲染
             live.update(
-                Panel(Markdown(assistant_response), title="模型返回", border_style="blue")
+                Panel(Markdown(assistant_response), title="模型返回", border_style="dim blue")
             )
     except Exception as e:
-        logger.error(str(e))
+        printer.print_panel(Text(f"{str(e)}", style="red"), title="模型返回", center=True)
 
     chat_history["ask_conversation"].append({"role": "assistant", "content": assistant_response})
 
@@ -1257,8 +1253,8 @@ def chat(query: str, llm: AutoLLM):
 
 def init_project():
     if not args.project_type:
-        logger.error(
-            "请指定项目类型。可选的项目类型包括：py|ts| 或其他文件扩展名(例如：.java,.scala), 多个扩展名可用逗号分隔。"
+        printer.print_text(
+            f"请指定项目类型。可选的项目类型包括：py|ts| 或文件扩展名(例如:.java,.scala), 多个扩展名逗号分隔.", style="green"
         )
         return
     os.makedirs(os.path.join(args.source_dir, "actions"), exist_ok=True)
@@ -1276,7 +1272,7 @@ def init_project():
         f.write("\nactions/")
         f.write("\noutput.txt")
 
-    logger.info(f"已在 {os.path.abspath(args.source_dir)} 成功初始化 autocoder-nano 项目(兼容autocoder)")
+    printer.print_text(f"已在 {os.path.abspath(args.source_dir)} 成功初始化 autocoder-nano 项目", style="green")
     return
 
 
@@ -1311,11 +1307,11 @@ def load_include_files(config, base_path, max_depth=10, current_depth=0):
 
         for include_file in include_files:
             abs_include_path = resolve_include_path(base_path, include_file)
-            logger.info(f"正在加载 Include file: {abs_include_path}")
+            printer.print_text(f"正在加载 Include file: {abs_include_path}", style="green")
             with open(abs_include_path, "r") as f:
                 include_config = yaml.safe_load(f)
                 if not include_config:
-                    logger.info(f"Include file {abs_include_path} 为空，跳过处理。")
+                    printer.print_text(f"Include file {abs_include_path} 为空，跳过处理.", style="green")
                     continue
                 config.update(
                     {
@@ -1331,7 +1327,7 @@ def prepare_chat_yaml():
     # auto_coder_main(["next", "chat_action"]) 准备聊天 yaml 文件
     actions_dir = os.path.join(args.source_dir, "actions")
     if not os.path.exists(actions_dir):
-        logger.warning("当前目录中未找到 actions 目录。请执行初始化 AutoCoder Nano")
+        printer.print_text("当前目录中未找到 actions 目录。请执行初始化 AutoCoder Nano", style="yellow")
         return
 
     action_files = [
@@ -1362,7 +1358,7 @@ def prepare_chat_yaml():
         with open(new_file, "w") as f:
             f.write(content)
 
-    logger.info(f"已成功创建新的 action 文件: {new_file}")
+    printer.print_text(f"已成功创建新的 action 文件: {new_file}", style="green")
     return
 
 
@@ -1421,9 +1417,8 @@ def coding(query: str, llm: AutoLLM):
             memory_file = os.path.join(memory_dir, "chat_history.json")
 
             def error_message():
-                console.print(
-                    Panel("No chat history found to apply.", title="Chat History",
-                          expand=False, border_style="yellow",)
+                printer.print_panel(
+                    Text("No chat history found to apply.", style="yellow"), title="Chat History", center=True
                 )
 
             if not os.path.exists(memory_file):
@@ -1456,7 +1451,7 @@ def coding(query: str, llm: AutoLLM):
         dispacher = Dispacher(args=args, llm=llm)
         dispacher.dispach()
     else:
-        logger.warning("创建新的 YAML 文件失败。")
+        printer.print_text(f"创建新的 YAML 文件失败.", style="yellow")
 
     save_memory()
     completer.refresh_files()
@@ -1472,9 +1467,9 @@ def execute_revert():
     revert_result = revert_changes(repo_path, f"auto_coder_{file_name}_{md5}")
     if revert_result:
         os.remove(args.file)
-        logger.info(f"已成功回退最后一次 chat action 的更改，并移除 YAML 文件 {args.file}")
+        printer.print_text(f"已成功回退最后一次 chat action 的更改，并移除 YAML 文件 {args.file}", style="green")
     else:
-        logger.error(f"回退文件 {args.file} 的更改失败")
+        printer.print_text(f"回退文件 {args.file} 的更改失败", style="red")
     return
 
 
@@ -1485,29 +1480,24 @@ def revert():
         convert_yaml_to_config(file_path)
         execute_revert()
     else:
-        logger.warning("No previous chat action found to revert.")
+        printer.print_text(f"No previous chat action found to revert.", style="yellow")
 
 
 def print_commit_info(commit_result: CommitResult):
-    table = Table(title="提交信息 (使用 /revert 撤销此提交)", show_header=True, header_style="bold magenta")
-    table.add_column("属性", style="cyan", no_wrap=True)
-    table.add_column("值", style="green")
-    table.add_row("提交哈希", commit_result.commit_hash)
-    table.add_row("提交信息", commit_result.commit_message)
-    table.add_row(
-        "更改的文件",
-        "\n".join(commit_result.changed_files) if commit_result.changed_files else "No files changed"
-    )
-
-    console.print(
-        Panel(table, expand=False, border_style="green", title="Git 提交摘要")
+    printer.print_table_compact(
+        data=[
+            ["提交哈希", commit_result.commit_hash],
+            ["提交信息", commit_result.commit_message],
+            ["更改的文件", "\n".join(commit_result.changed_files) if commit_result.changed_files else "No files changed"]
+        ],
+        title="提交信息", headers=["属性", "值"], caption="(使用 /revert 撤销此提交)"
     )
 
     if commit_result.diffs:
         for file, diff in commit_result.diffs.items():
-            console.print(f"\n[bold blue]File: {file}[/bold blue]")
+            printer.print_text(f"File: {file}", style="green")
             syntax = Syntax(diff, "diff", theme="monokai", line_numbers=True)
-            console.print(Panel(syntax, expand=False, border_style="yellow", title="File Diff"))
+            printer.print_panel(syntax, title="File Diff", center=True)
 
 
 def commit_info(query: str, llm: AutoLLM):
@@ -1550,7 +1540,7 @@ def commit_info(query: str, llm: AutoLLM):
             # commit_message = ""
             commit_llm = llm
             commit_llm.setup_default_model_name(args.chat_model)
-            console.print(f"Commit 信息生成中...", style="yellow")
+            printer.print_text(f"Commit 信息生成中...", style="green")
 
             try:
                 uncommitted_changes = get_uncommitted_changes(repo_path)
@@ -1559,7 +1549,7 @@ def commit_info(query: str, llm: AutoLLM):
                 )
                 memory["conversation"].append({"role": "user", "content": commit_message.output})
             except Exception as err:
-                console.print(f"Commit 信息生成失败: {err}", style="red")
+                printer.print_text(f"Commit 信息生成失败: {err}", style="red")
                 return
 
             yaml_config["query"] = commit_message.output
@@ -1573,11 +1563,11 @@ def commit_info(query: str, llm: AutoLLM):
             commit_result = commit_changes(repo_path, f"auto_coder_nano_{file_name}_{md5}\n{commit_message}")
             print_commit_info(commit_result=commit_result)
             if commit_message:
-                console.print(f"Commit 成功", style="green")
+                printer.print_text(f"Commit 成功", style="green")
         except Exception as err:
             import traceback
             traceback.print_exc()
-            logger.error(f"Commit 失败: {err}")
+            printer.print_text(f"Commit 失败: {err}", style="red")
             if execute_file:
                 os.remove(execute_file)
 
@@ -1622,22 +1612,14 @@ def generate_shell_command(input_text: str, llm: AutoLLM) -> str | None:
     update_config_to_args(query=input_text, delete_execute_file=True)
 
     try:
-        console.print(
-            Panel(
-                f"正在根据用户输入 {input_text} 生成 Shell 脚本...",
-                title="命令生成",
-                border_style="green",
-            )
+        printer.print_panel(
+            Text(f"正在根据用户输入 {input_text} 生成 Shell 脚本...", style="green"), title="命令生成",
         )
         llm.setup_default_model_name(args.code_model)
         result = _generate_shell_script.with_llm(llm).run(user_input=input_text)
         shell_script = extract_code(result.output)[0][1]
-        console.print(
-            Panel(
-                shell_script,
-                title="Shell 脚本",
-                border_style="magenta",
-            )
+        printer.print_code(
+            code=shell_script, lexer="shell", panel=True
         )
         return shell_script
     finally:
@@ -1668,31 +1650,31 @@ def execute_shell_command(command: str):
                     output.append(output_line.strip())
                     live.update(
                         Panel(
-                            Text("\n".join(output[-20:])),
+                            Text("\n".join(output[-20:]), style="green"),
                             title="Shell 输出",
-                            border_style="green",
+                            border_style="dim blue",
                         )
                     )
                 if error_line:
                     output.append(f"ERROR: {error_line.strip()}")
                     live.update(
                         Panel(
-                            Text("\n".join(output[-20:])),
+                            Text("\n".join(output[-20:]), style="red"),
                             title="Shell 输出",
-                            border_style="red",
+                            border_style="dim blue",
                         )
                     )
                 if output_line == "" and error_line == "" and process.poll() is not None:
                     break
 
         if process.returncode != 0:
-            console.print(f"[bold red]命令执行失败，返回码: {process.returncode}[/bold red]")
+            printer.print_text(f"命令执行失败，返回码: {process.returncode}", style="red")
         else:
-            console.print("[bold green]命令执行成功[/bold green]")
+            printer.print_text(f"命令执行成功", style="green")
     except FileNotFoundError:
-        console.print(f"[bold red]未找到命令:[/bold red] [yellow]{command}[/yellow]")
+        printer.print_text(f"未找到命令:", style="yellow")
     except subprocess.SubprocessError as e:
-        console.print(f"[bold red]命令执行错误:[/bold red] [yellow]{str(e)}[/yellow]")
+        printer.print_text(f"命令执行错误:", style="yellow")
 
 
 def parse_args(input_args: Optional[List[str]] = None):
@@ -1864,45 +1846,45 @@ def configure_project_type() -> str:
     return project_type
 
 
-def print_status(message, status):
-    if status == "success":
-        print(f"\033[32m✓ {message}\033[0m")
-    elif status == "warning":
-        print(f"\033[33m! {message}\033[0m")
-    elif status == "error":
-        print(f"\033[31m✗ {message}\033[0m")
-    else:
-        print(f"  {message}")
+# def print_status(message, status):
+#     if status == "success":
+#         print(f"\033[32m✓ {message}\033[0m")
+#     elif status == "warning":
+#         print(f"\033[33m! {message}\033[0m")
+#     elif status == "error":
+#         print(f"\033[31m✗ {message}\033[0m")
+#     else:
+#         print(f"  {message}")
 
 
 def initialize_system():
-    print(f"\n\033[1;34m🚀 正在初始化系统...\033[0m")
+    printer.print_text(f"🚀 正在初始化系统...", style="green")
 
     def _init_project():
         first_time = False
         if not os.path.exists(os.path.join(args.source_dir, ".auto-coder")):
             first_time = True
-            print_status("当前目录未初始化为auto-coder项目。", "warning")
+            printer.print_text("当前目录未初始化为auto-coder项目.", style="yellow")
             init_choice = input(f"  是否现在初始化项目？(y/n): ").strip().lower()
             if init_choice == "y":
                 try:
                     init_project()
-                    print_status("项目初始化成功。", "success")
+                    printer.print_text("项目初始化成功.", style="green")
                 except Exception as e:
-                    print_status(f"项目初始化失败, {str(e)}。", "error")
+                    printer.print_text(f"项目初始化失败, {str(e)}.", style="red")
                     exit(1)
             else:
-                print_status("退出而不初始化。", "warning")
+                printer.print_text("退出而不初始化.", style="yellow")
                 exit(1)
 
         if not os.path.exists(base_persist_dir):
             os.makedirs(base_persist_dir, exist_ok=True)
-            print_status("创建目录：{}".format(base_persist_dir), "success")
+            printer.print_text("创建目录：{}".format(base_persist_dir), style="green")
 
         if first_time:  # 首次启动,配置项目类型
             configure_project_type()
 
-        print_status("项目初始化完成。", "success")
+        printer.print_text("项目初始化完成.", style="green")
 
     _init_project()
 
@@ -1918,70 +1900,49 @@ def add_files(add_files_args: List[str]):
     groups_info = memory["current_files"]["groups_info"]
 
     if not add_files_args:
-        console.print(
-            Panel("请为 /add_files 命令提供参数.", title="错误", border_style="red")
-        )
+        printer.print_panel(Text("请为 /add_files 命令提供参数.", style="red"), title="错误", center=True)
         return
 
     if add_files_args[0] == "/refresh":  # 刷新
         completer.refresh_files()
         load_memory()
-        console.print(
-            Panel("已刷新的文件列表.", title="文件刷新", border_style="green")
-        )
+        printer.print_panel(Text("已刷新的文件列表.", style="green"), title="文件刷新", center=True)
         return
 
     if add_files_args[0] == "/group":
         # 列出组
         if len(add_files_args) == 1 or (len(add_files_args) == 2 and add_files_args[1] == "list"):
             if not groups:
-                console.print(
-                    Panel("未定义任何文件组.", title="文件组",
-                          border_style="yellow")
-                )
+                printer.print_panel(Text("未定义任何文件组.", style="yellow"), title="文件组", center=True)
             else:
-                table = Table(
-                    title="已定义文件组",
-                    show_header=True,
-                    header_style="bold magenta",
-                    show_lines=True,
-                )
-                table.add_column("Group Name", style="cyan", no_wrap=True)
-                table.add_column("Files", style="green")
-                table.add_column("Query Prefix", style="yellow")
-                table.add_column("Active", style="magenta")
-
+                data_list = []
                 for i, (group_name, files) in enumerate(groups.items()):
                     query_prefix = groups_info.get(group_name, {}).get("query_prefix", "")
                     is_active = ("✓" if group_name in memory["current_files"]["current_groups"] else "")
-                    table.add_row(
+                    data_list.append([
                         group_name,
                         "\n".join([os.path.relpath(f, project_root) for f in files]),
                         query_prefix,
-                        is_active,
-                        end_section=(i == len(groups) - 1),
-                    )
-                console.print(Panel(table, border_style="blue"))  #
+                        is_active
+                    ])
+                printer.print_table_compact(
+                    data=data_list,
+                    title="已定义文件组",
+                    headers=["Group Name", "Files", "Query Prefix", "Active"]
+                )
         # 重置活动组
         elif len(add_files_args) >= 2 and add_files_args[1] == "/reset":
             memory["current_files"]["current_groups"] = []
-            console.print(
-                Panel(
-                    "活动组名称已重置。如果你想清除活动文件，可使用命令 /remove_files /all .",
-                    title="活动组重置",
-                    border_style="green",
-                )
+            printer.print_panel(
+                Text("活动组名称已重置。如果你想清除活动文件，可使用命令 /remove_files /all .", style="green"),
+                title="活动组重置", center=True
             )
         # 新增组
         elif len(add_files_args) >= 3 and add_files_args[1] == "/add":
             group_name = add_files_args[2]
             groups[group_name] = memory["current_files"]["files"].copy()
-            console.print(
-                Panel(
-                    f"已将当前文件添加到组 '{group_name}' .",
-                    title="新增组",
-                    border_style="green",
-                )
+            printer.print_panel(
+                Text(f"已将当前文件添加到组 '{group_name}' .", style="green"), title="新增组", center=True
             )
         # 删除组
         elif len(add_files_args) >= 3 and add_files_args[1] == "/drop":
@@ -1992,20 +1953,12 @@ def add_files(add_files_args: List[str]):
                     del memory["current_files"]["groups_info"][group_name]
                 if group_name in memory["current_files"]["current_groups"]:
                     memory["current_files"]["current_groups"].remove(group_name)
-                console.print(
-                    Panel(
-                        f"已删除组 '{group_name}'.",
-                        title="删除组",
-                        border_style="green",
-                    )
+                printer.print_panel(
+                    Text(f"已删除组 '{group_name}'.", style="green"), title="删除组", center=True
                 )
             else:
-                console.print(
-                    Panel(
-                        f"组 '{group_name}' 未找到.",
-                        title="Error",
-                        border_style="red",
-                    )
+                printer.print_panel(
+                    Text(f"组 '{group_name}' 未找到.", style="red"), title="Error", center=True
                 )
         # 支持多个组的合并，允许组名之间使用逗号或空格分隔
         elif len(add_files_args) >= 2:
@@ -2018,54 +1971,29 @@ def add_files(add_files_args: List[str]):
                 else:
                     missing_groups.append(group_name)
             if missing_groups:
-                console.print(
-                    Panel(
-                        f"未找到组: {', '.join(missing_groups)}",
-                        title="Error",
-                        border_style="red",
-                    )
+                printer.print_panel(
+                    Text(f"未找到组: {', '.join(missing_groups)}", style="red"), title="Error", center=True
                 )
             if merged_files:
                 memory["current_files"]["files"] = list(merged_files)
                 memory["current_files"]["current_groups"] = [
                     name for name in group_names if name in groups
                 ]
-                console.print(
-                    Panel(
-                        f"合并来自组 {', '.join(group_names)} 的文件 .",
-                        title="文件合并",
-                        border_style="green",
-                    )
+                printer.print_panel(
+                    Text(f"合并来自组 {', '.join(group_names)} 的文件 .", style="green"), title="文件合并", center=True
                 )
-                table = Table(
+                printer.print_table_compact(
+                    data=[[os.path.relpath(f, project_root)] for f in memory["current_files"]["files"]],
                     title="当前文件",
-                    show_header=True,
-                    header_style="bold magenta",
-                    show_lines=True,  # 这会在每行之间添加分割线
+                    headers=["File"]
                 )
-                table.add_column("File", style="green")
-                for i, f in enumerate(memory["current_files"]["files"]):
-                    table.add_row(
-                        os.path.relpath(f, project_root),
-                        end_section=(
-                                i == len(memory["current_files"]["files"]) - 1
-                        ),  # 在最后一行之后不添加分割线
-                    )
-                console.print(Panel(table, border_style="blue"))
-                console.print(
-                    Panel(
-                        f"当前组: {', '.join(memory['current_files']['current_groups'])}",
-                        title="当前组",
-                        border_style="green",
-                    )
+                printer.print_panel(
+                    Text(f"当前组: {', '.join(memory['current_files']['current_groups'])}", style="green"),
+                    title="当前组", center=True
                 )
             elif not missing_groups:
-                console.print(
-                    Panel(
-                        "指定组中没有文件.",
-                        title="未添加任何文件",
-                        border_style="yellow",
-                    )
+                printer.print_panel(
+                    Text(f"指定组中没有文件.", style="yellow"), title="未添加任何文件", center=True
                 )
 
     else:
@@ -2075,26 +2003,14 @@ def add_files(add_files_args: List[str]):
         files_to_add = [f for f in matched_files if f not in existing_files]
         if files_to_add:
             memory["current_files"]["files"].extend(files_to_add)
-            table = Table(
+            printer.print_table_compact(
+                data=[[os.path.relpath(f, project_root)] for f in files_to_add],
                 title="新增文件",
-                show_header=True,
-                header_style="bold magenta",
-                show_lines=True,  # 这会在每行之间添加分割线
+                headers=["文件"]
             )
-            table.add_column("File", style="green")
-            for i, f in enumerate(files_to_add):
-                table.add_row(
-                    os.path.relpath(f, project_root),
-                    end_section=(i == len(files_to_add) - 1),  # 在最后一行之后不添加分割线
-                )
-            console.print(Panel(table, border_style="green"))
         else:
-            console.print(
-                Panel(
-                    "所有指定文件已存在于当前会话中，或者未找到匹配的文件.",
-                    title="未新增文件",
-                    border_style="yellow",
-                )
+            printer.print_panel(
+                Text(f"所有指定文件已存在于当前会话中，或者未找到匹配的文件.", style="yellow"), title="未新增文件", center=True
             )
 
     completer.update_current_files(memory["current_files"]["files"])
@@ -2105,7 +2021,7 @@ def remove_files(file_names: List[str]):
     if "/all" in file_names:
         memory["current_files"]["files"] = []
         memory["current_files"]["current_groups"] = []
-        console.print(Panel("已移除所有文件。", title="文件移除", border_style="green"))
+        printer.print_panel("已移除所有文件", title="文件移除", center=True)
     else:
         removed_files = []
         for file in memory["current_files"]["files"]:
@@ -2117,13 +2033,13 @@ def remove_files(file_names: List[str]):
             memory["current_files"]["files"].remove(file)
 
         if removed_files:
-            table = Table(title="文件移除", show_header=True, header_style="bold magenta")
-            table.add_column("File", style="green")
-            for f in removed_files:
-                table.add_row(os.path.relpath(f, project_root))
-            console.print(Panel(table, border_style="green"))
+            printer.print_table_compact(
+                data=[[os.path.relpath(f, project_root)] for f in removed_files],
+                title="文件移除",
+                headers=["File"]
+            )
         else:
-            console.print(Panel("未移除任何文件。", title="未移除文件", border_style="yellow"))
+            printer.print_panel("未移除任何文件", title="未移除文件", border_style="dim yellow", center=True)
     completer.update_current_files(memory["current_files"]["files"])
     save_memory()
 
@@ -2132,21 +2048,17 @@ def list_files():
     current_files = memory["current_files"]["files"]
 
     if current_files:
-        table = Table(
-            title="当前活跃文件", show_header=True, header_style="bold magenta"
+        printer.print_table_compact(
+            data=[[os.path.relpath(file, project_root)] for file in current_files],
+            title="当前活跃文件",
+            headers=["File"]
         )
-        table.add_column("File", style="green")
-        for file in current_files:
-            table.add_row(os.path.relpath(file, project_root))
-        console.print(Panel(table, border_style="blue"))
     else:
-        console.print(Panel("当前会话中无文件。", title="当前文件", border_style="yellow"))
+        printer.print_panel("当前会话中无文件。", title="当前文件", center=True)
 
 
 def print_conf(content: Dict[str, Any]):
-    table = Table(title=f"[italic]使用 /conf <key>:<value> 修改这些设置[/italic]", expand=True, show_lines=True)
-    table.add_column("键", style="cyan", justify="right", width=30, no_wrap=True)
-    table.add_column("值", style="green", justify="left", width=50, no_wrap=True)
+    data_list = []
     for key in sorted(content.keys()):
         value = content[key]
         # Format value based on type
@@ -2158,31 +2070,32 @@ def print_conf(content: Dict[str, Any]):
             formatted_value = Text(str(value), style="bright_cyan")
         else:
             formatted_value = Text(str(value), style="green")
-        table.add_row(str(key), formatted_value)
-    console.print(table)
+        data_list.append([str(key), formatted_value])
+    printer.print_table_compact(
+        data=data_list,
+        title="Conf 配置",
+        headers=["键", "值"],
+        caption="使用 /conf <key>:<value> 修改这些设置"
+    )
 
 
 def print_models(content: Dict[str, Any]):
-    table = Table(title="模型", expand=True, show_lines=True)
-    table.add_column("Name", style="cyan", width=40, no_wrap=False)
-    table.add_column("Model Name", style="magenta", width=30, overflow="fold")
-    table.add_column("Base URL", style="white", width=50, overflow="fold")
+    data_list = []
     if content:
         for name in content:
-            table.add_row(
-                name,
-                content[name].get("model", ""),
-                content[name].get("base_url", "")
-            )
+            data_list.append([name, content[name].get("model", ""), content[name].get("base_url", "")])
     else:
-        table.add_row("", "", "")
-    console.print(table)
+        data_list.append(["", "", ""])
+    printer.print_table_compact(
+        headers=["Name", "Model Name", "Base URL"],
+        title="模型列表",
+        data=data_list,
+        show_lines=True,
+        expand=True
+    )
 
 
 def check_models(content: Dict[str, Any], llm: AutoLLM):
-
-    status_info = {}
-
     def _check_single_llm(model):
         _start_time = time.monotonic()
         try:
@@ -2196,25 +2109,22 @@ def check_models(content: Dict[str, Any], llm: AutoLLM):
         except Exception as e:
             return False, str(e)
 
-    table = Table(title="模型状态检测", show_header=True, header_style="bold magenta")
-    table.add_column("模型", style="cyan")
-    table.add_column("状态", justify="center")
-    table.add_column("延迟", justify="right", style="green")
+    data_list = []
     if content:
         for name in content:
-            logger.info(f"正在测试 {name} 模型")
+            printer.print_text(Text(f"正在测试 {name} 模型", style="bold green"))
             attempt_ok, attempt_latency = _check_single_llm(name)
             if attempt_ok:
-                table.add_row(
-                    name, Text("✓", style="green"), f"{attempt_latency:.2f}s"
-                )
+                data_list.append([name, Text("✓", style="green"), f"{attempt_latency:.2f}s"])
             else:
-                table.add_row(
-                    "✗", Text("✓", style="red"), "-"
-                )
+                data_list.append([name, Text("✗", style="red"), "-"])
     else:
-        table.add_row("", "", "")
-    console.print(table)
+        data_list.append(["", "", ""])
+    printer.print_table_compact(
+        headers=["模型名称", "状态", "延迟情况"],
+        title="模型状态检测",
+        data=data_list
+    )
 
 
 def manage_models(models_args, models_data, llm: AutoLLM):
@@ -2232,30 +2142,30 @@ def manage_models(models_args, models_data, llm: AutoLLM):
     elif models_args[0] == "/add_model":
         add_model_args = models_args[1:]
         add_model_info = {item.split('=')[0]: item.split('=')[1] for item in add_model_args if item}
-        _name = add_model_info["name"]
-        logger.info(f"正在为 {_name} 更新缓存信息")
-        if _name not in memory["models"]:
-            memory["models"][_name] = {
+        mn = add_model_info["name"]
+        printer.print_text(f"正在为 {mn} 更新缓存信息", style="green")
+        if mn not in memory["models"]:
+            memory["models"][mn] = {
                 "base_url": add_model_info["base_url"],
                 "api_key": add_model_info["api_key"],
                 "model": add_model_info["model"]
             }
         else:
-            logger.error(f"{_name} 已经存在, 请执行 /models /remove <name> 进行删除")
-        logger.info(f"正在部署 {_name} 模型")
-        llm.setup_sub_client(_name, add_model_info["api_key"], add_model_info["base_url"], add_model_info["model"])
+            printer.print_text(f"{mn} 已经存在, 请执行 /models /remove <name> 进行删除", style="red")
+        printer.print_text(f"正在部署 {mn} 模型", style="green")
+        llm.setup_sub_client(mn, add_model_info["api_key"], add_model_info["base_url"], add_model_info["model"])
     elif models_args[0] == "/remove":
-        remove_model_name = models_args[1]
-        logger.info(f"正在清理 {remove_model_name} 缓存信息")
-        if remove_model_name in memory["models"]:
-            del memory["models"][remove_model_name]
-        logger.info(f"正在卸载 {remove_model_name} 模型")
-        if llm.get_sub_client(remove_model_name):
-            llm.remove_sub_client(remove_model_name)
-        if remove_model_name == memory["conf"]["chat_model"]:
-            logger.warning(f"当前首选 Chat 模型 {remove_model_name} 已被删除, 请立即 /conf chat_model: 调整 !!!")
-        if remove_model_name == memory["conf"]["code_model"]:
-            logger.warning(f"当前首选 Code 模型 {remove_model_name} 已被删除, 请立即 /conf code_model: 调整 !!!")
+        rmn = models_args[1]
+        printer.print_text(f"正在清理 {rmn} 缓存信息", style="green")
+        if rmn in memory["models"]:
+            del memory["models"][rmn]
+        printer.print_text(f"正在卸载 {rmn} 模型", style="green")
+        if llm.get_sub_client(rmn):
+            llm.remove_sub_client(rmn)
+        if rmn == memory["conf"]["chat_model"]:
+            printer.print_text(f"当前首选Chat模型 {rmn} 已被删除, 请立即 /conf chat_model: 调整", style="yellow")
+        if rmn == memory["conf"]["code_model"]:
+            printer.print_text(f"当前首选Code模型 {rmn} 已被删除, 请立即 /conf code_model: 调整", style="yellow")
 
 
 def configure_project_model():
@@ -2306,7 +2216,7 @@ def configure_project_model():
     model_num = input(f"  请选择您想使用的模型供应商编号(1-6): ").strip().lower()
 
     if int(model_num) < 1 or int(model_num) > 7:
-        print_status(f"请选择 1-7", "error")
+        printer.print_text("请选择 1-7", style="red")
         exit(1)
 
     if model_num == "7":
@@ -2386,7 +2296,7 @@ def is_old_version():
     不再使用 current_chat_model 和 current_chat_model
     """
     if 'current_chat_model' in memory['conf'] and 'current_code_model' in memory['conf']:
-        logger.warning(f"您当前版本使用的版本偏低, 正在进行配置兼容性处理")
+        printer.print_text(f"您当前使用的版本偏低 {__version__}, 正在进行配置兼容性处理", style="yellow")
         memory['conf']['chat_model'] = memory['conf']['current_chat_model']
         memory['conf']['code_model'] = memory['conf']['current_code_model']
         del memory['conf']['current_chat_model']
@@ -2408,30 +2318,30 @@ def main():
         _model_pass = input(f"  是否跳过模型配置(y/n): ").strip().lower()
         if _model_pass == "n":
             m1, m2, m3, m4 = configure_project_model()
-            print_status(f"正在更新缓存...", "warning")
+            printer.print_text("正在更新缓存...", style="yellow")
             memory["conf"]["chat_model"] = m1
             memory["conf"]["code_model"] = m1
             memory["models"][m1] = {"base_url": m3, "api_key": m4, "model": m2}
-            print_status(f"供应商配置已成功完成！后续你可以使用 /models 命令, 查看, 新增和修改所有模型", "success")
+            printer.print_text(f"供应商配置已成功完成！后续你可以使用 /models 命令, 查看, 新增和修改所有模型", style="green")
         else:
-            print_status("你已跳过模型配置,后续请使用 /models /add_model 添加模型...", "error")
-            print_status("添加示例 /models /add_model name=xxx base_url=xxx api_key=xxxx model=xxxxx", "error")
+            printer.print_text("你已跳过模型配置,后续请使用 /models /add_model 添加模型...", style="yellow")
+            printer.print_text("添加示例 /models /add_model name=& base_url=& api_key=& model=&", style="yellow")
 
     auto_llm = AutoLLM()  # 创建模型
     if len(memory["models"]) > 0:
         for _model_name in memory["models"]:
-            print_status(f"正在部署 {_model_name} 模型...", "warning")
+            printer.print_text(f"正在部署 {_model_name} 模型...", style="green")
             auto_llm.setup_sub_client(_model_name,
                                       memory["models"][_model_name]["api_key"],
                                       memory["models"][_model_name]["base_url"],
                                       memory["models"][_model_name]["model"])
 
-    print_status("初始化完成。", "success")
+    printer.print_text("初始化完成.", style="green")
 
     if memory["conf"]["chat_model"] not in memory["models"].keys():
-        print_status("首选 Chat 模型与部署模型不一致, 请使用 /conf chat_model:xxx 设置", "error")
+        printer.print_text("首选 Chat 模型与部署模型不一致, 请使用 /conf chat_model:& 设置", style="red")
     if memory["conf"]["code_model"] not in memory["models"].keys():
-        print_status("首选 Code 模型与部署模型不一致, 请使用 /conf code_model:xxx 设置", "error")
+        printer.print_text("首选 Code 模型与部署模型不一致, 请使用 /conf code_model:& 设置", style="red")
 
     MODES = {
         "normal": "正常模式",
@@ -2479,9 +2389,13 @@ def main():
         key_bindings=kb,
         bottom_toolbar=get_bottom_toolbar,
     )
-    print(f"""\033[1;32mAutoCoder Nano   v{__version__}\033[0m""")
-    print("\033[1;34m输入 /help 可以查看可用的命令.\033[0m\n")
-    # show_help()
+    printer.print_key_value(
+        {
+            "AutoCoder Nano": f"v{__version__}",
+            "Url": "https://github.com/w4n9H/autocoder-nano",
+            "Help": "输入 /help 可以查看可用的命令."
+        }
+    )
 
     style = Style.from_dict(
         {

@@ -17,33 +17,29 @@ from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.llm_prompt import prompt
 from autocoder_nano.llm_types import AutoCoderArgs, PathAndCode, MergeCodeWithoutEffect, CodeGenerateResult, \
     CommitResult
+from autocoder_nano.utils.printer_utils import Printer
 
 
-console = Console()
+printer = Printer()
+console = printer.get_console()
+# console = Console()
 
 
 def git_print_commit_info(commit_result: CommitResult):
-    table = Table(
-        title="Commit Information (Use /revert to revert this commit)", show_header=True, header_style="bold magenta"
-    )
-    table.add_column("Attribute", style="cyan", no_wrap=True)
-    table.add_column("Value", style="green")
-
-    table.add_row("Commit Hash", commit_result.commit_hash)
-    table.add_row("Commit Message", commit_result.commit_message)
-    table.add_row("Changed Files", "\n".join(commit_result.changed_files))
-
-    console.print(
-        Panel(table, expand=False, border_style="green", title="Git Commit Summary")
+    printer.print_table_compact(
+        data=[
+            ["Commit Hash", commit_result.commit_hash],
+            ["Commit Message", commit_result.commit_message],
+            ["Changed Files", "\n".join(commit_result.changed_files)]
+        ],
+        title="Commit 信息", headers=["Attribute", "Value"], caption="(Use /revert to revert this commit)"
     )
 
     if commit_result.diffs:
         for file, diff in commit_result.diffs.items():
-            console.print(f"\n[bold blue]File: {file}[/bold blue]")
+            printer.print_text(f"File: {file}", style="green")
             syntax = Syntax(diff, "diff", theme="monokai", line_numbers=True)
-            console.print(
-                Panel(syntax, expand=False, border_style="yellow", title="File Diff")
-            )
+            printer.print_panel(syntax, title="File Diff", center=True)
 
 
 class CodeAutoMergeEditBlock:
@@ -79,12 +75,12 @@ class CodeAutoMergeEditBlock:
             os.unlink(temp_file_path)
             if result.returncode != 0:
                 error_message = result.stdout.strip() or result.stderr.strip()
-                logger.warning(f"Pylint 检查代码失败: {error_message}")
+                printer.print_text(f"Pylint 检查代码失败: {error_message}", style="yellow")
                 return False, error_message
             return True, ""
         except subprocess.CalledProcessError as e:
             error_message = f"运行 Pylint 时发生错误: {str(e)}"
-            logger.error(error_message)
+            printer.print_text(error_message, style="red")
             os.unlink(temp_file_path)
             return False, error_message
 
@@ -257,7 +253,7 @@ class CodeAutoMergeEditBlock:
     def choose_best_choice(self, generate_result: CodeGenerateResult) -> CodeGenerateResult:
         """ 选择最佳代码 """
         if len(generate_result.contents) == 1:  # 仅一份代码立即返回
-            logger.info("仅有一个候选结果，跳过排序")
+            printer.print_text("仅有一个候选结果，跳过排序", style="green")
             return generate_result
 
         ranker = CodeModificationRanker(args=self.args, llm=self.llm)
@@ -339,7 +335,8 @@ class CodeAutoMergeEditBlock:
                         }
                     )
                 return
-            logger.warning(f"发现 {len(unmerged_blocks)} 个未合并的代码块，更改将不会应用，请手动检查这些代码块后重试。")
+            printer.print_text(f"发现 {len(unmerged_blocks)} 个未合并的代码块，更改将不会应用，请手动检查这些代码块后重试.",
+                               style="yellow")
             self._print_unmerged_blocks(unmerged_blocks)
             return
 
@@ -348,16 +345,15 @@ class CodeAutoMergeEditBlock:
             if file_path.endswith(".py"):
                 pylint_passed, error_message = self.run_pylint(new_content)
                 if not pylint_passed:
-                    logger.warning(f"代码文件 {file_path} 的 Pylint 检查未通过，本次更改未应用。错误信息: {error_message}")
+                    printer.print_text(
+                        f"代码文件 {file_path} 的 Pylint 检查未通过，本次更改未应用。错误信息: {error_message}",
+                        style="yellow")
 
         if changes_made and not force_skip_git and not self.args.skip_commit:
             try:
                 commit_changes(self.args.source_dir, f"auto_coder_pre_{file_name}_{md5}")
             except Exception as e:
-                logger.error(
-                    self.git_require_msg(
-                        source_dir=self.args.source_dir, error=str(e))
-                )
+                printer.print_text(self.git_require_msg(source_dir=self.args.source_dir, error=str(e)), style="red")
                 return
         # Now, apply the changes
         for file_path, new_content in file_content_mapping.items():
@@ -385,17 +381,14 @@ class CodeAutoMergeEditBlock:
                     commit_result = commit_changes(self.args.source_dir, f"auto_coder_{file_name}_{md5}")
                     git_print_commit_info(commit_result=commit_result)
                 except Exception as e:
-                    logger.error(
-                        self.git_require_msg(
-                            source_dir=self.args.source_dir, error=str(e)
-                        )
-                    )
-            logger.info(
-                f"已在 {len(file_content_mapping.keys())} 个文件中合并更改，"
-                f"完成 {len(changes_to_make)}/{len(codes)} 个代码块。"
+                    printer.print_text(self.git_require_msg(source_dir=self.args.source_dir, error=str(e)),
+                                       style="red")
+            printer.print_text(
+                f"已在 {len(file_content_mapping.keys())} 个文件中合并更改,完成 {len(changes_to_make)}/{len(codes)} 个代码块.",
+                style="green"
             )
         else:
-            logger.warning("未对任何文件进行更改。")
+            printer.print_text("未对任何文件进行更改.", style="yellow")
 
     def merge_code(self, generate_result: CodeGenerateResult, force_skip_git: bool = False):
         result = self.choose_best_choice(generate_result)
@@ -404,15 +397,14 @@ class CodeAutoMergeEditBlock:
 
     @staticmethod
     def _print_unmerged_blocks(unmerged_blocks: List[tuple]):
-        console.print(f"\n[bold red]未合并的代码块:[/bold red]")
+        printer.print_text("未合并的代码块:", style="yellow")
         for file_path, head, update, similarity in unmerged_blocks:
-            console.print(f"\n[bold blue]文件:[/bold blue] {file_path}")
-            console.print(
-                f"\n[bold green]搜索代码块（相似度：{similarity}）:[/bold green]")
+            printer.print_text(f"文件: {file_path}", style="yellow")
+            printer.print_text(f"搜索代码块(相似度：{similarity}):", style="yellow")
             syntax = Syntax(head, "python", theme="monokai", line_numbers=True)
-            console.print(Panel(syntax, expand=False))
-            console.print("\n[bold yellow]替换代码块:[/bold yellow]")
+            printer.print_panel(syntax)
+            printer.print_text(f"替换代码块:", style="yellow")
             syntax = Syntax(update, "python", theme="monokai",
                             line_numbers=True)
-            console.print(Panel(syntax, expand=False))
-        console.print(f"\n[bold red]未合并的代码块总数: {len(unmerged_blocks)}[/bold red]")
+            printer.print_panel(syntax)
+        printer.print_text(f"未合并的代码块总数: {len(unmerged_blocks)}", style="yellow")

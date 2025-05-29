@@ -2,15 +2,17 @@ import os
 import time
 from typing import List, Dict
 
-from loguru import logger
-from rich.console import Console
-from rich.table import Table
+# from loguru import logger
+# from rich.console import Console
+# from rich.table import Table
 
 from autocoder_nano.index.index_manager import IndexManager
 from autocoder_nano.llm_types import SourceCode, TargetFile, VerifyFileRelevance, AutoCoderArgs
 from autocoder_nano.llm_client import AutoLLM
+from autocoder_nano.utils.printer_utils import Printer
 
-console = Console()
+
+printer = Printer()
 
 
 def build_index_and_filter_files(args: AutoCoderArgs, llm: AutoLLM, sources: List[SourceCode]) -> str:
@@ -20,7 +22,7 @@ def build_index_and_filter_files(args: AutoCoderArgs, llm: AutoLLM, sources: Lis
         return _file_path
 
     final_files: Dict[str, TargetFile] = {}
-    logger.info("第一阶段：处理 REST/RAG/Search 资源...")
+    printer.print_text("第一阶段：处理 REST/RAG/Search 资源...", style="green")
     for source in sources:
         if source.tag in ["REST", "RAG", "SEARCH"]:
             final_files[get_file_path(source.module_name)] = TargetFile(
@@ -28,14 +30,14 @@ def build_index_and_filter_files(args: AutoCoderArgs, llm: AutoLLM, sources: Lis
             )
 
     if not args.skip_build_index and llm:
-        logger.info("第二阶段：为所有文件构建索引...")
+        printer.print_text("第二阶段：为所有文件构建索引...", style="green")
         index_manager = IndexManager(args=args, llm=llm, source_codes=sources)
         index_data = index_manager.build_index()
         indexed_files_count = len(index_data) if index_data else 0
-        logger.info(f"总索引文件数: {indexed_files_count}")
+        printer.print_text(f"总索引文件数: {indexed_files_count}", style="green")
 
         if not args.skip_filter_index and args.index_filter_level >= 1:
-            logger.info("第三阶段：执行 Level 1 过滤(基于查询) ...")
+            printer.print_text("第三阶段：执行 Level 1 过滤(基于查询) ...", style="green")
             target_files = index_manager.get_target_files_by_query(args.query)
             if target_files:
                 for file in target_files.file_list:
@@ -43,7 +45,7 @@ def build_index_and_filter_files(args: AutoCoderArgs, llm: AutoLLM, sources: Lis
                     final_files[get_file_path(file_path)] = file
 
             if target_files is not None and args.index_filter_level >= 2:
-                logger.info("第四阶段：执行 Level 2 过滤（基于相关文件）...")
+                printer.print_text("第四阶段：执行 Level 2 过滤（基于相关文件）...", style="green")
                 related_files = index_manager.get_related_files(
                     [file.file_path for file in target_files.file_list]
                 )
@@ -54,29 +56,28 @@ def build_index_and_filter_files(args: AutoCoderArgs, llm: AutoLLM, sources: Lis
 
             # 如果 Level 1 filtering 和 Level 2 filtering 都未获取路径，则使用全部文件
             if not final_files:
-                logger.warning("Level 1, Level 2 过滤未找到相关文件, 将使用所有文件 ...")
+                printer.print_text("Level 1, Level 2 过滤未找到相关文件, 将使用所有文件 ...", style="yellow")
                 for source in sources:
                     final_files[get_file_path(source.module_name)] = TargetFile(
                         file_path=source.module_name,
                         reason="No related files found, use all files",
                     )
 
-            logger.info("第五阶段：执行相关性验证 ...")
+            printer.print_text("第五阶段：执行相关性验证 ...", style="green")
             verified_files = {}
             temp_files = list(final_files.values())
             verification_results = []
 
             def _print_verification_results(results):
-                table = Table(title="文件相关性验证结果", expand=True, show_lines=True)
-                table.add_column("文件路径", style="cyan", no_wrap=True)
-                table.add_column("得分", justify="right", style="green")
-                table.add_column("状态", style="yellow")
-                table.add_column("原因/错误")
+                data_list = []
                 if result:
                     for _file_path, _score, _status, _reason in results:
-                        table.add_row(_file_path,
-                                      str(_score) if _score is not None else "N/A", _status, _reason)
-                console.print(table)
+                        data_list.append([_file_path, str(_score) if _score is not None else "N/A", _status, _reason])
+                printer.print_table_compact(
+                    data=data_list,
+                    title="文件相关性验证结果",
+                    headers=["文件路径", "得分", "状态", "原因/错误"]
+                )
 
             def _verify_single_file(single_file: TargetFile):
                 for _source in sources:
@@ -115,12 +116,12 @@ def build_index_and_filter_files(args: AutoCoderArgs, llm: AutoLLM, sources: Lis
             # Keep all files, not just verified ones
             final_files = verified_files
 
-    logger.info("第六阶段：筛选文件并应用限制条件 ...")
+    printer.print_text("第六阶段：筛选文件并应用限制条件 ...", style="green")
     if args.index_filter_file_num > 0:
-        logger.info(f"从 {len(final_files)} 个文件中获取前 {args.index_filter_file_num} 个文件(Limit)")
+        printer.print_text(f"> 从 {len(final_files)} 个文件中获取前 {args.index_filter_file_num} 个文件(Limit)", style="green")
     final_filenames = [file.file_path for file in final_files.values()]
     if not final_filenames:
-        logger.warning("未找到目标文件，你可能需要重新编写查询并重试.")
+        printer.print_text("未找到目标文件，你可能需要重新编写查询并重试.", style="yellow")
     if args.index_filter_file_num > 0:
         final_filenames = final_filenames[: args.index_filter_file_num]
 
@@ -135,16 +136,13 @@ def build_index_and_filter_files(args: AutoCoderArgs, llm: AutoLLM, sources: Lis
         return path
 
     def _print_selected(data):
-        table = Table(title="代码上下文文件", expand=True, show_lines=True)
-        table.add_column("文件路径", style="cyan")
-        table.add_column("原因", style="cyan")
-        for _file, _reason in data:
-            # 路径截取优化：保留最后 3 级路径
-            _processed_path = _shorten_path(_file, keep_levels=3)
-            table.add_row(_processed_path, _reason)
-        console.print(table)
+        printer.print_table_compact(
+            data=[[_shorten_path(_file, keep_levels=3), _reason] for _file, _reason in data],
+            title="代码上下文文件",
+            headers=["文件路径", "原因"]
+        )
 
-    logger.info("第七阶段：准备最终输出 ...")
+    printer.print_text("第七阶段：准备最终输出 ...", style="green")
     _print_selected(
         [
             (file.file_path, file.reason)

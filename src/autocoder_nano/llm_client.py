@@ -1,10 +1,14 @@
 from typing import List
 
-from loguru import logger
+# from loguru import logger
 from openai import OpenAI, Stream
 from openai.types.chat import ChatCompletionChunk, ChatCompletion
 
 from autocoder_nano.llm_types import LLMRequest, LLMResponse
+from autocoder_nano.utils.printer_utils import Printer
+
+
+printer = Printer()
 
 
 class AutoLLM:
@@ -37,7 +41,13 @@ class AutoLLM:
             model = self.default_model_name
 
         model_name = self.sub_clients[model]["model_name"]
-        logger.info(f"正在使用 {model} 模型, 模型名称 {model_name}")
+        printer.print_card(
+            title="模型调用",
+            content=f"调用函数: stream_chat_ai, 使用模型: {model}, 模型名称: {model_name}",
+            icon="package",
+            border_style="dim blue",
+            width=60
+        )
         request = LLMRequest(
             model=model_name,
             messages=conversations
@@ -57,7 +67,13 @@ class AutoLLM:
             conversations = [{"role": "user", "content": conversations}]
 
         model_name = self.sub_clients[model]["model_name"]
-        logger.info(f"正在使用 {model} 模型, 模型名称 {model_name}")
+        printer.print_card(
+            title="模型调用",
+            content=f"调用函数: chat_ai, 使用模型: {model}, 模型名称: {model_name}",
+            icon="package",
+            border_style="dim blue",
+            width=60
+        )
         request = LLMRequest(
             model=model_name,
             messages=conversations
@@ -98,7 +114,13 @@ class AutoLLM:
             model = self.default_model_name
 
         model_name = self.sub_clients[model]["model_name"]
-        # logger.info(f"正在使用 {model} 模型, 模型名称 {model_name}")
+        printer.print_card(
+            title="模型调用",
+            content=f"调用函数: embedding, 使用模型: {model}, 模型名称: {model_name}",
+            icon="package",
+            border_style="dim blue",
+            width=60
+        )
 
         res = self.sub_clients[model]["client"].embeddings.create(
             model=model_name,
