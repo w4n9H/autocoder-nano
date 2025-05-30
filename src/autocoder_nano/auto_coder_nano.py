@@ -1205,7 +1205,7 @@ def chat(query: str, llm: AutoLLM):
     assistant_response = ""
 
     try:
-        with Live(Panel("", title="Response", style="dim blue"), refresh_per_second=12) as live:
+        with Live(Panel("", title="Response", style="cyan"), refresh_per_second=12) as live:
             for chunk in v:
                 if chunk.choices and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
@@ -1227,7 +1227,7 @@ def chat(query: str, llm: AutoLLM):
                     display_content = '\n'.join(lines_buffer[-MAX_HISTORY_LINES:] + [current_line])
 
                     live.update(
-                        Panel(Markdown(display_content), title="模型返回", border_style="dim blue",
+                        Panel(Markdown(display_content), title="模型返回", border_style="cyan",
                               height=min(25, live.console.height - 4))
                     )
 
@@ -1826,10 +1826,10 @@ def configure_project_type() -> str:
     print_info("项目类型支持：")
     print_info("  - 语言后缀（例如：.py, .java, .ts）")
     print_info("  - 预定义类型：py（Python）, ts（TypeScript/JavaScript）")
-    print_info("对于混合语言项目，使用逗号分隔的值。")
+    print_info("对于混合语言项目，使用逗号分隔的值.")
     print_info("示例：'.java,.scala' 或 '.py,.ts'")
 
-    print_warning(f"如果留空，默认为 'py'。\n")
+    print_warning(f"如果留空, 默认为 'py'.\n")
 
     project_type = _toolkit_prompt("请输入项目类型：", default="py", style=style).strip()
 
@@ -1844,17 +1844,6 @@ def configure_project_type() -> str:
     print_warning("/conf project_type:<new_type>\n")
 
     return project_type
-
-
-# def print_status(message, status):
-#     if status == "success":
-#         print(f"\033[32m✓ {message}\033[0m")
-#     elif status == "warning":
-#         print(f"\033[33m! {message}\033[0m")
-#     elif status == "error":
-#         print(f"\033[31m✗ {message}\033[0m")
-#     else:
-#         print(f"  {message}")
 
 
 def initialize_system():
@@ -2112,7 +2101,6 @@ def check_models(content: Dict[str, Any], llm: AutoLLM):
     data_list = []
     if content:
         for name in content:
-            printer.print_text(Text(f"正在测试 {name} 模型", style="bold green"))
             attempt_ok, attempt_latency = _check_single_llm(name)
             if attempt_ok:
                 data_list.append([name, Text("✓", style="green"), f"{attempt_latency:.2f}s"])

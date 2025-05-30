@@ -43,9 +43,7 @@ class AutoLLM:
         model_name = self.sub_clients[model]["model_name"]
         printer.print_card(
             title="模型调用",
-            content=f"调用函数: stream_chat_ai, 使用模型: {model}, 模型名称: {model_name}",
-            icon="package",
-            border_style="dim blue",
+            content=f"调用函数: stream_chat_ai\n使用模型: {model}\n模型名称: {model_name}",
             width=60
         )
         request = LLMRequest(
@@ -69,9 +67,7 @@ class AutoLLM:
         model_name = self.sub_clients[model]["model_name"]
         printer.print_card(
             title="模型调用",
-            content=f"调用函数: chat_ai, 使用模型: {model}, 模型名称: {model_name}",
-            icon="package",
-            border_style="dim blue",
+            content=f"调用函数: chat_ai\n使用模型: {model}\n模型名称: {model_name}",
             width=60
         )
         request = LLMRequest(
@@ -116,9 +112,7 @@ class AutoLLM:
         model_name = self.sub_clients[model]["model_name"]
         printer.print_card(
             title="模型调用",
-            content=f"调用函数: embedding, 使用模型: {model}, 模型名称: {model_name}",
-            icon="package",
-            border_style="dim blue",
+            content=f"调用函数: embedding\n使用模型: {model}\n模型名称: {model_name}",
             width=60
         )
 

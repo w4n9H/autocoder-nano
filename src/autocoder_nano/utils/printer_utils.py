@@ -95,7 +95,7 @@ class Printer:
         self.print_panel(
             table,
             title=None,
-            border_style="dim blue" if compact else "bold yellow",
+            border_style="cyan" if compact else "blue",
             width=None if compact else 100,
             center=center  # 传递居中参数
         )
@@ -121,7 +121,7 @@ class Printer:
         self._print_with_panel(syntax, panel)
 
     def print_panel(
-        self, content: Any, title: Optional[str] = None, border_style: str = "dim blue",
+        self, content: Any, title: Optional[str] = None, border_style: str = "cyan",
         width: Optional[int] = None, padding: tuple = (0, 1), center: bool = False  # 新增居中参数
     ) -> None:
         """带边框的面板输出（支持居中版）"""
@@ -181,7 +181,7 @@ class Printer:
 
     @contextmanager
     def progress_context_with_panel(
-            self, title: Optional[str] = None, border_style: str = "dim blue"
+            self, title: Optional[str] = None, border_style: str = "cyan"
     ) -> Generator[Progress, Any, None]:
         self._progress = Progress(
             SpinnerColumn(style="cyan"),
@@ -213,7 +213,7 @@ class Printer:
 
     def print_card(
         self, content: Union[str, Text, Markdown, Syntax], title: Optional[str] = None,
-        border_style: str = "blue", width: Optional[int] = 40, icon: Optional[str] = None, box: Box = ROUNDED
+        border_style: str = "cyan", width: Optional[int] = None, icon: Optional[str] = None, box: Box = ROUNDED
     ) -> None:
         """
         基础卡片输出
@@ -257,7 +257,7 @@ class Printer:
                 content,
                 title=card.get("title"),
                 box=card.get("box", ROUNDED),
-                border_style=card.get("border_style", "dim blue"),
+                border_style=card.get("border_style", "cyan"),
                 width=card.get("width")
             )
             rendered_cards.append(rendered)
@@ -332,7 +332,7 @@ class Printer:
         self.print_panel(
             help_text,
             title="相关帮助信息",
-            border_style="dim cyan",
+            border_style="cyan",
             width=width
         )
 
@@ -425,6 +425,12 @@ if __name__ == '__main__':
         width=50
     )
 
+    printer.print_card(
+        title="第一阶段",
+        content="处理 REST/RAG/Search 资源...",
+        border_style="dim cyan"
+    )
+
     # # 多列卡片
     # printer.multi_col_cards([
     #     {
@@ -441,13 +447,6 @@ if __name__ == '__main__':
     #         "content": Markdown("- Ping: 28ms\n- 带宽：↑1.2 ↓4.5 Mbps")
     #     }
     # ])
-    #
-    # 状态卡片
-    printer.status_card(
-        status="success",
-        title="操作完成",
-        message="已成功保存所有修改到：\n`/path/to/file.conf`"
-    )
 
     # printer.status_card(
     #     status="error",
