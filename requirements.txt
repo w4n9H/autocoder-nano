@@ -1,5 +1,4 @@
 loguru
-tabulate
 GitPython
 jinja2
 openai>=1.14.3
@@ -14,7 +13,7 @@ uvicorn
 pathspec
 fastapi
 tokenizers
-duckdb
+duckdb==1.2.0
 numpy
 requests
 beautifulsoup4

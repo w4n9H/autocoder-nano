@@ -2,9 +2,13 @@ import os
 
 from autocoder_nano.llm_prompt import prompt
 from git import Repo, GitCommandError
-from loguru import logger
+# from loguru import logger
 
 from autocoder_nano.llm_types import CommitResult
+from autocoder_nano.utils.printer_utils import Printer
+
+
+printer = Printer()
 
 
 def repo_init(repo_path: str) -> bool:
@@ -12,14 +16,14 @@ def repo_init(repo_path: str) -> bool:
         os.makedirs(repo_path)
 
     if os.path.exists(os.path.join(repo_path, ".git")):
-        logger.warning(f"目录 {repo_path} 已是一个 Git 仓库，跳过初始化操作。")
+        printer.print_text(f"目录 {repo_path} 已是一个 Git 仓库，跳过初始化操作.", style="yellow")
         return False
     try:
         Repo.init(repo_path)
-        logger.info(f"已在 {repo_path} 初始化新的 Git 仓库")
+        printer.print_text(f"已在 {repo_path} 初始化新的 Git 仓库.", style="green")
         return True
     except GitCommandError as e:
-        logger.error(f"Git 初始化过程中发生错误: {e}")
+        printer.print_text(f"Git 初始化过程中发生错误: {e}.", style="red")
         return False
 
 
@@ -72,19 +76,19 @@ def commit_changes(repo_path: str, message: str) -> CommitResult:
 def revert_changes(repo_path: str, message: str) -> bool:
     repo = get_repo(repo_path)
     if repo is None:
-        logger.error("仓库未初始化。")
+        printer.print_text("仓库未初始化.", style="red")
         return False
 
     try:
         # 检查当前工作目录是否有未提交的更改
         if repo.is_dirty():
-            logger.warning("工作目录有未提交的更改，请在回退前提交或暂存您的修改。")
+            printer.print_text("工作目录有未提交的更改，请在回退前提交或暂存您的修改.", style="yellow")
             return False
 
         # 通过message定位到commit_hash
         commit = repo.git.log("--all", f"--grep={message}", "--format=%H", "-n", "1")
         if not commit:
-            logger.warning(f"未找到提交信息包含 '{message}' 的提交记录。")
+            printer.print_text(f"未找到提交信息包含 '{message}' 的提交记录.", style="yellow")
             return False
 
         commit_hash = commit
@@ -94,25 +98,25 @@ def revert_changes(repo_path: str, message: str) -> bool:
 
         if not commits:
             repo.git.revert(commit, no_edit=True)
-            logger.info(f"已回退单条提交记录: {commit}")
+            printer.print_text(f"已回退单条提交记录: {commit}", style="green")
         else:
             # 从最新的提交开始，逐个回滚
             for commit in reversed(commits):
                 try:
                     repo.git.revert(commit.hexsha, no_commit=True)
-                    logger.info(f"已回退提交 {commit.hexsha} 的更改")
+                    printer.print_text(f"已回退提交 {commit.hexsha} 的更改", style="green")
                 except GitCommandError as e:
-                    logger.error(f"回退提交 {commit.hexsha} 时发生错误: {e}")
+                    printer.print_text(f"回退提交 {commit.hexsha} 时发生错误: {e}", style="red")
                     repo.git.revert("--abort")
                     return False
             # 提交所有的回滚更改
             repo.git.commit(message=f"Reverted all changes up to {commit_hash}")
-        logger.info(f"已成功回退到提交 {commit_hash} 的状态")
+        printer.print_text(f"已成功回退到提交 {commit_hash} 的状态", style="green")
         # this is a mark, chat_auto_coder.py need this
         print(f"Successfully reverted changes", flush=True)
         return True
     except GitCommandError as e:
-        logger.error(f"回退操作过程中发生错误: {e}")
+        printer.print_text(f"回退操作过程中发生错误: {e}", style="red")
         return False
 
 
@@ -154,7 +158,7 @@ def get_uncommitted_changes(repo_path: str) -> str:
                     content = f.read()
                 changes['new'].append((file_path, f'+++ {file_path}\n{content}'))
             except Exception as e:
-                logger.error(f"Error reading file {file_path}: {e}")
+                printer.print_text(f"Error reading file {file_path}: {e}", style="red")
         # 生成markdown报告
         report = ["# Git Changes Report\n"]
         # 新增文件
@@ -187,7 +191,7 @@ def get_uncommitted_changes(repo_path: str) -> str:
 
         return "\n".join(report)
     except GitCommandError as e:
-        logger.error(f"Error getting uncommitted changes: {e}")
+        printer.print_text(f"Error getting uncommitted changes: {e}", style="red")
         return f"Error: {str(e)}"
 
 

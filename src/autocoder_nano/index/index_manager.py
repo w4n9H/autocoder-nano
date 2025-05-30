@@ -4,12 +4,16 @@ import os
 import time
 from typing import List, Optional
 
-from loguru import logger
+# from loguru import logger
 
 from autocoder_nano.index.symbols_utils import extract_symbols, symbols_info_to_str
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.llm_prompt import prompt
 from autocoder_nano.llm_types import SourceCode, AutoCoderArgs, IndexItem, SymbolType, FileList
+from autocoder_nano.utils.printer_utils import Printer
+
+
+printer = Printer()
 
 
 class IndexManager:
@@ -34,7 +38,7 @@ class IndexManager:
             with open(self.index_file, "r") as file:  # 读缓存
                 index_data = json.load(file)
         else:  # 首次 build index
-            logger.info("首次生成索引.")
+            printer.print_text("首次生成索引.", style="green")
             index_data = {}
 
         @prompt()
@@ -47,7 +51,7 @@ class IndexManager:
 
         for item in index_data.keys():
             if not item.startswith(self.source_dir):
-                logger.warning(error_message(source_dir=self.source_dir, file_path=item))
+                printer.print_text(error_message.prompt(source_dir=self.source_dir, file_path=item), style="yellow")
                 break
 
         updated_sources = []
@@ -60,13 +64,13 @@ class IndexManager:
         counter = 0
         num_files = len(wait_to_build_files)
         total_files = len(self.sources)
-        logger.info(f"总文件数: {total_files}, 需要索引文件数: {num_files}")
+        printer.print_text(f"总文件数: {total_files}, 需要索引文件数: {num_files}", style="green")
 
         for source in wait_to_build_files:
             build_result = self.build_index_for_single_source(source)
             if build_result is not None:
                 counter += 1
-                logger.info(f"正在构建索引:{counter}/{num_files}...")
+                printer.print_text(f"正在构建索引:{counter}/{num_files}...", style="green")
                 module_name = build_result["module_name"]
                 index_data[module_name] = build_result
                 updated_sources.append(module_name)
@@ -168,10 +172,13 @@ class IndexManager:
             start_time = time.monotonic()
             source_code = source.source_code
             if len(source.source_code) > self.max_input_length:
-                logger.warning(
-                    f"警告[构建索引]: 源代码({source.module_name})长度过长 "
-                    f"({len(source.source_code)}) > 模型最大输入长度({self.max_input_length})，"
-                    f"正在分割为多个块..."
+                printer.print_text(
+                    f"""
+                    警告[构建索引]: 源代码({source.module_name})长度过长,
+                    ({len(source.source_code)}) > 模型最大输入长度({self.max_input_length}),
+                    正在分割为多个块...
+                    """,
+                    style="yellow"
                 )
                 chunks = self.split_text_into_chunks(source_code)
                 symbols_list = []
@@ -185,9 +192,10 @@ class IndexManager:
                 symbols = single_symbols.output
                 time.sleep(self.anti_quota_limit)
 
-            logger.info(f"解析并更新索引：文件 {file_path}（MD5: {md5}），耗时 {time.monotonic() - start_time:.2f} 秒")
+            printer.print_text(f"解析并更新索引：{file_path}（MD5: {md5}），耗时 {time.monotonic() - start_time:.2f} 秒",
+                               style="green")
         except Exception as e:
-            logger.warning(f"源文件 {file_path} 处理失败: {e}")
+            printer.print_text(f"源文件 {file_path} 处理失败: {e}", style="yellow")
             return None
 
         return {
@@ -313,11 +321,11 @@ class IndexManager:
                 all_results.extend(result.file_list)
                 completed += 1
             else:
-                logger.warning(f"无法找到分块的目标文件。原因可能是模型响应未返回 JSON 格式数据，或返回的 JSON 为空。")
+                printer.print_text(f"无法找到分块的目标文件.原因可能是模型响应未返回格式错误.", style="yellow")
             total += 1
             time.sleep(self.anti_quota_limit)
 
-        logger.info(f"已完成 {completed}/{total} 个分块(基于查询条件)")
+        printer.print_text(f"已完成 {completed}/{total} 个分块(基于查询条件)", style="green")
         all_results = list({file.file_path: file for file in all_results}.values())
         if self.args.index_filter_file_num > 0:
             limited_results = all_results[: self.args.index_filter_file_num]
@@ -378,10 +386,10 @@ class IndexManager:
                 all_results.extend(result.file_list)
                 completed += 1
             else:
-                logger.warning(f"无法找到与分块相关的文件。原因可能是模型限制或查询条件与文件不匹配。")
+                printer.print_text(f"无法找到与分块相关的文件。原因可能是模型限制或查询条件与文件不匹配.", style="yellow")
             total += 1
             time.sleep(self.anti_quota_limit)
-        logger.info(f"已完成 {completed}/{total} 个分块(基于相关文件)")
+        printer.print_text(f"已完成 {completed}/{total} 个分块(基于相关文件)", style="green")
         all_results = list({file.file_path: file for file in all_results}.values())
         return FileList(file_list=all_results)
 
