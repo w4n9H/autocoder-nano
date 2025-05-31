@@ -2181,7 +2181,7 @@ def configure_project_model():
 
     default_model = {
         "1": {"name": "ark-deepseek-r1", "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "deepseek-r1-250120"},
+              "model_name": "deepseek-r1-0528"},
         "2": {"name": "ark-deepseek-v3", "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "deepseek-v3-250324"},
         "3": {"name": "sili-deepseek-r1", "base_url": "https://api.siliconflow.cn/v1",
