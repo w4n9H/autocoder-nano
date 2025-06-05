@@ -1,4 +1,5 @@
 import os
+from typing import Tuple, List, Dict, Optional
 
 from autocoder_nano.llm_prompt import prompt
 from git import Repo, GitCommandError
@@ -541,3 +542,64 @@ def generate_commit_message(changes_report: str) -> str:
 
     请输出commit message, 不要输出任何其他内容.
     '''
+
+
+def get_commit_changes(
+        repo_path: str, commit_id: str
+) -> Tuple[List[Tuple[str, List[str], Dict[str, Tuple[str, str]]]], Optional[str]]:
+    """ 直接从Git仓库获取指定commit的变更 """
+    querie_with_urls_and_changes = []
+    try:
+        repo = get_repo(repo_path)
+        commit = repo.commit(commit_id)
+        modified_files = []
+        changes = {}
+
+        # 检查是否是首次提交（没有父提交）
+        if not commit.parents:
+            # 首次提交，获取所有文件
+            for item in commit.tree.traverse():
+                if item.type == 'blob':  # 只处理文件，不处理目录
+                    file_path = item.path
+                    modified_files.append(file_path)
+                    # 首次提交前没有内容
+                    before_content = None
+                    # 获取提交后的内容
+                    after_content = repo.git.show(f"{commit.hexsha}:{file_path}")
+                    changes[file_path] = (before_content, after_content)
+        else:
+            # 获取parent commit
+            parent = commit.parents[0]
+            # 获取变更的文件列表
+            for diff_item in parent.diff(commit):
+                file_path = diff_item.a_path if diff_item.a_path else diff_item.b_path
+                modified_files.append(file_path)
+
+                # 获取变更前内容
+                before_content = None
+                try:
+                    if diff_item.a_blob:
+                        before_content = repo.git.show(f"{parent.hexsha}:{file_path}")
+                except GitCommandError:
+                    pass  # 文件可能是新增的
+
+                # 获取变更后内容
+                after_content = None
+                try:
+                    if diff_item.b_blob:
+                        after_content = repo.git.show(f"{commit.hexsha}:{file_path}")
+                except GitCommandError:
+                    pass  # 文件可能被删除
+
+                changes[file_path] = (before_content, after_content)
+
+        # 使用commit消息作为查询内容
+        query = commit.message
+        querie_with_urls_and_changes.append((query, modified_files, changes))
+
+    except GitCommandError as e:
+        printer.print_text(f"git_command_error: {e}.", style="red")
+    except Exception as e:
+        printer.print_text(f"get_commit_changes_error: {e}.", style="red")
+
+    return querie_with_urls_and_changes, None

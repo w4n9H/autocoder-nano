@@ -64,6 +64,9 @@ class AutoCoderArgs(BaseModel):
     # Git 相关参数
     skip_commit: Optional[bool] = False
 
+    # Rules 相关参数
+    enable_rules: Optional[bool] = False
+
     # 模型相关参数
     current_chat_model: Optional[str] = ""
     current_code_model: Optional[str] = ""
@@ -115,6 +118,14 @@ class SourceCode(BaseModel):
     tag: str = ""
     tokens: int = -1
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SourceCodeList:
+    def __init__(self, sources: List[SourceCode]):
+        self.sources = sources
+
+    def to_str(self):
+        return "\n".join([f"##File: {source.module_name}\n{source.source_code}\n" for source in self.sources])
 
 
 class LLMRequest(BaseModel):
@@ -270,3 +281,12 @@ class FileInfo(BaseModel):
     relative_path: str
     modify_time: float
     file_md5: str
+
+
+class RuleFile(BaseModel):
+    """规则文件的Pydantic模型"""
+    description: str = Field(default="", description="规则的描述")
+    globs: List[str] = Field(default_factory=list, description="文件匹配模式列表")
+    always_apply: bool = Field(default=False, description="是否总是应用规则")
+    content: str = Field(default="", description="规则文件的正文内容")
+    file_path: str = Field(default="", description="规则文件的路径")

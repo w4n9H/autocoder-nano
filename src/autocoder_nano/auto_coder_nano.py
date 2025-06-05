@@ -15,6 +15,7 @@ from autocoder_nano.index.entry import build_index_and_filter_files
 from autocoder_nano.index.index_manager import IndexManager
 from autocoder_nano.index.symbols_utils import extract_symbols
 from autocoder_nano.llm_client import AutoLLM
+from autocoder_nano.rules.rules_learn import AutoRulesLearn
 from autocoder_nano.version import __version__
 from autocoder_nano.llm_types import *
 from autocoder_nano.llm_prompt import prompt, extract_code
@@ -55,7 +56,8 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 #                        ".vscode", ".idea", ".hg"]
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
-    "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit", "/new"
+    "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
+    "/rules"
 ]
 
 memory = {
@@ -185,12 +187,7 @@ COMMANDS = {
     "/remove_files": {"/all": ""},
     "/coding": {"/apply": ""},
     "/chat": {"/history": "", "/new": "", "/review": ""},
-    "/models": {
-        "/add_model": "",
-        "/remove": "",
-        "/list": "",
-        "/check": ""
-    },
+    "/models": {"/add_model": "", "/remove": "", "/list": "", "/check": ""},
     "/help": {
         "/add_files": "",
         "/remove_files": "",
@@ -202,7 +199,8 @@ COMMANDS = {
         "/models": ""
     },
     "/exclude_files": {"/list": "", "/drop": ""},
-    "/exclude_dirs": {}
+    "/exclude_dirs": {},
+    "/rules": {"/list": "", "/show": "", "/remove": "", "/analyze": "", "/commit": ""}
 }
 
 
@@ -700,6 +698,15 @@ class CommandCompleter(Completer):
 
             elif words[0] == "/help":
                 new_text = text[len("/help"):]
+                parser = CommandTextParser(new_text, words[0])
+                parser.add_files()
+                current_word = parser.current_word()
+                for command in parser.get_sub_commands():
+                    if command.startswith(current_word):
+                        yield Completion(command, start_position=-len(current_word))
+
+            elif words[0] == "/rules":
+                new_text = text[len("/rules"):]
                 parser = CommandTextParser(new_text, words[0])
                 parser.add_files()
                 current_word = parser.current_word()
@@ -1259,6 +1266,7 @@ def init_project():
         return
     os.makedirs(os.path.join(args.source_dir, "actions"), exist_ok=True)
     os.makedirs(os.path.join(args.source_dir, ".auto-coder"), exist_ok=True)
+    os.makedirs(os.path.join(args.source_dir, ".auto-coder", "autocoderrules"), exist_ok=True)
     source_dir = os.path.abspath(args.source_dir)
     create_actions(
         source_dir=source_dir,
@@ -1307,7 +1315,7 @@ def load_include_files(config, base_path, max_depth=10, current_depth=0):
 
         for include_file in include_files:
             abs_include_path = resolve_include_path(base_path, include_file)
-            printer.print_text(f"正在加载 Include file: {abs_include_path}", style="green")
+            # printer.print_text(f"正在加载 Include file: {abs_include_path}", style="green")
             with open(abs_include_path, "r") as f:
                 include_config = yaml.safe_load(f)
                 if not include_config:
@@ -1369,14 +1377,9 @@ def coding(query: str, llm: AutoLLM):
 
     memory["conversation"].append({"role": "user", "content": query})
     conf = memory.get("conf", {})
-
     current_files = memory["current_files"]["files"]
-    current_groups = memory["current_files"].get("current_groups", [])
-    groups = memory["current_files"].get("groups", {})
-    groups_info = memory["current_files"].get("groups_info", {})
 
     prepare_chat_yaml()  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
-
     latest_yaml_file = get_last_yaml_file(os.path.join(args.source_dir, "actions"))
 
     if latest_yaml_file:
@@ -1397,19 +1400,6 @@ def coding(query: str, llm: AutoLLM):
 
         yaml_config["urls"] = current_files
         yaml_config["query"] = query
-
-        if current_groups:
-            active_groups_context = "下面是对上面文件按分组给到的一些描述，当用户的需求正好匹配描述的时候，参考描述来做修改：\n"
-            for group in current_groups:
-                group_files = groups.get(group, [])
-                query_prefix = groups_info.get(group, {}).get("query_prefix", "")
-                active_groups_context += f"组名: {group}\n"
-                active_groups_context += f"文件列表:\n"
-                for file in group_files:
-                    active_groups_context += f"- {file}\n"
-                active_groups_context += f"组描述: {query_prefix}\n\n"
-
-            yaml_config["context"] = active_groups_context + "\n"
 
         if is_apply:
             memory_dir = os.path.join(args.source_dir, ".auto-coder", "memory")
@@ -1440,6 +1430,19 @@ def coding(query: str, llm: AutoLLM):
                 elif conv["role"] == "assistant":
                     yaml_config["context"] += f"你: {conv['content']}\n"
             yaml_config["context"] += "</history>\n"
+
+        if args.enable_rules:
+            rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
+            printer.print_text("已开启 Rules 模式", style="green")
+            yaml_config["context"] += f"下面是我们对代码进行深入分析,提取具有通用价值的功能模式和设计模式,可在其他需求中复用的Rules\n"
+            yaml_config["context"] += "你在编写代码时可以参考以下Rules\n"
+            yaml_config["context"] += "<rules>\n"
+            for rules_name in os.listdir(rules_dir_path):
+                printer.print_text(f"正在加载 Rules:{rules_name}", style="green")
+                rules_file_path = os.path.join(rules_dir_path, rules_name)
+                with open(rules_file_path, "r") as fp:
+                    yaml_config["context"] += f"{fp.read()}\n"
+            yaml_config["context"] += "</rules>\n"
 
         yaml_config["file"] = latest_yaml_file
         yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
@@ -2224,71 +2227,100 @@ def configure_project_model():
     )
 
 
-# def new_project(query, llm):
-#     console.print(f"正在基于你的需求 {query} 构建项目 ...", style="bold green")
-#     env_info = detect_env()
-#     project = BuildNewProject(args=args, llm=llm,
-#                               chat_model=memory["conf"]["chat_model"],
-#                               code_model=memory["conf"]["code_model"])
-#
-#     console.print(f"正在完善项目需求 ...", style="bold green")
-#
-#     information = project.build_project_information(query, env_info, args.project_type)
-#     if not information:
-#         raise Exception(f"项目需求未正常生成 .")
-#
-#     table = Table(title=f"{query}")
-#     table.add_column("需求说明", style="cyan")
-#     table.add_row(f"{information[:50]}...")
-#     console.print(table)
-#
-#     console.print(f"正在完善项目架构 ...", style="bold green")
-#     architecture = project.build_project_architecture(query, env_info, args.project_type, information)
-#
-#     console.print(f"正在构建项目索引 ...", style="bold green")
-#     index_file_list = project.build_project_index(query, env_info, args.project_type, information, architecture)
-#
-#     table = Table(title=f"索引列表")
-#     table.add_column("路径", style="cyan")
-#     table.add_column("用途", style="cyan")
-#     for index_file in index_file_list.file_list:
-#         table.add_row(index_file.file_path, index_file.purpose)
-#     console.print(table)
-#
-#     for index_file in index_file_list.file_list:
-#         full_path = os.path.join(args.source_dir, index_file.file_path)
-#
-#         # 获取目录路径
-#         full_dir_path = os.path.dirname(full_path)
-#         if not os.path.exists(full_dir_path):
-#             os.makedirs(full_dir_path)
-#
-#         console.print(f"正在编码: {full_path} ...", style="bold green")
-#         code = project.build_single_code(query, env_info, args.project_type, information, architecture, index_file)
-#
-#         with open(full_path, "w") as fp:
-#             fp.write(code)
-#
-#     # 生成 readme
-#     readme_context = information + architecture
-#     readme_path = os.path.join(args.source_dir, "README.md")
-#     with open(readme_path, "w") as fp:
-#         fp.write(readme_context)
-#
-#     console.print(f"项目构建完成", style="bold green")
+def rules(query_args: List[str], llm: AutoLLM):
+    """
+    /rules 命令帮助:
+    /rules /list            - 列出规则文件
+    /rules /show            - 查看规则文件内容
+    /rules /remove          - 删除规则文件
+    /rules /analyze         - 分析当前文件，可选提供查询内容
+    /rules /commit <提交ID>  - 分析特定提交，必须提供提交ID和查询内容
+    """
+    update_config_to_args(query="", delete_execute_file=True)
+    rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
+    if query_args[0] == "/list":
+        printer.print_table_compact(
+            data=[[rules_name] for rules_name in os.listdir(rules_dir_path)],
+            title="Rules 列表",
+            headers=["Rules 文件"],
+            center=True
+        )
+
+    if query_args[0] == "/remove":
+        remove_rules_name = query_args[1].strip()
+        remove_rules_path = os.path.join(rules_dir_path, remove_rules_name)
+        if os.path.exists(remove_rules_path):
+            os.remove(remove_rules_path)
+            printer.print_text(f"Rules 文件[{remove_rules_name}]移除成功", style="green")
+        else:
+            printer.print_text(f"Rules 文件[{remove_rules_name}]不存在", style="yellow")
+
+    if query_args[0] == "/show":  # /rules /show 参数检查
+        show_rules_name = query_args[1].strip()
+        show_rules_path = os.path.join(rules_dir_path, show_rules_name)
+        if os.path.exists(show_rules_path):
+            with open(show_rules_path, "r") as fp:
+                printer.print_markdown(text=fp.read(), panel=True)
+        else:
+            printer.print_text(f"Rules 文件[{show_rules_name}]不存在", style="yellow")
+
+    if query_args[0] == "/commit":
+        commit_id = query_args[1].strip()
+        auto_learn = AutoRulesLearn(llm=llm, args=args)
+
+        try:
+            result = auto_learn.analyze_commit_changes(commit_id=commit_id, conversations=[])
+            rules_file = os.path.join(rules_dir_path, f"rules-commit-{uuid.uuid4()}.md")
+            with open(rules_file, "w", encoding="utf-8") as f:
+                f.write(result)
+            printer.print_text(f"代码变更[{commit_id}]生成 Rules 成功", style="green")
+        except Exception as e:
+            printer.print_text(f"代码变更[{commit_id}]生成 Rules 失败: {e}", style="red")
+
+    if query_args[0] == "/analyze":
+        auto_learn = AutoRulesLearn(llm=llm, args=args)
+
+        files = memory.get("current_files", {}).get("files", [])
+        if not files:
+            printer.print_text("当前无活跃文件用于生成 Rules", style="yellow")
+            return
+
+        sources = SourceCodeList([])
+        for file in files:
+            try:
+                with open(file, "r", encoding="utf-8") as f:
+                    source_code = f.read()
+                    sources.sources.append(SourceCode(module_name=file, source_code=source_code))
+            except Exception as e:
+                printer.print_text(f"读取文件生成 Rules 失败: {e}", style="yellow")
+                continue
+
+        try:
+            result = auto_learn.analyze_modules(sources=sources, conversations=[])
+            rules_file = os.path.join(rules_dir_path, f"rules-modules-{uuid.uuid4()}.md")
+            with open(rules_file, "w", encoding="utf-8") as f:
+                f.write(result)
+            printer.print_text(f"活跃文件[Files:{len(files)}]生成 Rules 成功", style="green")
+        except Exception as e:
+            printer.print_text(f"活跃文件生成 Rules 失败: {e}", style="red")
+
+    completer.refresh_files()
 
 
 def is_old_version():
-    """
-    __version__ = "0.1.26" 开始使用兼容 AutoCoder 的 chat_model, code_model 参数
-    不再使用 current_chat_model 和 current_chat_model
-    """
+    # "0.1.26" 开始使用兼容 AutoCoder 的 chat_model, code_model 参数
+    # 不再使用 current_chat_model 和 current_chat_model
     if 'current_chat_model' in memory['conf'] and 'current_code_model' in memory['conf']:
-        printer.print_text(f"您当前使用的版本偏低 {__version__}, 正在进行配置兼容性处理", style="yellow")
+        printer.print_text(f"0.1.26 新增 chat_model, code_model 参数, 正在进行配置兼容性处理", style="yellow")
         memory['conf']['chat_model'] = memory['conf']['current_chat_model']
         memory['conf']['code_model'] = memory['conf']['current_code_model']
         del memory['conf']['current_chat_model']
         del memory['conf']['current_code_model']
+    # "0.1.31" 在 .auto-coder 目录中新增 autocoderrules 目录
+    rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
+    if not os.path.exists(rules_dir_path):
+        printer.print_text(f"0.1.31 .auto-coder 目录中新增 autocoderrules 目录, 正在进行配置兼容性处理", style="yellow")
+        os.makedirs(rules_dir_path, exist_ok=True)
 
 
 def main():
@@ -2453,6 +2485,12 @@ def main():
             elif user_input.startswith("/commit"):
                 query = user_input[len("/commit"):].strip()
                 commit_info(query, auto_llm)
+            elif user_input.startswith("/rules"):
+                query_args = user_input[len("/rules"):].strip().split()
+                if not query_args:
+                    printer.print_text("Please enter your request.", style="yellow")
+                    continue
+                rules(query_args=query_args, llm=auto_llm)
             elif user_input.startswith("/help"):
                 query = user_input[len("/help"):].strip()
                 show_help(query)
@@ -2461,7 +2499,7 @@ def main():
             elif user_input.startswith("/coding"):
                 query = user_input[len("/coding"):].strip()
                 if not query:
-                    print("\033[91mPlease enter your request.\033[0m")
+                    printer.print_text("Please enter your request.", style="yellow")
                     continue
                 coding(query=query, llm=auto_llm)
             # elif user_input.startswith("/new"):
