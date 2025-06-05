@@ -127,7 +127,7 @@ class BaseAgent(ABC):
 
     def process_request(self, user_input: str) -> str:
         self.history.append(("user", user_input))
-        logger.info(f"正在处理需求: {user_input}")
+        # logger.info(f"正在处理需求: {user_input}")
 
         # 初始化上下文变量
         context_vars = {}
@@ -143,15 +143,15 @@ class BaseAgent(ABC):
 
         # 获取完整工具链
         decision_chain = self.decide_next_action(context)
-        logger.info(f"工具链总共有 {len(decision_chain.tools)} 步")
-        logger.info("依次使用以下工具: ")
+        # logger.info(f"工具链总共有 {len(decision_chain.tools)} 步")
+        # logger.info("依次使用以下工具: ")
         for decision in decision_chain.tools:
             logger.info(f"{decision.action}: {decision.reasoning}")
 
         # 执行工具链
         for decision in decision_chain.tools:
             self.step_counter += 1
-            logger.info(f"正在执行: {self.step_counter}/{len(decision_chain.tools)}")
+            # logger.info(f"正在执行: {self.step_counter}/{len(decision_chain.tools)}")
 
             if decision.action == "final_answer":
                 final_response = decision.parameters["input"]
