@@ -46,7 +46,7 @@ class AutoCoderArgs(BaseModel):
     full_text_ratio: Optional[float] = 0.7
     segment_ratio: Optional[float] = 0.2
     buff_ratio: Optional[float] = 0.1
-    required_exts: Optional[str] = None    # 指定处理的文件后缀,例如.pdf,.doc
+    required_exts: Optional[str] = None  # 指定处理的文件后缀,例如.pdf,.doc
     monitor_mode: bool = False  # 监控模式,会监控doc_dir目录中的文件变化
     enable_hybrid_index: bool = False  # 开启混合索引
     disable_auto_window: bool = False
@@ -57,9 +57,9 @@ class AutoCoderArgs(BaseModel):
     enable_rag_context: Optional[Union[bool, str]] = False
     disable_segment_reorder: bool = False
     disable_inference_enhance: bool = False
-    duckdb_vector_dim: Optional[int] = 1024    # DuckDB 向量化存储的维度
+    duckdb_vector_dim: Optional[int] = 1024  # DuckDB 向量化存储的维度
     duckdb_query_similarity: Optional[float] = 0.7  # DuckDB 向量化检索 相似度 阈值
-    duckdb_query_top_k: Optional[int] = 50    # DuckDB 向量化检索 返回 TopK个结果(且大于相似度)
+    duckdb_query_top_k: Optional[int] = 50  # DuckDB 向量化检索 返回 TopK个结果(且大于相似度)
 
     # Git 相关参数
     skip_commit: Optional[bool] = False
@@ -67,19 +67,22 @@ class AutoCoderArgs(BaseModel):
     # Rules 相关参数
     enable_rules: Optional[bool] = False
 
+    # Agent 相关参数
+    generate_max_rounds: Optional[int] = 5
+
     # 模型相关参数
     current_chat_model: Optional[str] = ""
     current_code_model: Optional[str] = ""
-    model: Optional[str] = ""    # 默认模型
-    chat_model: Optional[str] = ""    # AI Chat交互模型
-    index_model: Optional[str] = ""    # 代码索引生成模型
-    code_model: Optional[str] = ""    # 编码模型
-    commit_model: Optional[str] = ""    # Git Commit 模型
-    emb_model: Optional[str] = ""    # RAG Emb 模型
-    recall_model: Optional[str] = ""    # RAG 召回阶段模型
-    chunk_model: Optional[str] = ""    # 段落重排序模型
-    qa_model: Optional[str] = ""    # RAG 提问模型
-    vl_model: Optional[str] = ""    # 多模态模型
+    model: Optional[str] = ""  # 默认模型
+    chat_model: Optional[str] = ""  # AI Chat交互模型
+    index_model: Optional[str] = ""  # 代码索引生成模型
+    code_model: Optional[str] = ""  # 编码模型
+    commit_model: Optional[str] = ""  # Git Commit 模型
+    emb_model: Optional[str] = ""  # RAG Emb 模型
+    recall_model: Optional[str] = ""  # RAG 召回阶段模型
+    chunk_model: Optional[str] = ""  # 段落重排序模型
+    qa_model: Optional[str] = ""  # RAG 提问模型
+    vl_model: Optional[str] = ""  # 多模态模型
 
     class Config:
         protected_namespaces = ()
@@ -147,6 +150,21 @@ class LLMResponse(BaseModel):
     metadata: Dict[str, Any] = dataclasses.field(
         default_factory=dict  # 元数据，包含与响应相关的额外信息，默认为空字典
     )
+
+
+class SingleOutputMeta:
+    def __init__(self, input_tokens_count: int = 0,
+                 generated_tokens_count: int = 0,
+                 reasoning_content: str = "",
+                 finish_reason: str = "",
+                 first_token_time: float = 0.0,
+                 extra_info: Dict[str, Any] = {}):
+        self.input_tokens_count = input_tokens_count
+        self.generated_tokens_count = generated_tokens_count
+        self.reasoning_content = reasoning_content
+        self.finish_reason = finish_reason
+        self.first_token_time = first_token_time
+        self.extra_info = extra_info
 
 
 class IndexItem(BaseModel):
