@@ -13,7 +13,8 @@ uvicorn
 pathspec
 fastapi
 tokenizers
-duckdb==1.2.0
+duckdb
 numpy
 requests
 beautifulsoup4
+psutil

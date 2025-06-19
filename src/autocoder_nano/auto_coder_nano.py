@@ -9,6 +9,8 @@ import textwrap
 import time
 import uuid
 
+from autocoder_nano.agent.agentic_edit import AgenticEdit
+from autocoder_nano.agent.agentic_edit_types import AgenticEditRequest
 from autocoder_nano.edit import Dispacher
 from autocoder_nano.helper import show_help
 from autocoder_nano.index.entry import build_index_and_filter_files
@@ -57,7 +59,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
     "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
-    "/rules"
+    "/rules", "/auto"
 ]
 
 memory = {
@@ -1575,6 +1577,20 @@ def commit_info(query: str, llm: AutoLLM):
                 os.remove(execute_file)
 
 
+def agentic_edit(query: str, llm: AutoLLM):
+    update_config_to_args(query=query, delete_execute_file=True)
+
+    sources = SourceCodeList([])
+    agentic_editor = AgenticEdit(
+        args=args, llm=llm, files=sources, history_conversation=[]
+    )
+
+    query = query.strip()
+    request = AgenticEditRequest(user_input=query)
+
+    agentic_editor.run_in_terminal(request)
+
+
 @prompt()
 def _generate_shell_script(user_input: str) -> str:
     """
@@ -2502,12 +2518,12 @@ def main():
                     printer.print_text("Please enter your request.", style="yellow")
                     continue
                 coding(query=query, llm=auto_llm)
-            # elif user_input.startswith("/new"):
-            #     query = user_input[len("/new"):].strip()
-            #     if not query:
-            #         print("\033[91mPlease enter your request.\033[0m")
-            #         continue
-            #     new_project(query=query, llm=auto_llm)
+            elif user_input.startswith("/auto"):
+                query = user_input[len("/auto"):].strip()
+                if not query:
+                    print("\033[91mPlease enter your request.\033[0m")
+                    continue
+                agentic_edit(query=query, llm=auto_llm)
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:
