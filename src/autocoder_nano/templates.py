@@ -99,7 +99,7 @@ def init_command_template(source_dir: str):
     ## 2. 查找0和1中的文件引用的相关文件
     ## 第一次建议使用0
     index_filter_level: 0
-    index_model_max_input_length: 30000
+    index_model_max_input_length: 100000
 
     ## 过滤文件的线程数量
     ## 如果您有一个大项目，可以增加这个数字

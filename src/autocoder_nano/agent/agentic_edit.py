@@ -3,9 +3,11 @@ import os
 import re
 import time
 import xml.sax.saxutils
+from importlib import resources
 from typing import List, Dict, Any, Optional, Generator, Union, Tuple, Type
 
 from rich.markdown import Markdown
+from tokenizers import Tokenizer
 
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.git_utils import commit_changes, get_uncommitted_changes
@@ -161,6 +163,20 @@ class AgenticEdit:
         # 变更跟踪信息
         # 格式: { file_path: FileChangeEntry(...) }
         self.file_changes: Dict[str, FileChangeEntry] = {}
+
+        try:
+            tokenizer_path = resources.files("autocoder_nano").joinpath("data/tokenizer.json").__str__()
+        except FileNotFoundError:
+            tokenizer_path = None
+        self.tokenizer_model = Tokenizer.from_file(tokenizer_path)
+
+    def count_tokens(self, text: str) -> int:
+        try:
+            encoded = self.tokenizer_model.encode(text)
+            v = len(encoded.ids)
+            return v
+        except Exception as e:
+            return -1
 
     def record_file_change(
             self, file_path: str, change_type: str, diff: Optional[str] = None, content: Optional[str] = None
@@ -953,9 +969,10 @@ class AgenticEdit:
     ) -> Generator[Union[LLMOutputEvent, LLMThinkingEvent, ToolCallEvent, ToolResultEvent, CompletionEvent, ErrorEvent,
                          WindowLengthChangeEvent, TokenUsageEvent, PlanModeRespondEvent] | None, None, None]:
 
-        printer.print_text(f"开始 Agentic Edit Analyze 方法，用户输入为：{request.user_input[:50]}...", style="green")
         system_prompt = self._analyze.prompt(request)
-        printer.print_text(f"生成的系统提示词长度为：{len(system_prompt)}", style="green")
+        printer.print_key_value(
+            {"长度(tokens)": f"{len(system_prompt)}"}, title="系统提示词"
+        )
 
         conversations = [
             {"role": "system", "content": system_prompt},
@@ -969,8 +986,6 @@ class AgenticEdit:
         current_tokens = len(conversation_str)  # 暂时使用len
         yield WindowLengthChangeEvent(tokens_used=current_tokens)
 
-        printer.print_text(f"初始对话历史记录大小: {len(conversations)}, 令牌数: {current_tokens}", style="green")
-
         iteration_count = 0
         tool_executed = False
         should_yield_completion_event = False
@@ -978,12 +993,14 @@ class AgenticEdit:
 
         while True:
             iteration_count += 1
-            printer.print_text(f"开始第 {iteration_count} 轮LLM交互循环，重置 tool_executed 为 False", style="green")
             tool_executed = False
             last_message = conversations[-1]
+            printer.print_key_value(
+                {"当前": f"第 {iteration_count} 轮", "历史会话长度": f"{len(conversations)}"}, title="LLM 交互循环"
+            )
 
             if last_message["role"] == "assistant":
-                printer.print_text(f"上一条消息来自 assistant，跳过LLM交互循环", style="green")
+                # printer.print_text(f"上一条消息来自 assistant，跳过LLM交互循环", style="green")
                 if should_yield_completion_event:
                     if completion_event is None:
                         yield CompletionEvent(completion=AttemptCompletionTool(
@@ -993,10 +1010,8 @@ class AgenticEdit:
                     else:
                         yield completion_event
                 break
-            printer.print_text(f"开始LLM交互循环，历史记录长度: {len(conversations)}", style="green")
 
             assistant_buffer = ""
-            printer.print_text("初始化LLM流式聊天", style="green")
 
             # 实际请求大模型
             llm_response_gen = stream_chat_with_continue(
@@ -1006,7 +1021,6 @@ class AgenticEdit:
                 args=self.args
             )
 
-            printer.print_text("开始分析LLM实时返回数据", style="green")
             parsed_events = self.stream_and_parse_llm_response(llm_response_gen)
 
             event_count = 0
@@ -1021,18 +1035,17 @@ class AgenticEdit:
 
                 if isinstance(event, (LLMOutputEvent, LLMThinkingEvent)):
                     assistant_buffer += event.text
-                    printer.print_text(f"当前助手缓冲区累计字符数：{len(assistant_buffer)}", style="green")
+                    # printer.print_text(f"当前助手缓冲区累计字符数：{len(assistant_buffer)}", style="green")
                     yield event  # Yield text/thinking immediately for display
 
                 elif isinstance(event, ToolCallEvent):
                     tool_executed = True
                     tool_obj = event.tool
                     tool_name = type(tool_obj).__name__
-                    printer.print_text(f"检测到工具调用: {tool_name}", style="green")
                     tool_xml = event.tool_xml  # Already reconstructed by parser
 
                     # Append assistant's thoughts and the tool call to history
-                    printer.print_text("将带有工具调用的助手(Assistant)消息添加到对话历史", style="green")
+                    printer.print_panel(content=f"tool_xml \n{tool_xml}", title=f"🛠️ 工具触发: {tool_name}", center=True)
 
                     # 记录当前对话的token数量
                     conversations.append({
@@ -1043,18 +1056,16 @@ class AgenticEdit:
 
                     # 计算当前对话的总 token 数量并触发事件
                     current_conversation_str = json.dumps(conversations, ensure_ascii=False)
-                    total_tokens = len(current_conversation_str)  # count_tokens
+                    total_tokens = self.count_tokens(current_conversation_str)
                     yield WindowLengthChangeEvent(tokens_used=total_tokens)
 
                     yield event  # Yield the ToolCallEvent for display
-                    printer.print_text("ToolCallEvent 事件已触发", style="green")
 
                     # Handle AttemptCompletion separately as it ends the loop
                     if isinstance(tool_obj, AttemptCompletionTool):
-                        printer.print_text("收到 AttemptCompletionTool，正在结束会话.", style="green")
-                        printer.print_text(f"完成结果: {tool_obj.result[:50]}...", style="green")
+                        printer.print_panel(content=f"完成结果: {tool_obj.result[:50]}...",
+                                            title="AttemptCompletionTool，正在结束会话", center=True)
                         completion_event = CompletionEvent(completion=tool_obj, completion_xml=tool_xml)
-                        printer.print_text("由于 AttemptCompletion，AgenticEdit 分析循环结束.", style="green")
                         # save_formatted_log(self.args.source_dir, json.dumps(conversations, ensure_ascii=False),
                         #                    "agentic_conversation")
                         mark_event_should_finish = True
@@ -1062,10 +1073,9 @@ class AgenticEdit:
                         continue
 
                     if isinstance(tool_obj, PlanModeRespondTool):
-                        printer.print_text("收到 PlanModeRespondTool，正在结束会话.", style="green")
-                        printer.print_text(f"Plan 模式响应内容: {tool_obj.result[:50]}...", style="green")
+                        printer.print_panel(content=f"Plan 模式响应内容: {tool_obj.response[:50]}...",
+                                            title="PlanModeRespondTool，正在结束会话", center=True)
                         yield PlanModeRespondEvent(completion=tool_obj, completion_xml=tool_xml)
-                        printer.print_text("由于 PlanModeRespond，AgenticEdit 分析循环结束.", style="green")
                         # save_formatted_log(self.args.source_dir, json.dumps(conversations, ensure_ascii=False),
                         #                    "agentic_conversation")
                         mark_event_should_finish = True
@@ -1074,7 +1084,6 @@ class AgenticEdit:
                     # Resolve the tool
                     resolver_cls = TOOL_RESOLVER_MAP.get(type(tool_obj))
                     if not resolver_cls:
-                        printer.print_text(f"未实现工具类型 {type(tool_obj).name} 的解析器.", style="red")
                         tool_result = ToolResult(
                             success=False, message="错误：工具解析器未实现.", content=None)
                         result_event = ToolResultEvent(tool_name=type(tool_obj).__name__, result=tool_result)
@@ -1083,18 +1092,11 @@ class AgenticEdit:
                                      f"<content></content></tool_result>")
                     else:
                         try:
-                            printer.print_text(f"正在为工具 {tool_name} 创建解析器", style="green")
                             resolver = resolver_cls(agent=self, tool=tool_obj, args=self.args)
-                            printer.print_text(
-                                f"正在执行工具：{type(tool_obj).__name__}，参数：{tool_obj.model_dump()}", style="green")
                             tool_result: ToolResult = resolver.resolve()
-                            printer.print_text(
-                                f"工具执行结果：成功={tool_result.success}，消息='{tool_result.message}'",
-                                style="green")
                             result_event = ToolResultEvent(tool_name=type(tool_obj).__name__, result=tool_result)
 
                             # Prepare XML for conversation history
-                            printer.print_text("解析 XML 数据写入会话历史")
                             escaped_message = xml.sax.saxutils.escape(tool_result.message)
                             content_str = str(
                                 tool_result.content) if tool_result.content is not None else ""
@@ -1107,7 +1109,6 @@ class AgenticEdit:
                                 f"</tool_result>"
                             )
                         except Exception as e:
-                            printer.print_text(f"解析工具 {type(tool_obj).__name__} 错误: {e}")
                             error_message = f"Critical Error during tool execution: {e}"
                             tool_result = ToolResult(success=False, message=error_message, content=None)
                             result_event = ToolResultEvent(tool_name=type(tool_obj).__name__, result=tool_result)
@@ -1126,7 +1127,7 @@ class AgenticEdit:
 
                     # 计算当前对话的总 token 数量并触发事件
                     current_conversation_str = json.dumps(conversations, ensure_ascii=False)
-                    total_tokens = len(current_conversation_str)  # count_tokens
+                    total_tokens = self.count_tokens(current_conversation_str)
                     yield WindowLengthChangeEvent(tokens_used=total_tokens)
 
                     # 一次交互只能有一次工具，剩下的其实就没有用了，但是如果不让流式处理完，我们就无法获取服务端
@@ -1157,7 +1158,7 @@ class AgenticEdit:
 
                     # 计算当前对话的总 token 数量并触发事件
                     current_conversation_str = json.dumps(conversations, ensure_ascii=False)
-                    total_tokens = len(current_conversation_str)  # count_tokens
+                    total_tokens = self.count_tokens(current_conversation_str)
                     yield WindowLengthChangeEvent(tokens_used=total_tokens)
 
                 # 添加系统提示，要求LLM必须使用工具或明确结束，而不是直接退出
@@ -1173,7 +1174,7 @@ class AgenticEdit:
 
                 # 计算当前对话的总 token 数量并触发事件
                 current_conversation_str = json.dumps(conversations, ensure_ascii=False)
-                total_tokens = len(current_conversation_str)  # count_tokens
+                total_tokens = self.count_tokens(current_conversation_str)
                 yield WindowLengthChangeEvent(tokens_used=total_tokens)
                 # 继续循环，让 LLM 再思考，而不是 break
                 printer.print_text("持续运行 LLM 交互循环（保持不中断）", style="green")
@@ -1399,22 +1400,19 @@ class AgenticEdit:
                         self.args.source_dir, f"{self.args.query}\nauto_coder_nano_agentic_edit",
                     )
                     if commit_message:
-                        printer.print_text(f"Commit 成功", style="green")
-
-                    action_file_name = os.path.basename(self.args.file)
+                        printer.print_panel(content=f"Commit 成功", title="Commit 信息", center=True)
                 except Exception as err:
                     import traceback
                     traceback.print_exc()
-                    printer.print_text(f"Commit 失败: {err}", style="red")
+                    printer.print_panel(content=f"Commit 失败: {err}", title="Commit 信息", center=True)
         else:
-            printer.print_text("未进行任何更改", style="green")
+            printer.print_panel(content=f"未进行任何更改", title="Commit 信息", center=True)
 
     def run_in_terminal(self, request: AgenticEditRequest):
         project_name = os.path.basename(os.path.abspath(self.args.source_dir))
 
-        printer.print_text(f"开始 Agentic Edit: {project_name}", style="green")
-        printer.print_panel(
-            content=f"用户查询: {request.user_input}", title="目标", center=True
+        printer.print_key_value(
+            items={"项目名": f"{project_name}", "用户目标": f"{request.user_input}"}, title="Agentic Edit 开始运行"
         )
 
         # 用于累计TokenUsageEvent数据
@@ -1474,8 +1472,8 @@ class AgenticEdit:
                     result = event.result
                     title = f"✅ 工具返回: {event.tool_name}" if result.success else f"❌ 工具返回: {event.tool_name}"
                     border_style = "green" if result.success else "red"
-                    base_content = f"Status: {'Success' if result.success else 'Failure'}\n"
-                    base_content += f"Message: {result.message}\n"
+                    base_content = f"状态: {'成功' if result.success else '失败'}\n"
+                    base_content += f"信息: {result.message}\n"
 
                     def _format_content(_content):
                         if len(_content) > 200:
@@ -1543,7 +1541,7 @@ class AgenticEdit:
                     # Print syntax highlighted content separately if it exists
                     if content_str:
                         printer.print_code(
-                            code=content_str, lexer=lexer, theme="default", line_numbers=True, panel=True)
+                            code=content_str, lexer=lexer, theme="monokai", line_numbers=True, panel=True)
 
                 elif isinstance(event, PlanModeRespondEvent):
                     printer.print_panel(

@@ -294,7 +294,7 @@ class Printer:
 
     def print_key_value(
         self, items: Dict[str, Any], key_style: str = "bold cyan",
-        value_style: str = "green", separator: str = ": ", panel: bool = True
+        value_style: str = "green", separator: str = ": ", panel: bool = True, title: Optional[str] = None
     ) -> None:
         """
         键值对格式化输出
@@ -303,6 +303,7 @@ class Printer:
         :param value_style: 值的样式
         :param separator: 键值分隔符
         :param panel: 是否用面板包裹
+        :param title: 面板标题
         """
         content = Group(*[
             Text.assemble(
@@ -310,7 +311,7 @@ class Printer:
                 (str(v), value_style)
             ) for k, v in items.items()
         ])
-        self._print_with_panel(content, panel)
+        self._print_with_panel(content, panel, title)
 
     def context_aware_help(
         self, help_content: Dict[str, str], current_context: str, width: int = 40
@@ -336,10 +337,10 @@ class Printer:
             width=width
         )
 
-    def _print_with_panel(self, content: Any, use_panel: bool) -> None:
+    def _print_with_panel(self, content: Any, use_panel: bool, title: Optional[str] = None) -> None:
         """内部方法：根据参数决定是否使用面板包装"""
         if use_panel:
-            self.print_panel(content)
+            self.print_panel(content, title)
         else:
             self.console.print(content)
 

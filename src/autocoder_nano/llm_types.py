@@ -18,6 +18,7 @@ class AutoCoderArgs(BaseModel):
     index_filter_level: Optional[int] = 0  # 用于查找相关文件的过滤级别
     index_filter_file_num: Optional[int] = -1  #
     index_filter_workers: Optional[int] = 1  # 过滤文件的线程数量
+    index_model_max_input_length: Optional[int] = 6000  # 模型最大输入长度
     filter_batch_size: Optional[int] = 5  #
     anti_quota_limit: Optional[int] = 1  # 请求模型时的间隔时间(s)
     skip_build_index: Optional[bool] = False  # 是否跳过索引构建(索引可以帮助您通过查询找到相关文件)
