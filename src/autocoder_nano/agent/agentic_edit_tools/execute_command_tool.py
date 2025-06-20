@@ -36,16 +36,11 @@ class ExecuteCommandToolResolver(BaseToolResolver):
         source_dir = self.args.source_dir or "."
 
         try:
-            exit_code, output = run_cmd_subprocess(command, verbose=True, cwd=source_dir)
+            exit_code, output = run_cmd_subprocess(command, verbose=False, cwd=source_dir)
 
-            printer.print_table_compact(
-                data=[
-                    ["执行命令", f"{command}"],
-                    ["返回 Code", f"{exit_code}"],
-                    ["输出大小", f"{len(output)} chars"]
-                ],
-                title="使用 run_cmd_subprocess 执行命令工具",
-                headers=["Key", "Value"]
+            printer.print_key_value(
+                items={"执行命令": f"{command}", "返回 Code": f"{exit_code}", "输出大小": f"{len(output)} chars"},
+                title="使用 run_cmd_subprocess 执行命令工具"
             )
 
             final_output = self._prune_file_content(output, "command_output")
