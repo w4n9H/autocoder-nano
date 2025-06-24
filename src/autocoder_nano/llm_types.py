@@ -1,8 +1,8 @@
 import dataclasses
 from enum import Enum
-from typing import List, Dict, Any, Optional, Union, Tuple, Set
+from typing import List, Dict, Any, Optional, Union, Tuple, Set, Callable
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SkipValidation
 
 
 class AutoCoderArgs(BaseModel):
@@ -239,6 +239,23 @@ class Tag(BaseModel):
     start_tag: str
     content: str
     end_tag: str
+
+
+class FileSystemModel(BaseModel):
+    project_root: str
+    get_all_file_names_in_project: SkipValidation[Callable]
+    get_all_file_in_project: SkipValidation[Callable]
+    get_all_dir_names_in_project: SkipValidation[Callable]
+    get_all_file_in_project_with_dot: SkipValidation[Callable]
+    get_symbol_list: SkipValidation[Callable]
+
+
+class MemoryConfig(BaseModel):
+    get_memory_func: SkipValidation[Callable]
+    save_memory_func: SkipValidation[Callable]
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class SymbolItem(BaseModel):
