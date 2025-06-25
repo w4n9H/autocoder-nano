@@ -75,7 +75,7 @@ memory = {
 }
 
 
-args: AutoCoderArgs = AutoCoderArgs()
+# args: AutoCoderArgs = AutoCoderArgs()
 
 
 def get_all_file_names_in_project() -> List[str]:
@@ -215,6 +215,40 @@ completer = CommandCompleter(
 )
 
 
+def get_final_config(query: str, delete_execute_file: bool = False) -> AutoCoderArgs | None:
+    conf = memory.get("conf", {})
+    yaml_config = {
+        "include_file": ["./base/base.yml"],
+        "skip_build_index": conf.get("skip_build_index", "true") == "true",
+        "skip_confirm": conf.get("skip_confirm", "true") == "true",
+        "chat_model": conf.get("chat_model", ""),
+        "code_model": conf.get("code_model", ""),
+        "auto_merge": conf.get("auto_merge", "editblock"),
+        "exclude_files": memory.get("exclude_files", [])
+    }
+    current_files = memory["current_files"]["files"]
+    yaml_config["urls"] = current_files
+    yaml_config["query"] = query
+
+    # 如果 conf 中有设置, 则以 conf 配置为主
+    for key, value in conf.items():
+        converted_value = convert_config_value(key, value)
+        if converted_value is not None:
+            yaml_config[key] = converted_value
+
+    execute_file = os.path.join(project_root, "actions", f"{uuid.uuid4()}.yml")
+    try:
+        yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
+        with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
+            f.write(yaml_content)
+        args = convert_yaml_to_config(execute_file)  # 更新到args
+    finally:
+        if delete_execute_file:
+            if os.path.exists(execute_file):
+                os.remove(execute_file)
+    return args
+
+
 def exclude_dirs(dir_names: List[str]):
     new_dirs = dir_names
     existing_dirs = memory.get("exclude_dirs", [])
@@ -281,7 +315,7 @@ def exclude_files(query: str):
 
 
 def index_command(llm):
-    update_config_to_args(query="", delete_execute_file=True)
+    args = get_final_config(query="", delete_execute_file=True)
 
     source_dir = os.path.abspath(args.source_dir)
     printer.print_text(f"开始对目录 {source_dir} 中的源代码进行索引", style="green")
@@ -359,7 +393,7 @@ def index_import(import_path: str):
 
 
 def index_query_command(query: str, llm: AutoLLM):
-    update_config_to_args(query=query, delete_execute_file=True)
+    args = get_final_config(query=query, delete_execute_file=True)
 
     # args.query = query
     if args.project_type == "py":
@@ -389,12 +423,6 @@ def index_query_command(query: str, llm: AutoLLM):
         panel=True
     )
 
-    # headers = TargetFile.model_fields.keys()
-    # table_data = wrap_text_in_table(
-    #     [[getattr(file_item, name) for name in headers] for file_item in all_results]
-    # )
-    # table_output = tabulate.tabulate(table_data, headers, tablefmt="grid")
-    # print(table_output, flush=True)
     printer.print_table_compact(
         headers=["文件路径", "原因"],
         data=[[_target_file.file_path, _target_file.reason] for _target_file in all_results],
@@ -415,7 +443,8 @@ def convert_yaml_config_to_str(yaml_config):
 
 
 def convert_yaml_to_config(yaml_file: str | dict | AutoCoderArgs):
-    global args
+    # global args
+    args = AutoCoderArgs()
     config = {}
     if isinstance(yaml_file, str):
         args.file = yaml_file
@@ -452,40 +481,40 @@ def convert_config_value(key, value):
         return None
 
 
-def update_config_to_args(query, delete_execute_file: bool = False):
-    conf = memory.get("conf", {})
-
-    # 默认 chat 配置
-    yaml_config = {
-        "include_file": ["./base/base.yml"],
-        "skip_build_index": conf.get("skip_build_index", "true") == "true",
-        "skip_confirm": conf.get("skip_confirm", "true") == "true",
-        "chat_model": conf.get("chat_model", ""),
-        "code_model": conf.get("code_model", ""),
-        "auto_merge": conf.get("auto_merge", "editblock"),
-        "exclude_files": memory.get("exclude_files", [])
-    }
-    current_files = memory["current_files"]["files"]
-    yaml_config["urls"] = current_files
-    yaml_config["query"] = query
-
-    # 如果 conf 中有设置, 则以 conf 配置为主
-    for key, value in conf.items():
-        converted_value = convert_config_value(key, value)
-        if converted_value is not None:
-            yaml_config[key] = converted_value
-
-    yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
-    execute_file = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
-
-    with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
-        f.write(yaml_content)
-
-    convert_yaml_to_config(execute_file)  # 更新到args
-
-    if delete_execute_file:
-        if os.path.exists(execute_file):
-            os.remove(execute_file)
+# def update_config_to_args(query, delete_execute_file: bool = False):
+#     conf = memory.get("conf", {})
+#
+#     # 默认 chat 配置
+#     yaml_config = {
+#         "include_file": ["./base/base.yml"],
+#         "skip_build_index": conf.get("skip_build_index", "true") == "true",
+#         "skip_confirm": conf.get("skip_confirm", "true") == "true",
+#         "chat_model": conf.get("chat_model", ""),
+#         "code_model": conf.get("code_model", ""),
+#         "auto_merge": conf.get("auto_merge", "editblock"),
+#         "exclude_files": memory.get("exclude_files", [])
+#     }
+#     current_files = memory["current_files"]["files"]
+#     yaml_config["urls"] = current_files
+#     yaml_config["query"] = query
+#
+#     # 如果 conf 中有设置, 则以 conf 配置为主
+#     for key, value in conf.items():
+#         converted_value = convert_config_value(key, value)
+#         if converted_value is not None:
+#             yaml_config[key] = converted_value
+#
+#     yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
+#     execute_file = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
+#
+#     with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
+#         f.write(yaml_content)
+#
+#     convert_yaml_to_config(execute_file)  # 更新到args
+#
+#     if delete_execute_file:
+#         if os.path.exists(execute_file):
+#             os.remove(execute_file)
 
 
 def print_chat_history(history, max_entries=5):
@@ -519,7 +548,7 @@ def code_review(query: str) -> str:
 
 
 def chat(query: str, llm: AutoLLM):
-    update_config_to_args(query)
+    args = get_final_config(query)
 
     is_history = query.strip().startswith("/history")
     is_new = "/new" in query
@@ -664,19 +693,19 @@ def chat(query: str, llm: AutoLLM):
     return
 
 
-def init_project():
-    if not args.project_type:
+def init_project(project_type):
+    if not project_type:
         printer.print_text(
             f"请指定项目类型。可选的项目类型包括：py|ts| 或文件扩展名(例如:.java,.scala), 多个扩展名逗号分隔.", style="green"
         )
         return
-    os.makedirs(os.path.join(args.source_dir, "actions"), exist_ok=True)
-    os.makedirs(os.path.join(args.source_dir, ".auto-coder"), exist_ok=True)
-    os.makedirs(os.path.join(args.source_dir, ".auto-coder", "autocoderrules"), exist_ok=True)
-    source_dir = os.path.abspath(args.source_dir)
+    os.makedirs(os.path.join(project_root, "actions"), exist_ok=True)
+    os.makedirs(os.path.join(project_root, ".auto-coder"), exist_ok=True)
+    os.makedirs(os.path.join(project_root, ".auto-coder", "autocoderrules"), exist_ok=True)
+    source_dir = os.path.abspath(project_root)
     create_actions(
         source_dir=source_dir,
-        params={"project_type": args.project_type,
+        params={"project_type": project_type,
                 "source_dir": source_dir},
     )
 
@@ -686,7 +715,7 @@ def init_project():
         f.write("\nactions/")
         f.write("\noutput.txt")
 
-    printer.print_text(f"已在 {os.path.abspath(args.source_dir)} 成功初始化 autocoder-nano 项目", style="green")
+    printer.print_text(f"已在 {os.path.abspath(project_root)} 成功初始化 autocoder-nano 项目", style="green")
     return
 
 
@@ -739,7 +768,7 @@ def load_include_files(config, base_path, max_depth=10, current_depth=0):
 
 def prepare_chat_yaml():
     # auto_coder_main(["next", "chat_action"]) 准备聊天 yaml 文件
-    actions_dir = os.path.join(args.source_dir, "actions")
+    actions_dir = os.path.join(project_root, "actions")
     if not os.path.exists(actions_dir):
         printer.print_text("当前目录中未找到 actions 目录。请执行初始化 AutoCoder Nano", style="yellow")
         return
@@ -786,7 +815,7 @@ def coding(query: str, llm: AutoLLM):
     current_files = memory["current_files"]["files"]
 
     prepare_chat_yaml()  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
-    latest_yaml_file = get_last_yaml_file(os.path.join(args.source_dir, "actions"))
+    latest_yaml_file = get_last_yaml_file(os.path.join(project_root, "actions"))
 
     if latest_yaml_file:
         yaml_config = {
@@ -808,7 +837,7 @@ def coding(query: str, llm: AutoLLM):
         yaml_config["query"] = query
 
         if is_apply:
-            memory_dir = os.path.join(args.source_dir, ".auto-coder", "memory")
+            memory_dir = os.path.join(project_root, ".auto-coder", "memory")
             os.makedirs(memory_dir, exist_ok=True)
             memory_file = os.path.join(memory_dir, "chat_history.json")
 
@@ -837,25 +866,26 @@ def coding(query: str, llm: AutoLLM):
                     yaml_config["context"] += f"你: {conv['content']}\n"
             yaml_config["context"] += "</history>\n"
 
-        if args.enable_rules:
-            rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
-            printer.print_text("已开启 Rules 模式", style="green")
-            yaml_config["context"] += f"下面是我们对代码进行深入分析,提取具有通用价值的功能模式和设计模式,可在其他需求中复用的Rules\n"
-            yaml_config["context"] += "你在编写代码时可以参考以下Rules\n"
-            yaml_config["context"] += "<rules>\n"
-            for rules_name in os.listdir(rules_dir_path):
-                printer.print_text(f"正在加载 Rules:{rules_name}", style="green")
-                rules_file_path = os.path.join(rules_dir_path, rules_name)
-                with open(rules_file_path, "r") as fp:
-                    yaml_config["context"] += f"{fp.read()}\n"
-            yaml_config["context"] += "</rules>\n"
+        # todo:暂时注释,后续通过一个 is_rules 的参数来控制
+        # if args.enable_rules:
+        #     rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
+        #     printer.print_text("已开启 Rules 模式", style="green")
+        #     yaml_config["context"] += f"下面是我们对代码进行深入分析,提取具有通用价值的功能模式和设计模式,可在其他需求中复用的Rules\n"
+        #     yaml_config["context"] += "你在编写代码时可以参考以下Rules\n"
+        #     yaml_config["context"] += "<rules>\n"
+        #     for rules_name in os.listdir(rules_dir_path):
+        #         printer.print_text(f"正在加载 Rules:{rules_name}", style="green")
+        #         rules_file_path = os.path.join(rules_dir_path, rules_name)
+        #         with open(rules_file_path, "r") as fp:
+        #             yaml_config["context"] += f"{fp.read()}\n"
+        #     yaml_config["context"] += "</rules>\n"
 
         yaml_config["file"] = latest_yaml_file
         yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
-        execute_file = os.path.join(args.source_dir, "actions", latest_yaml_file)
+        execute_file = os.path.join(project_root, "actions", latest_yaml_file)
         with open(os.path.join(execute_file), "w") as f:
             f.write(yaml_content)
-        convert_yaml_to_config(execute_file)
+        args = convert_yaml_to_config(execute_file)
 
         dispacher = Dispacher(args=args, llm=llm)
         dispacher.dispach()
@@ -866,7 +896,7 @@ def coding(query: str, llm: AutoLLM):
     completer.refresh_files()
 
 
-def execute_revert():
+def execute_revert(args: AutoCoderArgs):
     repo_path = args.source_dir
 
     file_content = open(args.file).read()
@@ -883,11 +913,11 @@ def execute_revert():
 
 
 def revert():
-    last_yaml_file = get_last_yaml_file(os.path.join(args.source_dir, "actions"))
+    last_yaml_file = get_last_yaml_file(os.path.join(project_root, "actions"))
     if last_yaml_file:
-        file_path = os.path.join(args.source_dir, "actions", last_yaml_file)
-        convert_yaml_to_config(file_path)
-        execute_revert()
+        file_path = os.path.join(project_root, "actions", last_yaml_file)
+        args = convert_yaml_to_config(file_path)
+        execute_revert(args)
     else:
         printer.print_text(f"No previous chat action found to revert.", style="yellow")
 
@@ -910,15 +940,15 @@ def print_commit_info(commit_result: CommitResult):
 
 
 def commit_info(query: str, llm: AutoLLM):
-    repo_path = args.source_dir
+    repo_path = project_root
     prepare_chat_yaml()  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
 
-    latest_yaml_file = get_last_yaml_file(os.path.join(args.source_dir, "actions"))
+    latest_yaml_file = get_last_yaml_file(os.path.join(project_root, "actions"))
     execute_file = None
 
     if latest_yaml_file:
         try:
-            execute_file = os.path.join(args.source_dir, "actions", latest_yaml_file)
+            execute_file = os.path.join(project_root, "actions", latest_yaml_file)
             conf = memory.get("conf", {})
             yaml_config = {
                 "include_file": ["./base/base.yml"],
@@ -937,11 +967,11 @@ def commit_info(query: str, llm: AutoLLM):
             yaml_config["urls"] = current_files
 
             # 临时保存yaml文件，然后读取yaml文件，更新args
-            temp_yaml = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
+            temp_yaml = os.path.join(project_root, "actions", f"{uuid.uuid4()}.yml")
             try:
                 with open(temp_yaml, "w", encoding="utf-8") as f:
                     f.write(convert_yaml_config_to_str(yaml_config=yaml_config))
-                convert_yaml_to_config(temp_yaml)
+                args = convert_yaml_to_config(temp_yaml)
             finally:
                 if os.path.exists(temp_yaml):
                     os.remove(temp_yaml)
@@ -982,7 +1012,7 @@ def commit_info(query: str, llm: AutoLLM):
 
 
 def agentic_edit(query: str, llm: AutoLLM):
-    update_config_to_args(query=query, delete_execute_file=True)
+    args = get_final_config(query=query, delete_execute_file=True)
 
     sources = SourceCodeList([])
     agentic_editor = AgenticEdit(
@@ -1032,7 +1062,7 @@ def _generate_shell_script(user_input: str) -> str:
 
 
 def generate_shell_command(input_text: str, llm: AutoLLM) -> str | None:
-    update_config_to_args(query=input_text, delete_execute_file=True)
+    args = get_final_config(query=input_text, delete_execute_file=True)
 
     try:
         printer.print_panel(
@@ -1274,13 +1304,18 @@ def initialize_system():
 
     def _init_project():
         first_time = False
-        if not os.path.exists(os.path.join(args.source_dir, ".auto-coder")):
+        if not os.path.exists(os.path.join(project_root, ".auto-coder")):
             first_time = True
             printer.print_text("当前目录未初始化为auto-coder项目.", style="yellow")
             init_choice = input(f"  是否现在初始化项目？(y/n): ").strip().lower()
             if init_choice == "y":
                 try:
-                    init_project()
+                    if first_time:  # 首次启动,配置项目类型
+                        if not os.path.exists(base_persist_dir):
+                            os.makedirs(base_persist_dir, exist_ok=True)
+                            printer.print_text("创建目录：{}".format(base_persist_dir), style="green")
+                        project_type = configure_project_type()
+                        init_project(project_type)
                     printer.print_text("项目初始化成功.", style="green")
                 except Exception as e:
                     printer.print_text(f"项目初始化失败, {str(e)}.", style="red")
@@ -1289,12 +1324,12 @@ def initialize_system():
                 printer.print_text("退出而不初始化.", style="yellow")
                 exit(1)
 
-        if not os.path.exists(base_persist_dir):
-            os.makedirs(base_persist_dir, exist_ok=True)
-            printer.print_text("创建目录：{}".format(base_persist_dir), style="green")
+        # if not os.path.exists(base_persist_dir):
+        #     os.makedirs(base_persist_dir, exist_ok=True)
+        #     printer.print_text("创建目录：{}".format(base_persist_dir), style="green")
 
-        if first_time:  # 首次启动,配置项目类型
-            configure_project_type()
+        # if first_time:  # 首次启动,配置项目类型
+        #     project_type = configure_project_type()
 
         printer.print_text("项目初始化完成.", style="green")
 
@@ -1656,7 +1691,7 @@ def rules(query_args: List[str], llm: AutoLLM):
     /rules /analyze         - 分析当前文件，可选提供查询内容
     /rules /commit <提交ID>  - 分析特定提交，必须提供提交ID和查询内容
     """
-    update_config_to_args(query="", delete_execute_file=True)
+    args = get_final_config(query="", delete_execute_file=True)
     rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
     if query_args[0] == "/list":
         printer.print_table_compact(
@@ -1806,20 +1841,21 @@ def main():
             memory["mode"] = "normal"
         event.app.invalidate()
 
-    def _update_bottom_toolbar(toolbar_arg):
-        if toolbar_arg in memory['conf']:
-            return memory['conf'][toolbar_arg]
-        return args.model_dump()[toolbar_arg]
+    # def _update_bottom_toolbar(toolbar_arg):
+    #     if toolbar_arg in memory['conf']:
+    #         return memory['conf'][toolbar_arg]
+    #     return args.model_dump()[toolbar_arg]
 
     def get_bottom_toolbar():
         if "mode" not in memory:
             memory["mode"] = "normal"
         mode = memory["mode"]
-        skip_build_toolbar = _update_bottom_toolbar('skip_build_index')
-        skip_filter_toolbar = _update_bottom_toolbar('skip_filter_index')
-        index_filter_toolbar = _update_bottom_toolbar('index_filter_level')
-        return (f" 当前模式: {MODES[mode]} (ctl+k 切换模式) | 跳过索引: {skip_build_toolbar} "
-                f"| 跳过过滤: {skip_filter_toolbar} | 过滤等级: {index_filter_toolbar}")
+        # skip_build_toolbar = _update_bottom_toolbar('skip_build_index')
+        # skip_filter_toolbar = _update_bottom_toolbar('skip_filter_index')
+        # index_filter_toolbar = _update_bottom_toolbar('index_filter_level')
+        # return (f" 当前模式: {MODES[mode]} (ctl+k 切换模式) | 跳过索引: {skip_build_toolbar} "
+        #         f"| 跳过过滤: {skip_filter_toolbar} | 过滤等级: {index_filter_toolbar}")
+        return f" 当前模式: {MODES[mode]} (ctl+k 切换模式) | 当前项目: {project_root}"
 
     session = PromptSession(
         history=InMemoryHistory(),
