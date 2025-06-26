@@ -10,6 +10,7 @@ import uuid
 
 from autocoder_nano.agent.agentic_edit import AgenticEdit
 from autocoder_nano.agent.agentic_edit_types import AgenticEditRequest
+from autocoder_nano.chat import stream_chat_display
 from autocoder_nano.edit import Dispacher
 from autocoder_nano.helper import show_help
 from autocoder_nano.index.entry import build_index_and_filter_files
@@ -481,42 +482,6 @@ def convert_config_value(key, value):
         return None
 
 
-# def update_config_to_args(query, delete_execute_file: bool = False):
-#     conf = memory.get("conf", {})
-#
-#     # 默认 chat 配置
-#     yaml_config = {
-#         "include_file": ["./base/base.yml"],
-#         "skip_build_index": conf.get("skip_build_index", "true") == "true",
-#         "skip_confirm": conf.get("skip_confirm", "true") == "true",
-#         "chat_model": conf.get("chat_model", ""),
-#         "code_model": conf.get("code_model", ""),
-#         "auto_merge": conf.get("auto_merge", "editblock"),
-#         "exclude_files": memory.get("exclude_files", [])
-#     }
-#     current_files = memory["current_files"]["files"]
-#     yaml_config["urls"] = current_files
-#     yaml_config["query"] = query
-#
-#     # 如果 conf 中有设置, 则以 conf 配置为主
-#     for key, value in conf.items():
-#         converted_value = convert_config_value(key, value)
-#         if converted_value is not None:
-#             yaml_config[key] = converted_value
-#
-#     yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
-#     execute_file = os.path.join(args.source_dir, "actions", f"{uuid.uuid4()}.yml")
-#
-#     with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
-#         f.write(yaml_content)
-#
-#     convert_yaml_to_config(execute_file)  # 更新到args
-#
-#     if delete_execute_file:
-#         if os.path.exists(execute_file):
-#             os.remove(execute_file)
-
-
 def print_chat_history(history, max_entries=5):
     recent_history = history[-max_entries:]
     data_list = []
@@ -639,50 +604,52 @@ def chat(query: str, llm: AutoLLM):
 
     loaded_conversations = pre_conversations + chat_history["ask_conversation"]
 
-    v = chat_llm.stream_chat_ai(conversations=loaded_conversations, model=args.chat_model)
+    assistant_response = stream_chat_display(chat_llm=llm, args=args, conversations=loaded_conversations)
 
-    MAX_HISTORY_LINES = 15  # 最大保留历史行数
-    lines_buffer = []
-    current_line = ""
-    assistant_response = ""
-
-    try:
-        with Live(Panel("", title="Response", style="cyan"), refresh_per_second=12) as live:
-            for chunk in v:
-                if chunk.choices and chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    assistant_response += content
-
-                    # 处理换行符分割
-                    parts = (current_line + content).split('\n')
-
-                    # 最后一部分是未完成的新行
-                    if len(parts) > 1:
-                        # 将完整行加入缓冲区
-                        lines_buffer.extend(parts[:-1])
-                        # 保留最近N行历史
-                        if len(lines_buffer) > MAX_HISTORY_LINES:
-                            del lines_buffer[0: len(lines_buffer) - MAX_HISTORY_LINES]
-                    # 更新当前行（最后未完成的部分）
-                    current_line = parts[-1]
-                    # 构建显示内容 = 历史行 + 当前行
-                    display_content = '\n'.join(lines_buffer[-MAX_HISTORY_LINES:] + [current_line])
-
-                    live.update(
-                        Panel(Markdown(display_content), title="模型返回", border_style="cyan",
-                              height=min(25, live.console.height - 4))
-                    )
-
-            # 处理最后未换行的内容
-            if current_line:
-                lines_buffer.append(current_line)
-
-            # 最终完整渲染
-            live.update(
-                Panel(Markdown(assistant_response), title="模型返回", border_style="dim blue")
-            )
-    except Exception as e:
-        printer.print_panel(Text(f"{str(e)}", style="red"), title="模型返回", center=True)
+    # v = chat_llm.stream_chat_ai(conversations=loaded_conversations, model=args.chat_model)
+    #
+    # MAX_HISTORY_LINES = 15  # 最大保留历史行数
+    # lines_buffer = []
+    # current_line = ""
+    # assistant_response = ""
+    #
+    # try:
+    #     with Live(Panel("", title="Response", style="cyan"), refresh_per_second=12) as live:
+    #         for chunk in v:
+    #             if chunk.choices and chunk.choices[0].delta.content:
+    #                 content = chunk.choices[0].delta.content
+    #                 assistant_response += content
+    #
+    #                 # 处理换行符分割
+    #                 parts = (current_line + content).split('\n')
+    #
+    #                 # 最后一部分是未完成的新行
+    #                 if len(parts) > 1:
+    #                     # 将完整行加入缓冲区
+    #                     lines_buffer.extend(parts[:-1])
+    #                     # 保留最近N行历史
+    #                     if len(lines_buffer) > MAX_HISTORY_LINES:
+    #                         del lines_buffer[0: len(lines_buffer) - MAX_HISTORY_LINES]
+    #                 # 更新当前行（最后未完成的部分）
+    #                 current_line = parts[-1]
+    #                 # 构建显示内容 = 历史行 + 当前行
+    #                 display_content = '\n'.join(lines_buffer[-MAX_HISTORY_LINES:] + [current_line])
+    #
+    #                 live.update(
+    #                     Panel(Markdown(display_content), title="模型返回", border_style="cyan",
+    #                           height=min(25, live.console.height - 4))
+    #                 )
+    #
+    #         # 处理最后未换行的内容
+    #         if current_line:
+    #             lines_buffer.append(current_line)
+    #
+    #         # 最终完整渲染
+    #         live.update(
+    #             Panel(Markdown(assistant_response), title="模型返回", border_style="dim blue")
+    #         )
+    # except Exception as e:
+    #     printer.print_panel(Text(f"{str(e)}", style="red"), title="模型返回", center=True)
 
     chat_history["ask_conversation"].append({"role": "assistant", "content": assistant_response})
 
@@ -1841,20 +1808,10 @@ def main():
             memory["mode"] = "normal"
         event.app.invalidate()
 
-    # def _update_bottom_toolbar(toolbar_arg):
-    #     if toolbar_arg in memory['conf']:
-    #         return memory['conf'][toolbar_arg]
-    #     return args.model_dump()[toolbar_arg]
-
     def get_bottom_toolbar():
         if "mode" not in memory:
             memory["mode"] = "normal"
         mode = memory["mode"]
-        # skip_build_toolbar = _update_bottom_toolbar('skip_build_index')
-        # skip_filter_toolbar = _update_bottom_toolbar('skip_filter_index')
-        # index_filter_toolbar = _update_bottom_toolbar('index_filter_level')
-        # return (f" 当前模式: {MODES[mode]} (ctl+k 切换模式) | 跳过索引: {skip_build_toolbar} "
-        #         f"| 跳过过滤: {skip_filter_toolbar} | 过滤等级: {index_filter_toolbar}")
         return f" 当前模式: {MODES[mode]} (ctl+k 切换模式) | 当前项目: {project_root}"
 
     session = PromptSession(
