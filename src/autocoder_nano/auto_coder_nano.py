@@ -13,9 +13,11 @@ from autocoder_nano.agent.agentic_edit_types import AgenticEditRequest
 from autocoder_nano.chat import stream_chat_display
 from autocoder_nano.edit import Dispacher
 from autocoder_nano.helper import show_help
+from autocoder_nano.index import (index_export, index_import, index_build,
+                                  index_build_and_filter, extract_symbols, IndexManager)
 from autocoder_nano.index.entry import build_index_and_filter_files
-from autocoder_nano.index.index_manager import IndexManager
-from autocoder_nano.index.symbols_utils import extract_symbols
+# from autocoder_nano.index.index_manager import IndexManager
+# from autocoder_nano.index.symbols_utils import extract_symbols
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.rules.rules_learn import AutoRulesLearn
 from autocoder_nano.utils.completer_utils import CommandCompleter
@@ -26,7 +28,7 @@ from autocoder_nano.templates import create_actions
 from autocoder_nano.git_utils import (repo_init, commit_changes, revert_changes,
                                       get_uncommitted_changes, generate_commit_message)
 from autocoder_nano.sys_utils import default_exclude_dirs, detect_env
-from autocoder_nano.project import PyProject, SuffixProject
+from autocoder_nano.project import PyProject, SuffixProject, project_source
 from autocoder_nano.utils.printer_utils import Printer
 
 import yaml
@@ -317,92 +319,30 @@ def exclude_files(query: str):
 
 def index_command(llm):
     args = get_final_config(query="", delete_execute_file=True)
-
     source_dir = os.path.abspath(args.source_dir)
     printer.print_text(f"开始对目录 {source_dir} 中的源代码进行索引", style="green")
-    if args.project_type == "py":
-        pp = PyProject(llm=llm, args=args)
-    else:
-        pp = SuffixProject(llm=llm, args=args)
-    pp.run()
-    _sources = pp.sources
-    index_manager = IndexManager(args=args, source_codes=_sources, llm=llm)
-    index_manager.build_index()
-
-
-def index_export(export_path: str) -> bool:
-    try:
-        index_path = os.path.join(project_root, ".auto-coder", "index.json")
-        if not os.path.exists(index_path):
-            printer.print_text(Text(f"索引文件不存在. ", style="bold red"))
-            return False
-
-        with open(index_path, "r", encoding="utf-8") as f:
-            index_data = json.load(f)
-
-        converted_data = {}
-        for abs_path, data in index_data.items():
-            try:
-                rel_path = os.path.relpath(abs_path, project_root)
-                data["module_name"] = rel_path
-                converted_data[rel_path] = data
-            except ValueError:
-                printer.print_text(Text(f"索引转换路径失败. ", style="dim yellow"))
-                converted_data[abs_path] = data
-
-        export_file = os.path.join(export_path, "index.json")
-        with open(export_file, "w", encoding="utf-8") as f:
-            json.dump(converted_data, f, indent=2)
-        printer.print_text(Text(f"索引文件导出成功. ", style="bold green"))
-        return True
-    except Exception as err:
-        printer.print_text(Text(f"索引文件导出失败: {err}", style="bold red"))
-        return False
-
-
-def index_import(import_path: str):
-    try:
-        import_file = os.path.join(import_path, "index.json")
-        if not os.path.exists(import_file):
-            printer.print_text(Text(f"导入索引文件不存在", style="bold red"))
-            return False
-        with open(import_file, "r", encoding="utf-8") as f:
-            index_data = json.load(f)
-        converted_data = {}
-        for rel_path, data in index_data.items():
-            try:
-                abs_path = os.path.join(project_root, rel_path)
-                data["module_name"] = abs_path
-                converted_data[abs_path] = data
-            except Exception as err:
-                printer.print_text(Text(f"{rel_path} 索引转换路径失败: {err}", style="dim yellow"))
-                converted_data[rel_path] = data
-        # Backup existing index
-        index_path = os.path.join(project_root, ".auto-coder", "index.json")
-        if os.path.exists(index_path):
-            printer.print_text(Text(f"原索引文件不存在", style="bold yellow"))
-            backup_path = index_path + ".bak"
-            shutil.copy2(index_path, backup_path)
-
-        # Write new index
-        with open(index_path, "w", encoding="utf-8") as f:
-            json.dump(converted_data, f, indent=2)
-        return True
-    except Exception as err:
-        printer.print_text(Text(f"索引文件导入失败: {err}", style="bold red"))
-        return False
+    index_build(llm=llm, args=args)
+    # if args.project_type == "py":
+    #     pp = PyProject(llm=llm, args=args)
+    # else:
+    #     pp = SuffixProject(llm=llm, args=args)
+    # pp.run()
+    # _sources = pp.sources
+    # index_manager = IndexManager(args=args, source_codes=_sources, llm=llm)
+    # index_manager.build_index()
 
 
 def index_query_command(query: str, llm: AutoLLM):
     args = get_final_config(query=query, delete_execute_file=True)
 
     # args.query = query
-    if args.project_type == "py":
-        pp = PyProject(llm=llm, args=args)
-    else:
-        pp = SuffixProject(llm=llm, args=args)
-    pp.run()
-    _sources = pp.sources
+    # if args.project_type == "py":
+    #     pp = PyProject(llm=llm, args=args)
+    # else:
+    #     pp = SuffixProject(llm=llm, args=args)
+    # pp.run()
+    # _sources = pp.sources
+    _sources = project_source(source_llm=llm, args=args)
 
     final_files = []
     index_manager = IndexManager(args=args, source_codes=_sources, llm=llm)
@@ -539,10 +479,8 @@ def chat(query: str, llm: AutoLLM):
                 old_chat_history = json.load(f)
             if "conversation_history" not in old_chat_history:
                 old_chat_history["conversation_history"] = []
-            old_chat_history["conversation_history"].append(
-                old_chat_history.get("ask_conversation", []))
-            chat_history = {"ask_conversation": [
-            ], "conversation_history": old_chat_history["conversation_history"]}
+            old_chat_history["conversation_history"].append(old_chat_history.get("ask_conversation", []))
+            chat_history = {"ask_conversation": [], "conversation_history": old_chat_history["conversation_history"]}
         else:
             chat_history = {"ask_conversation": [],
                             "conversation_history": []}
@@ -569,8 +507,6 @@ def chat(query: str, llm: AutoLLM):
 
     if is_history:
         show_chat = []
-        # if "conversation_history" in chat_history:
-        #     show_chat.extend(chat_history["conversation_history"])
         if "ask_conversation" in chat_history:
             show_chat.extend(chat_history["ask_conversation"])
         print_chat_history(show_chat)
@@ -583,12 +519,13 @@ def chat(query: str, llm: AutoLLM):
     chat_llm = llm
     pre_conversations = []
 
-    if args.project_type == "py":
-        pp = PyProject(llm=llm, args=args)
-    else:
-        pp = SuffixProject(llm=llm, args=args)
-    pp.run()
-    _sources = pp.sources
+    # if args.project_type == "py":
+    #     pp = PyProject(llm=llm, args=args)
+    # else:
+    #     pp = SuffixProject(llm=llm, args=args)
+    # pp.run()
+    # _sources = pp.sources
+    _sources = project_source(source_llm=llm, args=args)
     s = build_index_and_filter_files(args=args, llm=llm, sources=_sources)
     if s:
         pre_conversations.append(
@@ -605,51 +542,6 @@ def chat(query: str, llm: AutoLLM):
     loaded_conversations = pre_conversations + chat_history["ask_conversation"]
 
     assistant_response = stream_chat_display(chat_llm=llm, args=args, conversations=loaded_conversations)
-
-    # v = chat_llm.stream_chat_ai(conversations=loaded_conversations, model=args.chat_model)
-    #
-    # MAX_HISTORY_LINES = 15  # 最大保留历史行数
-    # lines_buffer = []
-    # current_line = ""
-    # assistant_response = ""
-    #
-    # try:
-    #     with Live(Panel("", title="Response", style="cyan"), refresh_per_second=12) as live:
-    #         for chunk in v:
-    #             if chunk.choices and chunk.choices[0].delta.content:
-    #                 content = chunk.choices[0].delta.content
-    #                 assistant_response += content
-    #
-    #                 # 处理换行符分割
-    #                 parts = (current_line + content).split('\n')
-    #
-    #                 # 最后一部分是未完成的新行
-    #                 if len(parts) > 1:
-    #                     # 将完整行加入缓冲区
-    #                     lines_buffer.extend(parts[:-1])
-    #                     # 保留最近N行历史
-    #                     if len(lines_buffer) > MAX_HISTORY_LINES:
-    #                         del lines_buffer[0: len(lines_buffer) - MAX_HISTORY_LINES]
-    #                 # 更新当前行（最后未完成的部分）
-    #                 current_line = parts[-1]
-    #                 # 构建显示内容 = 历史行 + 当前行
-    #                 display_content = '\n'.join(lines_buffer[-MAX_HISTORY_LINES:] + [current_line])
-    #
-    #                 live.update(
-    #                     Panel(Markdown(display_content), title="模型返回", border_style="cyan",
-    #                           height=min(25, live.console.height - 4))
-    #                 )
-    #
-    #         # 处理最后未换行的内容
-    #         if current_line:
-    #             lines_buffer.append(current_line)
-    #
-    #         # 最终完整渲染
-    #         live.update(
-    #             Panel(Markdown(assistant_response), title="模型返回", border_style="dim blue")
-    #         )
-    # except Exception as e:
-    #     printer.print_panel(Text(f"{str(e)}", style="red"), title="模型返回", center=True)
 
     chat_history["ask_conversation"].append({"role": "assistant", "content": assistant_response})
 
@@ -1881,10 +1773,10 @@ def main():
                 index_query_command(query=query, llm=auto_llm)
             elif user_input.startswith("/index/export"):
                 export_path = user_input[len("/index/export"):].strip()
-                index_export(export_path)
+                index_export(project_root, export_path)
             elif user_input.startswith("/index/import"):
                 import_path = user_input[len("/index/import"):].strip()
-                index_import(import_path)
+                index_import(project_root, import_path)
             elif user_input.startswith("/list_files"):
                 list_files()
             elif user_input.startswith("/conf"):
