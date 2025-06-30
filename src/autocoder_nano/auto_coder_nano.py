@@ -13,9 +13,10 @@ from autocoder_nano.agent.agentic_edit_types import AgenticEditRequest
 from autocoder_nano.chat import stream_chat_display
 from autocoder_nano.edit import Dispacher
 from autocoder_nano.helper import show_help
+from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
-                                  index_build_and_filter, extract_symbols, IndexManager)
-from autocoder_nano.index.entry import build_index_and_filter_files
+                                  index_build_and_filter, extract_symbols)
+# from autocoder_nano.index.entry import build_index_and_filter_files
 # from autocoder_nano.index.index_manager import IndexManager
 # from autocoder_nano.index.symbols_utils import extract_symbols
 from autocoder_nano.llm_client import AutoLLM
@@ -28,7 +29,7 @@ from autocoder_nano.templates import create_actions
 from autocoder_nano.git_utils import (repo_init, commit_changes, revert_changes,
                                       get_uncommitted_changes, generate_commit_message)
 from autocoder_nano.sys_utils import default_exclude_dirs, detect_env
-from autocoder_nano.project import PyProject, SuffixProject, project_source
+# from autocoder_nano.project import PyProject, SuffixProject, project_source
 from autocoder_nano.utils.printer_utils import Printer
 
 import yaml
@@ -319,57 +320,13 @@ def exclude_files(query: str):
 
 def index_command(llm):
     args = get_final_config(query="", delete_execute_file=True)
-    source_dir = os.path.abspath(args.source_dir)
-    printer.print_text(f"开始对目录 {source_dir} 中的源代码进行索引", style="green")
-    index_build(llm=llm, args=args)
-    # if args.project_type == "py":
-    #     pp = PyProject(llm=llm, args=args)
-    # else:
-    #     pp = SuffixProject(llm=llm, args=args)
-    # pp.run()
-    # _sources = pp.sources
-    # index_manager = IndexManager(args=args, source_codes=_sources, llm=llm)
-    # index_manager.build_index()
+    index_build(llm=llm, args=args, sources_codes=project_source(source_llm=llm, args=args))
+    return
 
 
 def index_query_command(query: str, llm: AutoLLM):
     args = get_final_config(query=query, delete_execute_file=True)
-
-    # args.query = query
-    # if args.project_type == "py":
-    #     pp = PyProject(llm=llm, args=args)
-    # else:
-    #     pp = SuffixProject(llm=llm, args=args)
-    # pp.run()
-    # _sources = pp.sources
-    _sources = project_source(source_llm=llm, args=args)
-
-    final_files = []
-    index_manager = IndexManager(args=args, source_codes=_sources, llm=llm)
-    target_files = index_manager.get_target_files_by_query(query)
-
-    if target_files:
-        final_files.extend(target_files.file_list)
-
-    if target_files and args.index_filter_level >= 2:
-
-        related_fiels = index_manager.get_related_files([file.file_path for file in target_files.file_list])
-
-        if related_fiels is not None:
-            final_files.extend(related_fiels.file_list)
-
-    all_results = list({file.file_path: file for file in final_files}.values())
-    printer.print_key_value(
-        {"索引过滤级别": f"{args.index_filter_level}", "查询条件": f"{args.query}", "过滤后的文件数": f"{len(all_results)}"},
-        panel=True
-    )
-
-    printer.print_table_compact(
-        headers=["文件路径", "原因"],
-        data=[[_target_file.file_path, _target_file.reason] for _target_file in all_results],
-        title="Index Query 结果",
-        show_lines=True,
-    )
+    index_build_and_filter(llm=llm, args=args, sources_codes=project_source(source_llm=llm, args=args))
     return
 
 
@@ -525,8 +482,9 @@ def chat(query: str, llm: AutoLLM):
     #     pp = SuffixProject(llm=llm, args=args)
     # pp.run()
     # _sources = pp.sources
-    _sources = project_source(source_llm=llm, args=args)
-    s = build_index_and_filter_files(args=args, llm=llm, sources=_sources)
+    # _sources = project_source(source_llm=llm, args=args)
+    # s = build_index_and_filter_files(args=args, llm=llm, sources=_sources)
+    s = index_build_and_filter(llm=llm, args=args, sources_codes=project_source(source_llm=llm, args=args))
     if s:
         pre_conversations.append(
             {

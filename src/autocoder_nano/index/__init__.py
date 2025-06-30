@@ -21,10 +21,10 @@ def index_build(llm: AutoLLM, args: AutoCoderArgs, sources_codes: list[SourceCod
     index.build_index()
 
 
-def index_build_and_filter(llm: AutoLLM, args: AutoCoderArgs, sources_codes: list[SourceCode] = None):
+def index_build_and_filter(llm: AutoLLM, args: AutoCoderArgs, sources_codes: list[SourceCode] = None) -> str:
     if not sources_codes:
         sources_codes = project_source(source_llm=llm, args=args)
-    build_index_and_filter_files(args=args, llm=llm, sources=sources_codes)
+    return build_index_and_filter_files(args=args, llm=llm, sources=sources_codes)
 
 
 def index_export(project_root: str, export_path: str) -> bool:
