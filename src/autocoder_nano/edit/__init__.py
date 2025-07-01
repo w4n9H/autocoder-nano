@@ -18,3 +18,11 @@ class Dispacher:
         for action in dispacher_actions:
             if action.run():
                 return
+
+
+def coding(llm: AutoLLM, args: AutoCoderArgs):
+    dispacher = Dispacher(args=args, llm=llm)
+    dispacher.dispach()
+
+
+__all__ = ["coding"]
