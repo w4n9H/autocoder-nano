@@ -20,9 +20,9 @@ class Dispacher:
                 return
 
 
-def coding(llm: AutoLLM, args: AutoCoderArgs):
+def run_edit(llm: AutoLLM, args: AutoCoderArgs):
     dispacher = Dispacher(args=args, llm=llm)
     dispacher.dispach()
 
 
-__all__ = ["coding"]
+__all__ = ["run_edit"]
