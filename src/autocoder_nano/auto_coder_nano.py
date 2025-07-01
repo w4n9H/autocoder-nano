@@ -11,16 +11,13 @@ import uuid
 from autocoder_nano.agent.agentic_edit import AgenticEdit
 from autocoder_nano.agent.agentic_edit_types import AgenticEditRequest
 from autocoder_nano.chat import stream_chat_display
-from autocoder_nano.edit import Dispacher
+from autocoder_nano.edit import coding
 from autocoder_nano.helper import show_help
 from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
-# from autocoder_nano.index.entry import build_index_and_filter_files
-# from autocoder_nano.index.index_manager import IndexManager
-# from autocoder_nano.index.symbols_utils import extract_symbols
+from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
 from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.rules.rules_learn import AutoRulesLearn
 from autocoder_nano.utils.completer_utils import CommandCompleter
 from autocoder_nano.version import __version__
 from autocoder_nano.llm_types import *
@@ -29,7 +26,6 @@ from autocoder_nano.templates import create_actions
 from autocoder_nano.git_utils import (repo_init, commit_changes, revert_changes,
                                       get_uncommitted_changes, generate_commit_message)
 from autocoder_nano.sys_utils import default_exclude_dirs, detect_env
-# from autocoder_nano.project import PyProject, SuffixProject, project_source
 from autocoder_nano.utils.printer_utils import Printer
 
 import yaml
@@ -52,11 +48,12 @@ from rich.text import Text
 
 printer = Printer()
 console = printer.get_console()
-# console = Console()
+
+
 project_root = os.getcwd()
 base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-auto-coder")
-# defaut_exclude_dirs = [".git", ".svn", "node_modules", "dist", "build", "__pycache__", ".auto-coder", "actions",
-#                        ".vscode", ".idea", ".hg"]
+
+
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
     "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
@@ -68,8 +65,6 @@ memory = {
     "current_files": {"files": [], "groups": {}},
     "conf": {
         "auto_merge": "editblock",
-        # "current_chat_model": "",
-        # "current_code_model": "",
         "chat_model": "",
         "code_model": "",
     },
@@ -622,14 +617,46 @@ def prepare_chat_yaml():
     return
 
 
-def coding(query: str, llm: AutoLLM):
+def get_conversation_history() -> str:
+    memory_dir = os.path.join(project_root, ".auto-coder", "memory")
+    os.makedirs(memory_dir, exist_ok=True)
+    memory_file = os.path.join(memory_dir, "chat_history.json")
+
+    def error_message():
+        printer.print_panel(Text("未找到可应用聊天记录.", style="yellow"), title="Chat History", center=True)
+
+    if not os.path.exists(memory_file):
+        error_message()
+        return ""
+
+    with open(memory_file, "r") as f:
+        chat_history = json.load(f)
+
+    if not chat_history["ask_conversation"]:
+        error_message()
+        return ""
+
+    conversations = chat_history["ask_conversation"]
+
+    context = ""
+    context += f"下面是我们的历史对话，参考我们的历史对话从而更好的理解需求和修改代码。\n\n<history>\n"
+    for conv in conversations:
+        if conv["role"] == "user":
+            context += f"用户: {conv['content']}\n"
+        elif conv["role"] == "assistant":
+            context += f"你: {conv['content']}\n"
+    context += "</history>\n"
+    return context
+
+
+def coding_command(query: str, llm: AutoLLM):
     is_apply = query.strip().startswith("/apply")
     if is_apply:
         query = query.replace("/apply", "", 1).strip()
+    is_rules = False
 
     memory["conversation"].append({"role": "user", "content": query})
     conf = memory.get("conf", {})
-    current_files = memory["current_files"]["files"]
 
     prepare_chat_yaml()  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
     latest_yaml_file = get_last_yaml_file(os.path.join(project_root, "actions"))
@@ -650,52 +677,14 @@ def coding(query: str, llm: AutoLLM):
             if converted_value is not None:
                 yaml_config[key] = converted_value
 
-        yaml_config["urls"] = current_files
+        yaml_config["urls"] = memory["current_files"]["files"]
         yaml_config["query"] = query
 
         if is_apply:
-            memory_dir = os.path.join(project_root, ".auto-coder", "memory")
-            os.makedirs(memory_dir, exist_ok=True)
-            memory_file = os.path.join(memory_dir, "chat_history.json")
+            yaml_config["context"] += get_conversation_history()
 
-            def error_message():
-                printer.print_panel(
-                    Text("No chat history found to apply.", style="yellow"), title="Chat History", center=True
-                )
-
-            if not os.path.exists(memory_file):
-                error_message()
-                return
-
-            with open(memory_file, "r") as f:
-                chat_history = json.load(f)
-
-            if not chat_history["ask_conversation"]:
-                error_message()
-                return
-            conversations = chat_history["ask_conversation"]
-
-            yaml_config["context"] += f"下面是我们的历史对话，参考我们的历史对话从而更好的理解需求和修改代码。\n\n<history>\n"
-            for conv in conversations:
-                if conv["role"] == "user":
-                    yaml_config["context"] += f"用户: {conv['content']}\n"
-                elif conv["role"] == "assistant":
-                    yaml_config["context"] += f"你: {conv['content']}\n"
-            yaml_config["context"] += "</history>\n"
-
-        # todo:暂时注释,后续通过一个 is_rules 的参数来控制
-        # if args.enable_rules:
-        #     rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
-        #     printer.print_text("已开启 Rules 模式", style="green")
-        #     yaml_config["context"] += f"下面是我们对代码进行深入分析,提取具有通用价值的功能模式和设计模式,可在其他需求中复用的Rules\n"
-        #     yaml_config["context"] += "你在编写代码时可以参考以下Rules\n"
-        #     yaml_config["context"] += "<rules>\n"
-        #     for rules_name in os.listdir(rules_dir_path):
-        #         printer.print_text(f"正在加载 Rules:{rules_name}", style="green")
-        #         rules_file_path = os.path.join(rules_dir_path, rules_name)
-        #         with open(rules_file_path, "r") as fp:
-        #             yaml_config["context"] += f"{fp.read()}\n"
-        #     yaml_config["context"] += "</rules>\n"
+        if is_rules:
+            yaml_config["context"] += get_rules_context()
 
         yaml_config["file"] = latest_yaml_file
         yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
@@ -704,8 +693,7 @@ def coding(query: str, llm: AutoLLM):
             f.write(yaml_content)
         args = convert_yaml_to_config(execute_file)
 
-        dispacher = Dispacher(args=args, llm=llm)
-        dispacher.dispach()
+        coding(llm=llm, args=args)
     else:
         printer.print_text(f"创建新的 YAML 文件失败.", style="yellow")
 
@@ -1538,43 +1526,15 @@ def rules(query_args: List[str], llm: AutoLLM):
 
     if query_args[0] == "/commit":
         commit_id = query_args[1].strip()
-        auto_learn = AutoRulesLearn(llm=llm, args=args)
-
-        try:
-            result = auto_learn.analyze_commit_changes(commit_id=commit_id, conversations=[])
-            rules_file = os.path.join(rules_dir_path, f"rules-commit-{uuid.uuid4()}.md")
-            with open(rules_file, "w", encoding="utf-8") as f:
-                f.write(result)
-            printer.print_text(f"代码变更[{commit_id}]生成 Rules 成功", style="green")
-        except Exception as e:
-            printer.print_text(f"代码变更[{commit_id}]生成 Rules 失败: {e}", style="red")
+        rules_from_commit_changes(commit_id=commit_id, llm=llm, args=args)
 
     if query_args[0] == "/analyze":
-        auto_learn = AutoRulesLearn(llm=llm, args=args)
-
         files = memory.get("current_files", {}).get("files", [])
         if not files:
             printer.print_text("当前无活跃文件用于生成 Rules", style="yellow")
             return
 
-        sources = SourceCodeList([])
-        for file in files:
-            try:
-                with open(file, "r", encoding="utf-8") as f:
-                    source_code = f.read()
-                    sources.sources.append(SourceCode(module_name=file, source_code=source_code))
-            except Exception as e:
-                printer.print_text(f"读取文件生成 Rules 失败: {e}", style="yellow")
-                continue
-
-        try:
-            result = auto_learn.analyze_modules(sources=sources, conversations=[])
-            rules_file = os.path.join(rules_dir_path, f"rules-modules-{uuid.uuid4()}.md")
-            with open(rules_file, "w", encoding="utf-8") as f:
-                f.write(result)
-            printer.print_text(f"活跃文件[Files:{len(files)}]生成 Rules 成功", style="green")
-        except Exception as e:
-            printer.print_text(f"活跃文件生成 Rules 失败: {e}", style="red")
+        rules_from_active_files(files=files, llm=llm, args=args)
 
     completer.refresh_files()
 
@@ -1765,7 +1725,7 @@ def main():
                 if not query:
                     printer.print_text("Please enter your request.", style="yellow")
                     continue
-                coding(query=query, llm=auto_llm)
+                coding_command(query=query, llm=auto_llm)
             elif user_input.startswith("/auto"):
                 query = user_input[len("/auto"):].strip()
                 if not query:
