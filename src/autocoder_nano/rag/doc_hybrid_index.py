@@ -1,28 +1,30 @@
-import fcntl
 import json
 import os
-import threading
+# import threading
 import time
+import platform
 from abc import ABC, abstractmethod
 from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, Any, Tuple, List
 
-from loguru import logger
-
 from autocoder_nano.file_utils import generate_file_md5
+from autocoder_nano.sys_utils import default_exclude_dirs
 from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import CacheItem, FileInfo, VariableHolder, SourceCode, DeleteEvent, AddOrUpdateEvent, \
+from autocoder_nano.llm_types import CacheItem, FileInfo, SourceCode, DeleteEvent, AddOrUpdateEvent, \
     AutoCoderArgs
 from autocoder_nano.rag.doc_loaders import process_file_in_multi_process, process_file_local
 from autocoder_nano.rag.doc_storage import DuckDBVectorStore
+from autocoder_nano.utils.printer_utils import Printer
 
-default_ignore_dirs = [
-    "__pycache__",
-    "node_modules",
-    "_images",
-    ".cache"
-]
+
+if platform.system() != "Windows":
+    import fcntl
+else:
+    fcntl = None
+
+
+printer = Printer()
 
 
 class BaseCacheManager(ABC):
@@ -41,6 +43,7 @@ class HybridIndexCache(BaseCacheManager):
 
         self.storage = DuckDBVectorStore(
             llm=self.llm,
+            args=self.args,
             database_name="nano_storage.db",
             table_name="rag",
             persist_dir=self.path
@@ -57,15 +60,16 @@ class HybridIndexCache(BaseCacheManager):
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
 
-        self.lock = threading.Lock()
-        self.stop_event = threading.Event()
-        self.thread = threading.Thread(target=self.process_queue)
-        self.thread.daemon = True
-        self.thread.start()
+        # self.lock = threading.Lock()
+        # self.stop_event = threading.Event()
+        # self.thread = threading.Thread(target=self.process_queue)
+        # self.thread.daemon = True
+        # self.thread.start()
 
+        self.process_queue()
         # 加载缓存
         self.cache = self._load_cache()
-        logger.info(f"缓存加载完成, 文件数: {len(self.cache.keys())}")
+        printer.print_text(f"缓存加载完成, 包含 {len(self.cache.keys())} 个文档", style="green")
 
     def get_cache_size(self):
         return len(self.cache.keys())
@@ -108,7 +112,7 @@ class HybridIndexCache(BaseCacheManager):
                             continue
                     return cache
             except Exception as e:
-                logger.error(f"Error loading cache file: {str(e)}")
+                printer.print_text(f"Error loading cache file: {str(e)}", style="red")
                 return {}
         return {}
 
@@ -122,7 +126,7 @@ class HybridIndexCache(BaseCacheManager):
                         json.dump(cache_item.model_dump(), f, ensure_ascii=False)
                         f.write("\n")
             except IOError as e:
-                logger.error(f"Error writing cache file: {str(e)}")
+                printer.print_text(f"Error writing cache file: {str(e)}", style="red")
         else:
             lock_file = cache_file + ".lock"
             with open(lock_file, "w", encoding="utf-8") as lockf:
@@ -146,7 +150,7 @@ class HybridIndexCache(BaseCacheManager):
 
     def build_cache(self):
         """Build the cache by reading files and storing in DuckDBVectorStore"""
-        logger.info(f"[构建缓存] Building cache for path: {self.path}")
+        printer.print_text(f"[构建缓存] Building cache for path: {self.path}", style="green")
 
         files_to_process = []
         for file_info in self.get_all_files():
@@ -188,7 +192,7 @@ class HybridIndexCache(BaseCacheManager):
             )
 
             for doc in content:
-                logger.info(f"[构建缓存] 正在处理文件: {doc.module_name}")
+                printer.print_text(f"[构建缓存] 正在处理文件: {doc.module_name}", style="green")
                 chunks = self._chunk_text(doc.source_code, self.chunk_size)
                 for chunk_idx, chunk in enumerate(chunks):
                     chunk_item = {
@@ -202,13 +206,14 @@ class HybridIndexCache(BaseCacheManager):
                     items.append(chunk_item)
 
         # Save to local cache
-        logger.info(f"[构建缓存] 保存缓存到本地文件: {self.cache_file}")
+        printer.print_text(f"[构建缓存] 保存缓存到本地文件: {self.cache_file}", style="green")
         self.write_cache()
 
         if items:
-            logger.info(f"[构建缓存] 正在从 DuckDB 存储中清除现有缓存")
+            printer.print_text(f"[构建缓存] 正在从 DuckDB 存储中清除现有缓存", style="green")
             self.storage.truncate_table()
-            logger.info(f"[构建缓存] 准备写入 DuckDB 存储, 总块数: {len(items)}, 总文件数: {len(files_to_process)}")
+            printer.print_text(f"[构建缓存] 准备写入 DuckDB 存储, 总块数: {len(items)}, 总文件数: {len(files_to_process)}",
+                               style="green")
 
             # Use a fixed optimal batch size instead of dividing by worker count
             batch_size = 50  # Optimal batch size for Byzer Storage
@@ -217,12 +222,13 @@ class HybridIndexCache(BaseCacheManager):
             total_batches = len(item_batches)
             completed_batches = 0
 
-            logger.info(f"[构建缓存] 开始使用每批次 {batch_size} 条数据写入 DuckDB 存储，总批次数: {total_batches}")
+            printer.print_text(f"[构建缓存] 开始使用每批次 {batch_size} 条数据写入 DuckDB 存储，总批次数: {total_batches}",
+                               style="green")
             start_time = time.time()
 
             # Use more workers to process the smaller batches efficiently
             max_workers = min(5, total_batches)  # Cap at 10 workers or total batch count
-            logger.info(f"[构建缓存] 使用 {max_workers} 个并行工作线程进行处理")
+            printer.print_text(f"[构建缓存] 使用 {max_workers} 个并行工作线程进行处理", style="green")
 
             def batch_add_doc(_batch):
                 for b in _batch:
@@ -251,18 +257,19 @@ class HybridIndexCache(BaseCacheManager):
                         if ((completed_batches == 1) or
                                 (completed_batches == total_batches) or
                                 (completed_batches % max(1, total_batches // 10) == 0)):
-                            logger.info(
-                                f"[构建缓存] 进度: {completed_batches}/{total_batches} 批次已完成 "
-                                f"({(completed_batches / total_batches * 100):.1f}%) "
-                                f"预计剩余时间: {remaining:.1f}秒"
+                            printer.print_text(
+                                f"[构建缓存] 进度: {completed_batches}/{total_batches}"
+                                f"({(completed_batches / total_batches * 100):.1f}%) 预计剩余时间: {remaining:.1f}秒",
+                                style="green"
                             )
                     except Exception as e:
-                        logger.error(f"[构建缓存] 保存批次时发生错误: {str(e)}")
+                        printer.print_text(f"[构建缓存] 保存批次时发生错误: {str(e)}", style="red")
                         # 添加更详细的错误信息
-                        logger.error(f"[构建缓存] 错误详情: 批次大小:{len(batch) if 'batch' in locals() else '未知'}")
+                        printer.print_text(f"[构建缓存] 错误详情: 批次大小:{len(batch) if 'batch' in locals() else '未知'}",
+                                           style="red")
 
             total_time = time.time() - start_time
-            logger.info(f"[构建缓存] 所有数据块已写入，总耗时: {total_time:.2f}秒")
+            printer.print_text(f"[构建缓存] 所有数据块已写入，总耗时: {total_time:.2f}秒", style="green")
 
     def update_storage(self, file_info: FileInfo, is_delete: bool):
         results = self.storage.query_by_path(file_info.file_path)
@@ -277,7 +284,7 @@ class HybridIndexCache(BaseCacheManager):
             ]
             modify_time = self.cache[file_info.file_path].modify_time
             for doc in content:
-                logger.info(f"正在处理更新文件: {doc.module_name}")
+                printer.print_text(f"正在处理更新文件: {doc.module_name}", style="green")
                 chunks = self._chunk_text(doc.source_code, self.chunk_size)
                 for chunk_idx, chunk in enumerate(chunks):
                     chunk_item = {
@@ -295,14 +302,14 @@ class HybridIndexCache(BaseCacheManager):
                     self.storage.add_doc(_chunk, dim=self.args.duckdb_vector_dim)
                     time.sleep(self.args.anti_quota_limit)
                 except Exception as err:
-                    logger.error(f"Error in saving chunk: {str(err)}")
+                    printer.print_text(f"Error in saving chunk: {str(err)}", style="red")
 
     def process_queue(self):
         while self.queue:
             file_list = self.queue.pop(0)
             if isinstance(file_list, DeleteEvent):
                 for item in file_list.file_paths:
-                    logger.info(f"{item} is detected to be removed")
+                    printer.print_text(f"{item} is detected to be removed", style="green")
                     del self.cache[item]
                     # 创建一个临时的 FileInfo 对象
                     file_info = FileInfo(file_path=item, relative_path="", modify_time=0, file_md5="")
@@ -312,7 +319,7 @@ class HybridIndexCache(BaseCacheManager):
                 for file_info in file_list.file_infos:
                     # 处理文件并创建 CacheItem
                     _file_path, _relative_path, _modify_time, _file_md5 = file_info
-                    logger.info(f"{_file_path} is detected to be updated")
+                    printer.print_text(f"{_file_path} is detected to be updated", style="green")
                     content = process_file_local(_file_path)
                     self.cache[_file_path] = CacheItem(
                         file_path=_file_path,
@@ -330,7 +337,7 @@ class HybridIndexCache(BaseCacheManager):
             self.write_cache()
 
     def trigger_update(self):
-        logger.info("检查文件是否有更新.....")
+        printer.print_text("检查文件是否有更新.....", style="green")
         files_to_process = []
         current_files = set()
         for file_info in self.get_all_files():
@@ -340,19 +347,21 @@ class HybridIndexCache(BaseCacheManager):
                 files_to_process.append(file_info)
 
         deleted_files = set(self.cache.keys()) - current_files
-        logger.info(f"待处理的文件: {len(files_to_process)}个")
-        logger.info(f"已删除的文件: {len(deleted_files)}个")
+        printer.print_key_value(
+            items={"待解析的文件": f"{files_to_process}", "待删除的文件": f"{deleted_files}"},
+            title="检查索引更新"
+        )
         if deleted_files:
-            with self.lock:
-                self.queue.append(DeleteEvent(file_paths=deleted_files))
+            # with self.lock:
+            self.queue.append(DeleteEvent(file_paths=deleted_files))
         if files_to_process:
-            with self.lock:
-                self.queue.append(AddOrUpdateEvent(file_infos=files_to_process))
+            # with self.lock:
+            self.queue.append(AddOrUpdateEvent(file_infos=files_to_process))
 
     def get_all_files(self) -> List[Tuple[str, str, float, str]]:
         all_files = []
         for root, dirs, files in os.walk(self.path, followlinks=True):
-            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in default_ignore_dirs]
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in default_exclude_dirs]
 
             if self.ignore_spec:
                 relative_root = os.path.relpath(root, self.path)
@@ -386,7 +395,7 @@ class HybridIndexCache(BaseCacheManager):
             return {file_path: self.cache[file_path].model_dump() for file_path in self.cache}
 
         query = options.get("query", "")
-        logger.info(f"正在使用向量搜索检索数据, 你的问题: {query}")
+        printer.print_text(f"正在使用向量搜索检索数据, 你的问题: {query}", style="green")
         total_tokens = 0
         results = []
 
@@ -429,15 +438,17 @@ class HybridIndexCache(BaseCacheManager):
                 cached_data = self.cache[file_path]
                 for doc in cached_data.content:
                     if total_tokens + doc["tokens"] > self.max_output_tokens:
-                        logger.info(
+                        printer.print_text(
                             f"当前检索已超出用户设置 Hybrid Index Max Tokens:{self.max_output_tokens}，"
                             f"累计tokens: {total_tokens}, "
-                            f"经过向量搜索共检索出 {len(result.keys())} 个文档, 共 {len(self.cache.keys())} 个文档")
+                            f"经过向量搜索共检索出 {len(result.keys())} 个文档, 共 {len(self.cache.keys())} 个文档",
+                            style="green")
                         return result
                     total_tokens += doc["tokens"]
                 result[file_path] = cached_data.model_dump()
-        logger.info(
+        printer.print_text(
             f"用户Hybrid Index Max Tokens设置为:{self.max_output_tokens}，"
             f"累计tokens: {total_tokens}, "
-            f"经过向量搜索共检索出 {len(result.keys())} 个文档, 共 {len(self.cache.keys())} 个文档")
+            f"经过向量搜索共检索出 {len(result.keys())} 个文档, 共 {len(self.cache.keys())} 个文档",
+            style="green")
         return result

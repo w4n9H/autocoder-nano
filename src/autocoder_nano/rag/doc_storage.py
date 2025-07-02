@@ -5,11 +5,10 @@ from typing import Optional, List, Any, Dict
 
 import duckdb
 import numpy as np
-from loguru import logger
 
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.llm_prompt import prompt
-from autocoder_nano.llm_types import SourceCode
+from autocoder_nano.llm_types import SourceCode, AutoCoderArgs
 
 
 @prompt()
@@ -71,16 +70,16 @@ class DuckDBLocalContext:
 class DuckDBVectorStore:
 
     def __init__(
-            self, llm: AutoLLM, database_name: str = ":memory:", table_name: str = "documents",
+            self, llm: AutoLLM, args: AutoCoderArgs, database_name: str = ":memory:", table_name: str = "documents",
             embed_dim: Optional[int] = None, persist_dir: str = "./storage"
     ) -> None:
         self.llm = llm
+        self.args = args
         self.database_name = database_name
         self.table_name = table_name
         self.embed_dim = embed_dim
         self.persist_dir = persist_dir
         self.cache_dir = os.path.join(self.persist_dir, '.cache')
-        logger.info(f"正在启动 DuckDBVectorStore.")
 
         if self.database_name != ":memory:":
             self.database_path = os.path.join(self.cache_dir, self.database_name)
@@ -95,8 +94,6 @@ class DuckDBVectorStore:
                     os.makedirs(self.cache_dir)
                 self._initialize()
             self._conn = None
-        logger.info(f"DuckDBVectorStore 初始化完成, 存储目录: {self.cache_dir}, "
-                    f"数据库名称: {self.database_name}, 数据表名称: {self.table_name}")
 
     @classmethod
     def class_name(cls) -> str:
@@ -141,7 +138,7 @@ class DuckDBVectorStore:
 
     def _embedding(self, context: str, norm: bool = True, dim: int | None = None) -> List[float]:
         emb_model = self.llm
-        emb_model.setup_default_model_name("emb_model")
+        emb_model.setup_default_model_name(self.args.emb_model)
         res = emb_model.embedding([context])
         embedding = res.output
 
@@ -276,6 +273,7 @@ class DuckDBVectorStore:
         elif self.database_path is not None:
             with DuckDBLocalContext(self.database_path) as _conn:
                 _final_results = _conn.execute(_query, query_params).fetchall()
+        print(_final_results)
         return _final_results
 
     def vector_dynamic_score_search(
@@ -351,7 +349,7 @@ if __name__ == "__main__":
     auto_llm.setup_sub_client("emb_model",
                               "",
                               "https://ark.cn-beijing.volces.com/api/v3",
-                              "")
+                              "doubao-embedding-text-240715")
     vs = DuckDBVectorStore(
         llm=auto_llm, database_name="nano_storage.db", table_name="rag",
         persist_dir=""
@@ -376,24 +374,24 @@ if __name__ == "__main__":
     #         time.sleep(1)
 
     # 测试搜索功能
-    test_query = ""
+    test_query = "服务器被入侵了该怎么办"
     search_results = vs.vector_search(test_query, similarity_value=0.6, similarity_top_k=200, query_dim=1024)
     print(f"使用默认方式, 搜索 '{test_query}'：")
     print(f"搜索到 {len(set([i[1] for i in search_results]))} 个结果")
     for result in search_results:
         print(f"- {result[1]} (相似度: {result[3]:.4f})")
 
-    search_results = vs.vector_zscore_search(test_query, similarity_value=0.6, similarity_top_k=200, query_dim=1024)
-    print(f"使用分数重校准(Z-Score标准化)后, 搜索 '{test_query}'：")
-    print(f"搜索到 {len(set([i[1] for i in search_results]))} 个结果")
-    for result in search_results:
-        print(f"- {result[1]} (相似度: {result[3]:.4f})")
-
-    search_results = vs.vector_dynamic_score_search(test_query, similarity_top_k=200, query_dim=1024)
-    print(f"使用分数重校准(动态score)后, 搜索 '{test_query}'：")
-    print(f"搜索到 {len(set([i[1] for i in search_results]))} 个结果")
-    for result in search_results:
-        print(f"- {result[1]} (相似度: {result[3]:.4f})")
+    # search_results = vs.vector_zscore_search(test_query, similarity_value=0.6, similarity_top_k=200, query_dim=1024)
+    # print(f"使用分数重校准(Z-Score标准化)后, 搜索 '{test_query}'：")
+    # print(f"搜索到 {len(set([i[1] for i in search_results]))} 个结果")
+    # for result in search_results:
+    #     print(f"- {result[1]} (相似度: {result[3]:.4f})")
+    #
+    # search_results = vs.vector_dynamic_score_search(test_query, similarity_top_k=200, query_dim=1024)
+    # print(f"使用分数重校准(动态score)后, 搜索 '{test_query}'：")
+    # print(f"搜索到 {len(set([i[1] for i in search_results]))} 个结果")
+    # for result in search_results:
+    #     print(f"- {result[1]} (相似度: {result[3]:.4f})")
 
     # 诊断数据分布问题
     # test_query = ""

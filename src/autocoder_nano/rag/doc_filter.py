@@ -3,12 +3,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List, Dict
 
-from loguru import logger
-
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.llm_prompt import prompt
 from autocoder_nano.llm_types import DocRelevance, SourceCode, FilterDoc, TaskTiming, AutoCoderArgs
 from autocoder_nano.rag.doc_config import RagConfigManager
+from autocoder_nano.utils.printer_utils import Printer
+
+
+printer = Printer()
 
 
 def parse_relevance(text: Optional[str]) -> Optional[DocRelevance]:
@@ -76,8 +78,7 @@ class DocFilter:
         rag_manager = RagConfigManager(path=self.path)
         rag_config = rag_manager.load_config()
         documents = list(documents)
-        logger.info(f"正在过滤 {len(documents)} 个文档....")
-        self.llm.setup_default_model_name("recall_model")
+        self.llm.setup_default_model_name(self.args.recall_model)
         with ThreadPoolExecutor(max_workers=self.args.index_filter_workers or 5) as executor:
             future_to_doc = {}
             for doc in documents:
@@ -97,7 +98,7 @@ class DocFilter:
                             )
                         )
                     except Exception as _err:
-                        logger.error(f"Error in _check_relevance_with_conversation: {str(_err)}")
+                        printer.print_text(f"Error in _check_relevance_with_conversation: {str(_err)}", style="red")
                         return None, _submit_time_1, time.time()
 
                     _end_time_2 = time.time()
@@ -126,17 +127,18 @@ class DocFilter:
                 )
 
                 relevance = parse_relevance(v.output)
-                logger.info(
-                    f"文档过滤进度：\n"
-                    f"  - 文件: {doc.module_name}\n"
-                    f"  - 相关性: {'相关' if relevance and relevance.is_relevant else '不相关'}\n"
-                    f"  - 分数: {relevance.relevant_score if relevance else 'N/A'}\n"
-                    f"  - 分数阈值: {self.relevant_score}\n"
-                    f"  - 原始响应: {v}\n"
-                    f"  - 时间统计:\n"
-                    f"    * 总耗时: {task_timing.duration:.2f}秒\n"
-                    f"    * 实际耗时: {task_timing.real_duration:.2f}秒\n"
-                    f"    * 队列等待时间: {(task_timing.real_start_time - task_timing.submit_time):.2f}秒"
+                printer.print_key_value(
+                    items={
+                        "文件": f"{doc.module_name}",
+                        "相关性": f"{'相关' if relevance and relevance.is_relevant else '不相关'}",
+                        "分数": f"{relevance.relevant_score if relevance else 'N/A'}",
+                        "分数阈值": f"{self.relevant_score}",
+                        "原始响应": f"{v}",
+                        "总耗时": f"{task_timing.duration:.2f} 秒",
+                        "实际耗时": f"{task_timing.real_duration:.2f} 秒",
+                        "队列等待时间": f"{(task_timing.real_start_time - task_timing.submit_time):.2f} 秒"
+                    },
+                    title="文档过滤进度"
                 )
                 if relevance and relevance.relevant_score >= self.relevant_score:
                     relevant_docs.append(
@@ -149,9 +151,9 @@ class DocFilter:
             except Exception as exc:
                 try:
                     doc, submit_time = future_to_doc[future]
-                    logger.error(f"Filtering document generated an exception (doc: {doc.module_name}): {exc}")
+                    printer.print_text(f"文档过滤时生成异常（文档：{doc.module_name}）：{exc}", style="red")
                 except Exception as err:
-                    logger.error(f"Filtering document generated an exception: {err}")
+                    printer.print_text(f"文档过滤时生成异常：{err}", style="red")
 
         # Sort relevant_docs by relevance score in descending order
         relevant_docs.sort(key=lambda x: x.relevance.relevant_score, reverse=True)
