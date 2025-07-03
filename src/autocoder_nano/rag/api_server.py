@@ -9,7 +9,7 @@ from loguru import logger
 from pydantic import BaseModel
 from uvicorn import run as serve_run
 
-from autocoder_nano.llm_types import ServerArgs
+from autocoder_nano.actypes import ServerArgs
 from autocoder_nano.rag.long_context_rag import LongContextRAG
 
 app = FastAPI()

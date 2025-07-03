@@ -3,9 +3,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable, List, Dict
 
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_prompt import prompt, extract_code
-from autocoder_nano.llm_types import SourceCode, AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.core import prompt, extract_code
+from autocoder_nano.actypes import SourceCode, AutoCoderArgs
 from autocoder_nano.utils.printer_utils import Printer
 
 

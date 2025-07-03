@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-from autocoder_nano.llm_types import EnvInfo
+from autocoder_nano.actypes import EnvInfo
 
 default_exclude_dirs = [
     ".git",

@@ -4,7 +4,7 @@ import uuid
 import yaml
 from jinja2 import Template
 
-from autocoder_nano.llm_types import AutoCoderArgs
+from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.utils.printer_utils import Printer
 
 

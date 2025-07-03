@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Generator, Optional, Dict, Any, List, Tuple
 from uuid import uuid4
 
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import SourceCode, AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import SourceCode, AutoCoderArgs
 from autocoder_nano.rag.doc_cache import AutoCoderRAGAsyncUpdateQueue
 from autocoder_nano.rag.doc_hybrid_index import HybridIndexCache
 from autocoder_nano.utils.printer_utils import Printer

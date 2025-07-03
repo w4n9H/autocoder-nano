@@ -3,7 +3,7 @@ from typing import Optional
 
 from autocoder_nano.agent.agentic_edit_tools.base_tool_resolver import BaseToolResolver
 from autocoder_nano.agent.agentic_edit_types import ExecuteCommandTool, ToolResult
-from autocoder_nano.llm_types import AutoCoderArgs
+from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.utils.printer_utils import Printer
 from autocoder_nano.utils.shell_utils import run_cmd_subprocess
 

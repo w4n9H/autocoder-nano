@@ -6,7 +6,7 @@ from autocoder_nano.agent.agentic_edit_tools.base_tool_resolver import BaseToolR
 from autocoder_nano.agent.agentic_edit_types import ToolResult, ListCodeDefinitionNamesTool
 from autocoder_nano.index.index_manager import IndexManager
 from autocoder_nano.index.symbols_utils import extract_symbols
-from autocoder_nano.llm_types import AutoCoderArgs
+from autocoder_nano.actypes import AutoCoderArgs
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_edit import AgenticEdit

@@ -3,7 +3,7 @@ from typing import List, Any
 
 from prompt_toolkit.completion import Completer, Completion
 
-from autocoder_nano.llm_types import Tag, AutoCoderArgs, FileSystemModel, MemoryConfig
+from autocoder_nano.actypes import Tag, AutoCoderArgs, FileSystemModel, MemoryConfig
 
 COMMANDS = {
     "/add_files": {

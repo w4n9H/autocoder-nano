@@ -6,9 +6,9 @@ from typing import Optional, List, Any, Dict
 import duckdb
 import numpy as np
 
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_prompt import prompt
-from autocoder_nano.llm_types import SourceCode, AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.core import prompt
+from autocoder_nano.actypes import SourceCode, AutoCoderArgs
 
 
 @prompt()

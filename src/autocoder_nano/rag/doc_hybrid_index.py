@@ -8,10 +8,10 @@ from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, Any, Tuple, List
 
-from autocoder_nano.file_utils import generate_file_md5
-from autocoder_nano.sys_utils import default_exclude_dirs
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import CacheItem, FileInfo, SourceCode, DeleteEvent, AddOrUpdateEvent, \
+from autocoder_nano.utils.file_utils import generate_file_md5
+from autocoder_nano.utils.sys_utils import default_exclude_dirs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import CacheItem, FileInfo, SourceCode, DeleteEvent, AddOrUpdateEvent, \
     AutoCoderArgs
 from autocoder_nano.rag.doc_loaders import process_file_in_multi_process, process_file_local
 from autocoder_nano.rag.doc_storage import DuckDBVectorStore

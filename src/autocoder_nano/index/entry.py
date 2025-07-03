@@ -7,8 +7,8 @@ from typing import List, Dict
 # from rich.table import Table
 
 from autocoder_nano.index.index_manager import IndexManager
-from autocoder_nano.llm_types import SourceCode, TargetFile, VerifyFileRelevance, AutoCoderArgs
-from autocoder_nano.llm_client import AutoLLM
+from autocoder_nano.actypes import SourceCode, TargetFile, VerifyFileRelevance, AutoCoderArgs
+from autocoder_nano.core import AutoLLM
 from autocoder_nano.utils.printer_utils import Printer
 
 

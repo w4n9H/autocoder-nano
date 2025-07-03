@@ -1,11 +1,11 @@
 import os
 from typing import Tuple, List, Dict, Optional
 
-from autocoder_nano.llm_prompt import prompt
+from autocoder_nano.core import prompt
 from git import Repo, GitCommandError
 # from loguru import logger
 
-from autocoder_nano.llm_types import CommitResult
+from autocoder_nano.actypes import CommitResult
 from autocoder_nano.utils.printer_utils import Printer
 
 

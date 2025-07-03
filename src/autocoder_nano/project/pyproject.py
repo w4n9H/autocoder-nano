@@ -3,10 +3,10 @@ import re
 
 from loguru import logger
 
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import AutoCoderArgs, SourceCode
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import AutoCoderArgs, SourceCode
 from autocoder_nano.rag.doc_entry import RAGFactory
-from autocoder_nano.sys_utils import default_exclude_dirs
+from autocoder_nano.utils.sys_utils import default_exclude_dirs
 
 
 class PyProject:

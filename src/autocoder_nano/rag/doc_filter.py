@@ -3,9 +3,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List, Dict
 
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_prompt import prompt
-from autocoder_nano.llm_types import DocRelevance, SourceCode, FilterDoc, TaskTiming, AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.core import prompt
+from autocoder_nano.actypes import DocRelevance, SourceCode, FilterDoc, TaskTiming, AutoCoderArgs
 from autocoder_nano.rag.doc_config import RagConfigManager
 from autocoder_nano.utils.printer_utils import Printer
 

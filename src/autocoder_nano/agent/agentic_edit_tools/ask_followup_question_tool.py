@@ -5,7 +5,7 @@ from prompt_toolkit import PromptSession
 
 from autocoder_nano.agent.agentic_edit_tools.base_tool_resolver import BaseToolResolver
 from autocoder_nano.agent.agentic_edit_types import ToolResult, AskFollowupQuestionTool
-from autocoder_nano.llm_types import AutoCoderArgs
+from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.utils.printer_utils import Printer
 
 if typing.TYPE_CHECKING:

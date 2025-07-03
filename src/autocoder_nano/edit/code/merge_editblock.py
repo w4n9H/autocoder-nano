@@ -4,18 +4,14 @@ import subprocess
 import tempfile
 from typing import List
 
-from loguru import logger
-from rich.console import Console
-from rich.panel import Panel
 from rich.syntax import Syntax
-from rich.table import Table
 
 from autocoder_nano.edit.code.modification_ranker import CodeModificationRanker
 from autocoder_nano.edit.text import TextSimilarity
-from autocoder_nano.git_utils import commit_changes
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_prompt import prompt
-from autocoder_nano.llm_types import AutoCoderArgs, PathAndCode, MergeCodeWithoutEffect, CodeGenerateResult, \
+from autocoder_nano.utils.git_utils import commit_changes
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.core import prompt
+from autocoder_nano.actypes import AutoCoderArgs, PathAndCode, MergeCodeWithoutEffect, CodeGenerateResult, \
     CommitResult
 from autocoder_nano.utils.printer_utils import Printer
 

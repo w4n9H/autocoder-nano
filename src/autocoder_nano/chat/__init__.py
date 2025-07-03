@@ -3,8 +3,8 @@ from rich.panel import Panel
 from rich.markdown import Markdown
 from rich.text import Text
 
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.utils.printer_utils import Printer
 
 

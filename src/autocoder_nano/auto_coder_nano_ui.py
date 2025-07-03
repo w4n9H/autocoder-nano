@@ -19,8 +19,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from uvicorn import run as serve_run
 from loguru import logger
 
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import ServerArgs, AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import ServerArgs, AutoCoderArgs
 from autocoder_nano.rag.doc_entry import RAGFactory
 from autocoder_nano.rag.long_context_rag import LongContextRAG
 

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict
 
 
-from autocoder_nano.llm_prompt import prompt
+from autocoder_nano.core import prompt
 
 
 @prompt()

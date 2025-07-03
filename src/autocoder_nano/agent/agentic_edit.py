@@ -4,17 +4,17 @@ import re
 import time
 import xml.sax.saxutils
 from importlib import resources
-from typing import List, Dict, Any, Optional, Generator, Union, Tuple, Type
+from typing import Generator, Union, Tuple
 
 from rich.markdown import Markdown
 from tokenizers import Tokenizer
 
 from autocoder_nano.agent.agentic_edit_types import *
-from autocoder_nano.git_utils import commit_changes, get_uncommitted_changes
-from autocoder_nano.llm_client import AutoLLM, stream_chat_with_continue
-from autocoder_nano.llm_prompt import prompt, format_str_jinja2
-from autocoder_nano.llm_types import AutoCoderArgs, SourceCodeList, SingleOutputMeta
-from autocoder_nano.sys_utils import detect_env
+from autocoder_nano.utils.git_utils import commit_changes, get_uncommitted_changes
+from autocoder_nano.core import AutoLLM, stream_chat_with_continue
+from autocoder_nano.core import prompt, format_str_jinja2
+from autocoder_nano.actypes import AutoCoderArgs, SourceCodeList, SingleOutputMeta
+from autocoder_nano.utils.sys_utils import detect_env
 from autocoder_nano.utils.formatted_log_utils import save_formatted_log
 from autocoder_nano.utils.printer_utils import Printer
 from autocoder_nano.agent.agentic_edit_tools import (  # Import specific resolvers

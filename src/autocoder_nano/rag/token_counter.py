@@ -4,7 +4,7 @@ from loguru import logger
 from tokenizers import Tokenizer
 from multiprocessing import Pool, cpu_count
 
-from autocoder_nano.llm_types import VariableHolder
+from autocoder_nano.actypes import VariableHolder
 
 
 class RemoteTokenCounter:

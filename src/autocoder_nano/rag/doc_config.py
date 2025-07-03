@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from autocoder_nano.llm_types import RagConfig
+from autocoder_nano.actypes import RagConfig
 
 
 class RagConfigManager:

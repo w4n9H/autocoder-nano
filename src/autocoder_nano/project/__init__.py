@@ -1,5 +1,5 @@
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import AutoCoderArgs, SourceCode
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import AutoCoderArgs, SourceCode
 from autocoder_nano.project.pyproject import PyProject
 from autocoder_nano.project.suffixproject import SuffixProject
 from autocoder_nano.project.tsproject import TSProject

@@ -15,7 +15,7 @@ from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
 from pypdf import PdfReader
 
-from autocoder_nano.llm_types import SourceCode
+from autocoder_nano.actypes import SourceCode
 from autocoder_nano.rag.token_counter import count_tokens, count_tokens_worker
 from autocoder_nano.utils.printer_utils import Printer
 
