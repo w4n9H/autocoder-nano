@@ -1,8 +1,8 @@
 import os
 import uuid
 
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import AutoCoderArgs, SourceCodeList, SourceCode
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import AutoCoderArgs, SourceCodeList, SourceCode
 from autocoder_nano.rules.rules_learn import AutoRulesLearn
 from autocoder_nano.utils.printer_utils import Printer
 

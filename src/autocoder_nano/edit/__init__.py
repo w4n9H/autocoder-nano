@@ -1,8 +1,8 @@
 from typing import Optional
 
 from autocoder_nano.edit.actions import ActionPyProject, ActionSuffixProject
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import AutoCoderArgs
 
 
 class Dispacher:

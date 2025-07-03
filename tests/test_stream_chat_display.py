@@ -1,6 +1,6 @@
 from autocoder_nano.chat import stream_chat_display
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import AutoCoderArgs
 
 
 def stream_chat_display_test():

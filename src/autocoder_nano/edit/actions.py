@@ -5,8 +5,8 @@ import time
 from autocoder_nano.edit.code.generate_editblock import CodeAutoGenerateEditBlock
 from autocoder_nano.edit.code.merge_editblock import CodeAutoMergeEditBlock
 from autocoder_nano.index.entry import build_index_and_filter_files
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.project import PyProject, SuffixProject
 from autocoder_nano.utils.printer_utils import Printer
 

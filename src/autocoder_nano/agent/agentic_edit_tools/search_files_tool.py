@@ -6,8 +6,8 @@ from typing import Optional, List, Dict, Any, Union
 
 from autocoder_nano.agent.agentic_edit_tools.base_tool_resolver import BaseToolResolver
 from autocoder_nano.agent.agentic_edit_types import SearchFilesTool, ToolResult
-from autocoder_nano.llm_types import AutoCoderArgs
-from autocoder_nano.sys_utils import default_exclude_dirs
+from autocoder_nano.actypes import AutoCoderArgs
+from autocoder_nano.utils.sys_utils import default_exclude_dirs
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_edit import AgenticEdit

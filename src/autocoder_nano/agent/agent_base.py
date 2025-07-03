@@ -8,8 +8,8 @@ from typing import Dict, List, Any, Deque, Union
 from loguru import logger
 from pydantic import BaseModel
 
-from autocoder_nano.llm_prompt import prompt
-from autocoder_nano.llm_client import AutoLLM
+from autocoder_nano.core import prompt
+from autocoder_nano.core import AutoLLM
 
 
 # -------------------- 基础数据模型 --------------------

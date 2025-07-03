@@ -1,10 +1,10 @@
 import os
-from typing import List, Tuple, Dict, Optional, Generator
+from typing import List, Tuple, Dict
 
-from autocoder_nano.git_utils import get_commit_changes
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_prompt import prompt
-from autocoder_nano.llm_types import AutoCoderArgs, SourceCodeList
+from autocoder_nano.utils.git_utils import get_commit_changes
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.core import prompt
+from autocoder_nano.actypes import AutoCoderArgs, SourceCodeList
 from autocoder_nano.utils.printer_utils import Printer
 
 

@@ -9,9 +9,9 @@ from typing import Optional, Dict, Any, Generator, List
 import pathspec
 from tokenizers import Tokenizer
 
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_prompt import prompt
-from autocoder_nano.llm_types import SourceCode, AutoCoderArgs, FilterDoc, VariableHolder
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.core import prompt
+from autocoder_nano.actypes import SourceCode, AutoCoderArgs, FilterDoc, VariableHolder
 from autocoder_nano.rag.doc_filter import DocFilter
 from autocoder_nano.rag.doc_limiter import TokenLimiter
 from autocoder_nano.rag.doc_retriever import LocalDocumentRetriever

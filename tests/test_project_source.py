@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 
 from autocoder_nano.project import project_source
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import AutoCoderArgs
 
 
 def project_source_test():

@@ -1,7 +1,7 @@
 import re
 from typing import List
 
-from autocoder_nano.llm_types import SymbolsInfo, SymbolType
+from autocoder_nano.actypes import SymbolsInfo, SymbolType
 
 
 def extract_symbols(text: str) -> SymbolsInfo:

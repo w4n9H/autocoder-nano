@@ -3,7 +3,6 @@ import glob
 import hashlib
 import os
 import json
-import shutil
 import subprocess
 import time
 import uuid
@@ -17,15 +16,15 @@ from autocoder_nano.index import (index_export, index_import, index_build,
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
 from autocoder_nano.agent import run_edit_agentic
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
-from autocoder_nano.llm_client import AutoLLM
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.core import prompt, extract_code
+from autocoder_nano.actypes import *
 from autocoder_nano.utils.completer_utils import CommandCompleter
 from autocoder_nano.version import __version__
-from autocoder_nano.llm_types import *
-from autocoder_nano.llm_prompt import prompt, extract_code
 from autocoder_nano.templates import create_actions
-from autocoder_nano.git_utils import (repo_init, commit_changes, revert_changes,
-                                      get_uncommitted_changes, generate_commit_message)
-from autocoder_nano.sys_utils import default_exclude_dirs, detect_env
+from autocoder_nano.utils.git_utils import (repo_init, commit_changes, revert_changes,
+                                            get_uncommitted_changes, generate_commit_message)
+from autocoder_nano.utils.sys_utils import default_exclude_dirs, detect_env
 from autocoder_nano.utils.printer_utils import Printer
 
 import yaml
@@ -39,7 +38,6 @@ from prompt_toolkit.shortcuts import confirm
 from prompt_toolkit.styles import Style
 # from rich.console import Console
 from rich.live import Live
-from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.syntax import Syntax
 # from rich.table import Table

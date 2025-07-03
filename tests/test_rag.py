@@ -1,7 +1,7 @@
 import os
 
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import AutoCoderArgs
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 
 

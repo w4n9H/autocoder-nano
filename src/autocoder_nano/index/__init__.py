@@ -5,8 +5,8 @@ import shutil
 from autocoder_nano.index.entry import build_index_and_filter_files
 from autocoder_nano.index.index_manager import IndexManager
 from autocoder_nano.index.symbols_utils import extract_symbols
-from autocoder_nano.llm_client import AutoLLM
-from autocoder_nano.llm_types import AutoCoderArgs, SourceCode
+from autocoder_nano.core import AutoLLM
+from autocoder_nano.actypes import AutoCoderArgs, SourceCode
 from autocoder_nano.project import project_source
 from autocoder_nano.utils.printer_utils import Printer
 
