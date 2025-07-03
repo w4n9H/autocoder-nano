@@ -7,7 +7,6 @@ import traceback
 from io import BytesIO
 from typing import Union, Any, List, Optional, Tuple
 
-from loguru import logger
 from pdfminer.converter import PDFPageAggregator
 from pdfminer.layout import LAParams, LTImage, LTFigure
 from pdfminer.pdfdocument import PDFDocument
@@ -18,6 +17,10 @@ from pypdf import PdfReader
 
 from autocoder_nano.llm_types import SourceCode
 from autocoder_nano.rag.token_counter import count_tokens, count_tokens_worker
+from autocoder_nano.utils.printer_utils import Printer
+
+
+printer = Printer()
 
 
 class FileConversionException(BaseException):
@@ -253,11 +256,10 @@ def process_file_local(file_path: str) -> List[SourceCode]:
                     tokens=count_tokens(content),
                 )
             ]
-        logger.info(f"Load file {file_path} in {time.time() - start_time}")
+        printer.print_text(f"解析文件 {file_path}, 耗时: {time.time() - start_time}", style="green")
         return v
     except (BaseException, Exception) as e:
-        logger.error(f"Error processing file {file_path}: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
+        printer.print_text(f"解析文件 {file_path} 失败: {str(e)}", style="red")
         traceback.print_exc()
         return []
 
@@ -285,9 +287,8 @@ def process_file_in_multi_process(file_info: Tuple[str, str, float, str]) -> Lis
                     tokens=count_tokens_worker(content),
                 )
             ]
-        logger.info(f"Load file {file_path} in {time.time() - start_time}")
+        printer.print_text(f"解析文件 {file_path}, 耗时: {time.time() - start_time}", style="green")
         return v
     except (BaseException, Exception) as e:
-        logger.error(f"Error processing file {file_path}: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
+        printer.print_text(f"解析文件 {file_path} 失败: {str(e)}", style="red")
         return []

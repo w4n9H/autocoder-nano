@@ -49,7 +49,7 @@ class AutoCoderArgs(BaseModel):
     buff_ratio: Optional[float] = 0.1
     required_exts: Optional[str] = None  # 指定处理的文件后缀,例如.pdf,.doc
     monitor_mode: bool = False  # 监控模式,会监控doc_dir目录中的文件变化
-    enable_hybrid_index: bool = False  # 开启混合索引
+    enable_hybrid_index: bool = True  # 开启混合索引
     disable_auto_window: bool = False
     hybrid_index_max_output_tokens: Optional[int] = 30000
     rag_type: Optional[str] = "simple"

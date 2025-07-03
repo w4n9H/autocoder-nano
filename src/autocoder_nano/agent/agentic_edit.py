@@ -147,21 +147,7 @@ class AgenticEdit:
         self.files = files
         self.history_conversation = history_conversation
         self.current_conversations = []
-
         self.shadow_manager = None
-
-        # self.project_type_analyzer = ""
-        # self.checkpoint_manager = FileChangeManager(
-        #     project_dir=args.source_dir,
-        #     backup_dir=os.path.join(args.source_dir, ".auto-coder", "checkpoint"),
-        #     store_dir=os.path.join(args.source_dir, ".auto-coder", "checkpoint_store"),
-        #     max_history=10
-        # )
-        # self.linter = ""
-        # self.compiler = ""
-
-        # 变更跟踪信息
-        # 格式: { file_path: FileChangeEntry(...) }
         self.file_changes: Dict[str, FileChangeEntry] = {}
 
         try:

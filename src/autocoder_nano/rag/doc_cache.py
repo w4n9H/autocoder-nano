@@ -1,16 +1,25 @@
-import fcntl
 import json
 import os
-import threading
+# import threading
 import time
+import platform
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, Tuple, List
 
-from loguru import logger
-
 from autocoder_nano.file_utils import generate_file_md5
+from autocoder_nano.sys_utils import default_exclude_dirs
 from autocoder_nano.llm_types import DeleteEvent, AddOrUpdateEvent, SourceCode
 from autocoder_nano.rag.doc_loaders import process_file_in_multi_process, process_file_local
+from autocoder_nano.utils.printer_utils import Printer
+
+
+if platform.system() != "Windows":
+    import fcntl
+else:
+    fcntl = None
+
+
+printer = Printer()
 
 
 class BaseCacheManager(ABC):
@@ -31,11 +40,11 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
 
-        self.thread = threading.Thread(target=self._process_queue)
-        self.thread.daemon = True
-        self.thread.start()
+        # self.thread = threading.Thread(target=self._process_queue)
+        # self.thread.daemon = True
+        # self.thread.start()
 
-        # self.process_queue()
+        self.process_queue()
         self.cache = self.read_cache()
 
     def get_cache_size(self):
@@ -46,7 +55,7 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
             try:
                 self.process_queue()
             except Exception as e:
-                logger.error(f"Error in process_queue: {e}")
+                printer.print_text(f"Error in process_queue: {e}", style="red")
             time.sleep(600)  # 避免过于频繁的检查
 
     def load_first(self):
@@ -67,11 +76,10 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
             if result:  # 只有当result不为空时才更新缓存
                 self.update_cache(file_info, result)
             else:
-                logger.warning(f"文件 {file_info[0]} 的结果为空，跳过缓存更新")
+                printer.print_text(f"文件 {file_info[0]} 的结果为空，跳过缓存更新", style="yellow")
         self.write_cache()
 
     def trigger_update(self):
-        logger.info("检查文件是否有更新.....")
         files_to_process = []
         current_files = set()
         for file_info in self.get_all_files():
@@ -81,8 +89,10 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
                 files_to_process.append(file_info)
 
         deleted_files = set(self.cache.keys()) - current_files
-        logger.info(f"待处理的文件: {files_to_process}")
-        logger.info(f"已删除的文件: {deleted_files}")
+        printer.print_key_value(
+            items={"待解析的文件": f"{files_to_process}", "待删除的文件": f"{deleted_files}"},
+            title="检查索引更新"
+        )
         if deleted_files:
             self.queue.append(DeleteEvent(file_paths=deleted_files))
         if files_to_process:
@@ -93,19 +103,19 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
             file_list = self.queue.pop(0)
             if isinstance(file_list, DeleteEvent):
                 for item in file_list.file_paths:
-                    logger.info(f"检测到 {item} 已被移除")
+                    printer.print_text(f"检测到 {item} 已被移除", style="green")
                     del self.cache[item]
             elif isinstance(file_list, AddOrUpdateEvent):
                 for file_info in file_list.file_infos:
-                    logger.info(f"检测到 {file_info[0]} 已更新")
+                    printer.print_text(f"检测到 {file_info[0]} 已更新", style="green")
                     try:
                         result = process_file_local(file_info[0])
                         if result:  # 只有当result不为空时才更新缓存
                             self.update_cache(file_info, result)
                         else:
-                            logger.warning(f"文件 {file_info[0]} 的结果为空，跳过缓存更新")
+                            printer.print_text(f"文件 {file_info[0]} 的结果为空，跳过缓存更新", style="yellow")
                     except Exception as e:
-                        logger.error(f"SimpleCache 在处理队列时发生错误: {e}")
+                        printer.print_text(f"SimpleCache 在处理队列时发生错误: {e}", style="red")
             self.write_cache()
 
     def read_cache(self) -> Dict[str, Dict]:
@@ -115,7 +125,7 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
                 for line in f:
                     data = json.loads(line)
                     cache[data["file_path"]] = data
-        logger.info(f"正在读取文档缓存, 包含 {len(cache.keys())} 个文档")
+        printer.print_text(f"正在读取文档缓存, 包含 {len(cache.keys())} 个文档", style="green")
         return cache
 
     def write_cache(self):
@@ -126,7 +136,8 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
                         json.dump(data, f, ensure_ascii=False)
                         f.write("\n")
                     except Exception as e:
-                        logger.error(f"Failed to write {data['file_path']} to .cache/cache.jsonl: {e}")
+                        printer.print_text(f"Failed to write {data['file_path']} to .cache/cache.jsonl: {e}",
+                                           style="red")
         else:
             lock_file = self.cache_file + ".lock"
             with open(lock_file, "w") as lockf:
@@ -140,7 +151,8 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
                                 json.dump(data, f, ensure_ascii=False)
                                 f.write("\n")
                             except Exception as e:
-                                logger.error(f"Failed to write {data['file_path']} to .cache/cache.jsonl: {e}")
+                                printer.print_text(f"Failed to write {data['file_path']} to .cache/cache.jsonl: {e}",
+                                                   style="red")
                 finally:
                     # 释放文件锁
                     fcntl.flock(lockf, fcntl.LOCK_UN)
@@ -161,15 +173,13 @@ class AutoCoderRAGAsyncUpdateQueue(BaseCacheManager):
         # self.process_queue()
         return self.cache
 
+    def build_cache(self):
+        pass
+
     def get_all_files(self) -> List[Tuple[str, str, float, str]]:
-        default_ignore_dirs = [
-            "__pycache__",
-            "node_modules",
-            "_images"
-        ]
         all_files = []
         for root, dirs, files in os.walk(self.path, followlinks=True):
-            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in default_ignore_dirs]
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in default_exclude_dirs]
 
             if self.ignore_spec:
                 relative_root = os.path.relpath(root, self.path)

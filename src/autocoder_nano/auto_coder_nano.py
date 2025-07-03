@@ -8,15 +8,15 @@ import subprocess
 import time
 import uuid
 
-from autocoder_nano.agent.agentic_edit import AgenticEdit
-from autocoder_nano.agent.agentic_edit_types import AgenticEditRequest
 from autocoder_nano.chat import stream_chat_display
-from autocoder_nano.edit import coding
+from autocoder_nano.edit import run_edit
 from autocoder_nano.helper import show_help
 from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
+from autocoder_nano.agent import run_edit_agentic
+from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.utils.completer_utils import CommandCompleter
 from autocoder_nano.version import __version__
@@ -57,7 +57,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
     "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
-    "/rules", "/auto"
+    "/rules", "/auto", "/rag/build", "/rag/query"
 ]
 
 memory = {
@@ -325,6 +325,29 @@ def index_query_command(query: str, llm: AutoLLM):
     return
 
 
+def rag_build_command(llm: AutoLLM):
+    args = get_final_config(query="", delete_execute_file=True)
+    if not args.rag_url:
+        printer.print_text("请通过 /conf 设置 rag_url 参数, 即本地目录", style="red")
+        return
+    rag_build_cache(llm=llm, args=args, path=args.rag_url)
+    return
+
+
+def rag_query_command(query: str, llm: AutoLLM):
+    args = get_final_config(query=query, delete_execute_file=True)
+    if not args.rag_url:
+        printer.print_text("请通过 /conf 设置 rag_url 参数, 即本地目录", style="red")
+        return
+    contexts = rag_retrieval(llm=llm, args=args, path=args.rag_url)
+    if contexts:
+        printer.print_markdown(
+            text=contexts[0].source_code,
+            panel=True
+        )
+    return
+
+
 def convert_yaml_config_to_str(yaml_config):
     yaml_content = yaml.safe_dump(
         yaml_config,
@@ -404,7 +427,7 @@ def code_review(query: str) -> str:
     """
 
 
-def chat(query: str, llm: AutoLLM):
+def chat_command(query: str, llm: AutoLLM):
     args = get_final_config(query)
 
     is_history = query.strip().startswith("/history")
@@ -468,17 +491,7 @@ def chat(query: str, llm: AutoLLM):
         {"role": "user", "content": query}
     )
 
-    chat_llm = llm
     pre_conversations = []
-
-    # if args.project_type == "py":
-    #     pp = PyProject(llm=llm, args=args)
-    # else:
-    #     pp = SuffixProject(llm=llm, args=args)
-    # pp.run()
-    # _sources = pp.sources
-    # _sources = project_source(source_llm=llm, args=args)
-    # s = build_index_and_filter_files(args=args, llm=llm, sources=_sources)
     s = index_build_and_filter(llm=llm, args=args, sources_codes=project_source(source_llm=llm, args=args))
     if s:
         pre_conversations.append(
@@ -684,7 +697,7 @@ def coding_command(query: str, llm: AutoLLM):
             yaml_config["context"] += get_conversation_history()
 
         if is_rules:
-            yaml_config["context"] += get_rules_context()
+            yaml_config["context"] += get_rules_context(project_root)
 
         yaml_config["file"] = latest_yaml_file
         yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
@@ -693,7 +706,7 @@ def coding_command(query: str, llm: AutoLLM):
             f.write(yaml_content)
         args = convert_yaml_to_config(execute_file)
 
-        coding(llm=llm, args=args)
+        run_edit(llm=llm, args=args)
     else:
         printer.print_text(f"创建新的 YAML 文件失败.", style="yellow")
 
@@ -816,18 +829,19 @@ def commit_info(query: str, llm: AutoLLM):
                 os.remove(execute_file)
 
 
-def agentic_edit(query: str, llm: AutoLLM):
-    args = get_final_config(query=query, delete_execute_file=True)
+def agentic_command(query: str, llm: AutoLLM):
+    args = get_final_config(query=query.strip(), delete_execute_file=True)
 
-    sources = SourceCodeList([])
-    agentic_editor = AgenticEdit(
-        args=args, llm=llm, files=sources, history_conversation=[]
-    )
-
-    query = query.strip()
-    request = AgenticEditRequest(user_input=query)
-
-    agentic_editor.run_in_terminal(request)
+    # sources = SourceCodeList([])
+    # agentic_editor = AgenticEdit(
+    #     args=args, llm=llm, files=sources, history_conversation=[]
+    # )
+    #
+    # query = query.strip()
+    # request = AgenticEditRequest(user_input=query)
+    #
+    # agentic_editor.run_in_terminal(request)
+    run_edit_agentic(llm=llm, args=args)
 
 
 @prompt()
@@ -1689,6 +1703,11 @@ def main():
             elif user_input.startswith("/index/query"):
                 query = user_input[len("/index/query"):].strip()
                 index_query_command(query=query, llm=auto_llm)
+            elif user_input.startswith("/rag/build"):
+                rag_build_command(llm=auto_llm)
+            elif user_input.startswith("/rag/query"):
+                query = user_input[len("/rag/query"):].strip()
+                rag_query_command(query=query, llm=auto_llm)
             elif user_input.startswith("/index/export"):
                 export_path = user_input[len("/index/export"):].strip()
                 index_export(project_root, export_path)
@@ -1731,13 +1750,13 @@ def main():
                 if not query:
                     print("\033[91mPlease enter your request.\033[0m")
                     continue
-                agentic_edit(query=query, llm=auto_llm)
+                agentic_command(query=query, llm=auto_llm)
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:
                     print("\033[91mPlease enter your request.\033[0m")
                 else:
-                    chat(query=query, llm=auto_llm)
+                    chat_command(query=query, llm=auto_llm)
             elif user_input.startswith("/models"):
                 models_args = user_input[len("/models"):].strip().split()
                 if not models_args:

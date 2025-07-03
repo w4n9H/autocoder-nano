@@ -3,23 +3,26 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable, List, Dict
 
-from loguru import logger
-
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.llm_prompt import prompt, extract_code
-from autocoder_nano.llm_types import SourceCode
+from autocoder_nano.llm_types import SourceCode, AutoCoderArgs
+from autocoder_nano.utils.printer_utils import Printer
+
+
+printer = Printer()
 
 
 class TokenLimiter:
     def __init__(
         self, count_tokens: Callable[[str], int], full_text_limit: int, segment_limit: int, buff_limit: int,
-        llm: AutoLLM, disable_segment_reorder: bool,
+        llm: AutoLLM, args: AutoCoderArgs, disable_segment_reorder: bool,
     ):
         self.count_tokens = count_tokens
         self.full_text_limit = full_text_limit
         self.segment_limit = segment_limit
         self.buff_limit = buff_limit
         self.llm = llm
+        self.args = args
         self.first_round_full_docs = []
         self.second_round_extracted_docs = []
         self.sencond_round_time = 0
@@ -132,7 +135,7 @@ class TokenLimiter:
 
         # 如果窗口无法放下所有的相关文档，则需要分区
         if len(final_relevant_docs) < len(reorder_relevant_docs):
-            logger.warning(f"窗口无法放下所有的相关文档, 开始分区处理")
+            printer.print_text(f"窗口无法放下所有的相关文档, 开始分区处理", style="yellow")
             # 先填充full_text分区
             token_count = 0
             new_token_limit = self.full_text_limit
@@ -149,18 +152,18 @@ class TokenLimiter:
             if len(self.first_round_full_docs) > 0:
                 remaining_tokens = (self.full_text_limit + self.segment_limit - token_count)
             else:
-                logger.warning("整个文本区域为空，这可能是由于单个文档过长导致的")
+                printer.print_text("整个文本区域为空，这可能是由于单个文档过长导致的", style="yellow")
                 remaining_tokens = self.full_text_limit + self.segment_limit
 
             # 继续填充segment分区
             sencond_round_start_time = time.time()
             remaining_docs = reorder_relevant_docs[len(self.first_round_full_docs):]
-            logger.info(
-                f"第一轮文档数: {len(self.first_round_full_docs)} 剩余文档数: {len(remaining_docs)} "
-                f"索引过滤工作线程数: {index_filter_workers}"
+            printer.print_key_value(
+                items={"首轮文档数": f"{len(self.first_round_full_docs)}", "剩余文档数": f"{len(remaining_docs)}"},
+                title="第一轮 DocLimit"
             )
 
-            self.llm.setup_default_model_name("chunk_model")
+            self.llm.setup_default_model_name(self.args.chunk_model)
             with ThreadPoolExecutor(max_workers=index_filter_workers or 5) as executor:
                 future_to_doc = {
                     executor.submit(self.process_range_doc, doc, conversations): doc
@@ -177,13 +180,18 @@ class TokenLimiter:
                             if tokens > 0:
                                 remaining_tokens -= tokens
                             else:
-                                logger.warning(f"文档 {doc.module_name} 的标记数量为 0 或负数")
+                                printer.print_text(f"文档 {doc.module_name} 的标记数量为 0 或负数", style="yellow")
                     except Exception as exc:
-                        logger.error(f"处理文档 {doc.module_name} 时发生异常: {exc}")
+                        printer.print_text(f"处理文档 {doc.module_name} 时发生异常: {exc}", style="red")
 
             final_relevant_docs = (self.first_round_full_docs + self.second_round_extracted_docs)
             self.sencond_round_time = time.time() - sencond_round_start_time
-            logger.info(f"第二轮处理时间: {self.sencond_round_time:.2f} 秒")
+            printer.print_key_value(
+                items={
+                    "第二轮文档数": f"{self.second_round_extracted_docs}",
+                    "处理耗时": f"{self.sencond_round_time:.2f} 秒"},
+                title="第二轮 DocLimit"
+            )
 
         return final_relevant_docs
 
@@ -225,9 +233,11 @@ class TokenLimiter:
                 )
             except Exception as e:
                 if attempt < max_retries - 1:
-                    logger.warning(f"处理文档 {doc.module_name} 时出错，正在重试...（尝试次数：{attempt + 1}）错误：{str(e)}")
+                    printer.print_text(f"处理文档 {doc.module_name} 时出错，正在重试(尝试次数:{attempt + 1})错误：{str(e)}",
+                                       style="yellow")
                 else:
-                    logger.error(f"在 {max_retries} 次尝试后仍未能处理文档 {doc.module_name}：{str(e)}")
+                    printer.print_text(f"在 {max_retries} 次尝试后仍未能处理文档 {doc.module_name}：{str(e)}",
+                                       style="red")
                     return SourceCode(
                         module_name=doc.module_name, source_code="", tokens=0
                     )
