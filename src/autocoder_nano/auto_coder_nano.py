@@ -8,8 +8,6 @@ import subprocess
 import time
 import uuid
 
-# from autocoder_nano.agent.agentic_edit import AgenticEdit
-# from autocoder_nano.agent.agentic_edit_types import AgenticEditRequest
 from autocoder_nano.chat import stream_chat_display
 from autocoder_nano.edit import run_edit
 from autocoder_nano.helper import show_help
@@ -18,6 +16,7 @@ from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
 from autocoder_nano.agent import run_edit_agentic
+from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.llm_client import AutoLLM
 from autocoder_nano.utils.completer_utils import CommandCompleter
 from autocoder_nano.version import __version__
@@ -58,7 +57,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
     "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
-    "/rules", "/auto"
+    "/rules", "/auto", "/rag/build", "/rag/query"
 ]
 
 memory = {
@@ -323,6 +322,29 @@ def index_command(llm):
 def index_query_command(query: str, llm: AutoLLM):
     args = get_final_config(query=query, delete_execute_file=True)
     index_build_and_filter(llm=llm, args=args, sources_codes=project_source(source_llm=llm, args=args))
+    return
+
+
+def rag_build_command(llm: AutoLLM):
+    args = get_final_config(query="", delete_execute_file=True)
+    if not args.rag_url:
+        printer.print_text("请通过 /conf 设置 rag_url 参数, 即本地目录", style="red")
+        return
+    rag_build_cache(llm=llm, args=args, path=args.rag_url)
+    return
+
+
+def rag_query_command(query: str, llm: AutoLLM):
+    args = get_final_config(query=query, delete_execute_file=True)
+    if not args.rag_url:
+        printer.print_text("请通过 /conf 设置 rag_url 参数, 即本地目录", style="red")
+        return
+    contexts = rag_retrieval(llm=llm, args=args, path=args.rag_url)
+    if contexts:
+        printer.print_markdown(
+            text=contexts[0].source_code,
+            panel=True
+        )
     return
 
 
@@ -675,7 +697,7 @@ def coding_command(query: str, llm: AutoLLM):
             yaml_config["context"] += get_conversation_history()
 
         if is_rules:
-            yaml_config["context"] += get_rules_context()
+            yaml_config["context"] += get_rules_context(project_root)
 
         yaml_config["file"] = latest_yaml_file
         yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
@@ -1681,6 +1703,11 @@ def main():
             elif user_input.startswith("/index/query"):
                 query = user_input[len("/index/query"):].strip()
                 index_query_command(query=query, llm=auto_llm)
+            elif user_input.startswith("/rag/build"):
+                rag_build_command(llm=auto_llm)
+            elif user_input.startswith("/rag/query"):
+                query = user_input[len("/rag/query"):].strip()
+                rag_query_command(query=query, llm=auto_llm)
             elif user_input.startswith("/index/export"):
                 export_path = user_input[len("/index/export"):].strip()
                 index_export(project_root, export_path)
