@@ -26,6 +26,8 @@ from autocoder_nano.utils.git_utils import (repo_init, commit_changes, revert_ch
                                             get_uncommitted_changes, generate_commit_message)
 from autocoder_nano.utils.sys_utils import default_exclude_dirs, detect_env
 from autocoder_nano.utils.printer_utils import Printer
+from autocoder_nano.utils.config_utils import (get_final_config, convert_yaml_config_to_str, convert_config_value,
+                                               convert_yaml_to_config)
 
 import yaml
 from jinja2 import Template
@@ -36,11 +38,9 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.shortcuts import confirm
 from prompt_toolkit.styles import Style
-# from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 from rich.syntax import Syntax
-# from rich.table import Table
 from rich.text import Text
 
 
@@ -212,40 +212,6 @@ completer = CommandCompleter(
 )
 
 
-def get_final_config(query: str, delete_execute_file: bool = False) -> AutoCoderArgs | None:
-    conf = memory.get("conf", {})
-    yaml_config = {
-        "include_file": ["./base/base.yml"],
-        "skip_build_index": conf.get("skip_build_index", "true") == "true",
-        "skip_confirm": conf.get("skip_confirm", "true") == "true",
-        "chat_model": conf.get("chat_model", ""),
-        "code_model": conf.get("code_model", ""),
-        "auto_merge": conf.get("auto_merge", "editblock"),
-        "exclude_files": memory.get("exclude_files", [])
-    }
-    current_files = memory["current_files"]["files"]
-    yaml_config["urls"] = current_files
-    yaml_config["query"] = query
-
-    # 如果 conf 中有设置, 则以 conf 配置为主
-    for key, value in conf.items():
-        converted_value = convert_config_value(key, value)
-        if converted_value is not None:
-            yaml_config[key] = converted_value
-
-    execute_file = os.path.join(project_root, "actions", f"{uuid.uuid4()}.yml")
-    try:
-        yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
-        with open(os.path.join(execute_file), "w") as f:  # 保存此次查询的细节
-            f.write(yaml_content)
-        args = convert_yaml_to_config(execute_file)  # 更新到args
-    finally:
-        if delete_execute_file:
-            if os.path.exists(execute_file):
-                os.remove(execute_file)
-    return args
-
-
 def exclude_dirs(dir_names: List[str]):
     new_dirs = dir_names
     existing_dirs = memory.get("exclude_dirs", [])
@@ -312,19 +278,19 @@ def exclude_files(query: str):
 
 
 def index_command(llm):
-    args = get_final_config(query="", delete_execute_file=True)
+    args = get_final_config(project_root, memory, query="", delete_execute_file=True)
     index_build(llm=llm, args=args, sources_codes=project_source(source_llm=llm, args=args))
     return
 
 
 def index_query_command(query: str, llm: AutoLLM):
-    args = get_final_config(query=query, delete_execute_file=True)
+    args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
     index_build_and_filter(llm=llm, args=args, sources_codes=project_source(source_llm=llm, args=args))
     return
 
 
 def rag_build_command(llm: AutoLLM):
-    args = get_final_config(query="", delete_execute_file=True)
+    args = get_final_config(project_root, memory, query="", delete_execute_file=True)
     if not args.rag_url:
         printer.print_text("请通过 /conf 设置 rag_url 参数, 即本地目录", style="red")
         return
@@ -333,7 +299,7 @@ def rag_build_command(llm: AutoLLM):
 
 
 def rag_query_command(query: str, llm: AutoLLM):
-    args = get_final_config(query=query, delete_execute_file=True)
+    args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
     if not args.rag_url:
         printer.print_text("请通过 /conf 设置 rag_url 参数, 即本地目录", style="red")
         return
@@ -346,58 +312,8 @@ def rag_query_command(query: str, llm: AutoLLM):
     return
 
 
-def convert_yaml_config_to_str(yaml_config):
-    yaml_content = yaml.safe_dump(
-        yaml_config,
-        allow_unicode=True,
-        default_flow_style=False,
-        default_style=None,
-    )
-    return yaml_content
-
-
-def convert_yaml_to_config(yaml_file: str | dict | AutoCoderArgs):
-    # global args
-    args = AutoCoderArgs()
-    config = {}
-    if isinstance(yaml_file, str):
-        args.file = yaml_file
-        with open(yaml_file, "r") as f:
-            config = yaml.safe_load(f)
-            config = load_include_files(config, yaml_file)
-    if isinstance(yaml_file, dict):
-        config = yaml_file
-    if isinstance(yaml_file, AutoCoderArgs):
-        config = yaml_file.model_dump()
-    for key, value in config.items():
-        if key != "file":  # 排除 --file 参数本身
-            # key: ENV {{VARIABLE_NAME}}
-            if isinstance(value, str) and value.startswith("ENV"):
-                template = Template(value.removeprefix("ENV").strip())
-                value = template.render(os.environ)
-            setattr(args, key, value)
-    return args
-
-
-def convert_config_value(key, value):
-    field_info = AutoCoderArgs.model_fields.get(key)
-    if field_info:
-        if value.lower() in ["true", "false"]:
-            return value.lower() == "true"
-        elif "int" in str(field_info.annotation):
-            return int(value)
-        elif "float" in str(field_info.annotation):
-            return float(value)
-        else:
-            return value
-    else:
-        printer.print_text(f"无效的配置项: {key}", style="red")
-        return None
-
-
 def print_chat_history(history, max_entries=5):
     recent_history = history[-max_entries:]
-    data_list = []
     for entry in recent_history:
         role = entry["role"]
         content = entry["content"]
@@ -426,7 +342,7 @@ def code_review(query: str) -> str:
 
 
 def chat_command(query: str, llm: AutoLLM):
-    args = get_final_config(query)
+    args = get_final_config(project_root, memory, query)
 
     is_history = query.strip().startswith("/history")
     is_new = "/new" in query
@@ -550,43 +466,6 @@ def get_last_yaml_file(actions_dir: str) -> Optional[str]:
 
     sorted_action_files = sorted(action_files, key=get_old_seq)
     return sorted_action_files[-1] if sorted_action_files else None
-
-
-def resolve_include_path(base_path, include_path):
-    if include_path.startswith(".") or include_path.startswith(".."):
-        full_base_path = os.path.abspath(base_path)
-        parent_dir = os.path.dirname(full_base_path)
-        return os.path.abspath(os.path.join(parent_dir, include_path))
-    else:
-        return include_path
-
-
-def load_include_files(config, base_path, max_depth=10, current_depth=0):
-    if current_depth >= max_depth:
-        raise ValueError(
-            f"Exceeded maximum include depth of {max_depth},you may have a circular dependency in your include files."
-        )
-    if "include_file" in config:
-        include_files = config["include_file"]
-        if not isinstance(include_files, list):
-            include_files = [include_files]
-
-        for include_file in include_files:
-            abs_include_path = resolve_include_path(base_path, include_file)
-            # printer.print_text(f"正在加载 Include file: {abs_include_path}", style="green")
-            with open(abs_include_path, "r") as f:
-                include_config = yaml.safe_load(f)
-                if not include_config:
-                    printer.print_text(f"Include file {abs_include_path} 为空，跳过处理.", style="green")
-                    continue
-                config.update(
-                    {
-                        **load_include_files(include_config, abs_include_path, max_depth, current_depth + 1),
-                        **config,
-                    }
-                )
-        del config["include_file"]
-    return config
 
 
 def prepare_chat_yaml():
@@ -828,17 +707,7 @@ def commit_info(query: str, llm: AutoLLM):
 
 
 def agentic_command(query: str, llm: AutoLLM):
-    args = get_final_config(query=query.strip(), delete_execute_file=True)
-
-    # sources = SourceCodeList([])
-    # agentic_editor = AgenticEdit(
-    #     args=args, llm=llm, files=sources, history_conversation=[]
-    # )
-    #
-    # query = query.strip()
-    # request = AgenticEditRequest(user_input=query)
-    #
-    # agentic_editor.run_in_terminal(request)
+    args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
     run_edit_agentic(llm=llm, args=args)
 
 
@@ -879,7 +748,7 @@ def _generate_shell_script(user_input: str) -> str:
 
 
 def generate_shell_command(input_text: str, llm: AutoLLM) -> str | None:
-    args = get_final_config(query=input_text, delete_execute_file=True)
+    args = get_final_config(project_root, memory, query=input_text, delete_execute_file=True)
 
     try:
         printer.print_panel(
@@ -1508,7 +1377,7 @@ def rules(query_args: List[str], llm: AutoLLM):
     /rules /analyze         - 分析当前文件，可选提供查询内容
     /rules /commit <提交ID>  - 分析特定提交，必须提供提交ID和查询内容
     """
-    args = get_final_config(query="", delete_execute_file=True)
+    args = get_final_config(project_root, memory, query="", delete_execute_file=True)
     rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
     if query_args[0] == "/list":
         printer.print_table_compact(
