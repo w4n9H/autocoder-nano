@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import re
@@ -10,6 +11,7 @@ from rich.markdown import Markdown
 from tokenizers import Tokenizer
 
 from autocoder_nano.agent.agentic_edit_types import *
+from autocoder_nano.utils.config_utils import prepare_chat_yaml, get_last_yaml_file, convert_yaml_config_to_str
 from autocoder_nano.utils.git_utils import commit_changes, get_uncommitted_changes
 from autocoder_nano.core import AutoLLM, stream_chat_with_continue
 from autocoder_nano.core import prompt, format_str_jinja2
@@ -1364,26 +1366,44 @@ class AgenticEdit:
         yield TokenUsageEvent(usage=last_metadata)
 
     def apply_pre_changes(self):
-        if not self.args.skip_commit:
-            try:
-                commit_message = commit_changes(self.args.source_dir, f"auto_coder_nano_agentic_edit")
-                if commit_message:
-                    printer.print_text(f"Commit 成功", style="green")
-            except Exception as err:
-                import traceback
-                traceback.print_exc()
-                printer.print_text(f"Commit 失败: {err}", style="red")
-                return
+        uncommitted_changes = get_uncommitted_changes(self.args.source_dir)
+        if uncommitted_changes != "No uncommitted changes found.":
+            raise Exception("代码中包含未提交的更新,请执行/commit")
 
-    def apply_changes(self):
+    def apply_changes(self, request: AgenticEditRequest):
         """ Apply all tracked file changes to the original project directory. """
         changes = get_uncommitted_changes(self.args.source_dir)
 
         if changes != "No uncommitted changes found.":
-            if not self.args.skip_commit:
+            # if not self.args.skip_commit:
+            # 有变更才进行下一步操作
+            prepare_chat_yaml(self.args.source_dir)  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
+
+            latest_yaml_file = get_last_yaml_file(self.args.source_dir)
+
+            if latest_yaml_file:
+                yaml_config = {
+                    "include_file": ["./base/base.yml"],
+                    "skip_build_index": self.args.skip_build_index,
+                    "skip_confirm": self.args.skip_confirm,
+                    "chat_model": self.args.chat_model,
+                    "code_model": self.args.code_model,
+                    "auto_merge": self.args.auto_merge,
+                    "context": "",
+                    "query": request.user_input,
+                    "urls": [],
+                    "file": latest_yaml_file
+                }
+                yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
+                execute_file = os.path.join(self.args.source_dir, "actions", latest_yaml_file)
+                with open(os.path.join(execute_file), "w") as f:
+                    f.write(yaml_content)
+
+                md5 = hashlib.md5(yaml_content.encode("utf-8")).hexdigest()
+
                 try:
                     commit_message = commit_changes(
-                        self.args.source_dir, f"{self.args.query}\nauto_coder_nano_agentic_edit",
+                        self.args.source_dir, f"auto_coder_{latest_yaml_file}_{md5}",
                     )
                     if commit_message:
                         printer.print_panel(content=f"Commit 成功", title="Commit 信息", center=True)
@@ -1409,7 +1429,7 @@ class AgenticEdit:
         }
 
         try:
-            self.apply_changes()  # 在开始 Agentic Edit 之前先提交变更
+            self.apply_pre_changes()  # 在开始 Agentic Edit 之前先判断是否有未提交变更,有变更则直接退出
             event_stream = self.analyze(request)
             for event in event_stream:
                 if isinstance(event, TokenUsageEvent):
@@ -1538,7 +1558,7 @@ class AgenticEdit:
                 elif isinstance(event, CompletionEvent):
                     # 在这里完成实际合并
                     try:
-                        self.apply_changes()
+                        self.apply_changes(request)
                     except Exception as e:
                         printer.print_text(f"Error merging shadow changes to project: {e}", style="red")
 
