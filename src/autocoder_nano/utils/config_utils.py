@@ -1,5 +1,6 @@
 import os
 import uuid
+from typing import Optional
 
 import yaml
 from jinja2 import Template
@@ -129,3 +130,52 @@ def get_final_config(project_root: str, memory: dict, query: str, delete_execute
             if os.path.exists(execute_file):
                 os.remove(execute_file)
     return args
+
+
+def get_last_yaml_file(project_root: str) -> Optional[str]:
+    actions_dir = os.path.join(project_root, "actions")
+    action_files = [f for f in os.listdir(actions_dir) if f[:3].isdigit() and "_" in f and f.endswith(".yml")]
+
+    def get_old_seq(name):
+        return int(name.split("_")[0])
+
+    sorted_action_files = sorted(action_files, key=get_old_seq)
+    return sorted_action_files[-1] if sorted_action_files else None
+
+
+def prepare_chat_yaml(project_root: str):
+    actions_dir = os.path.join(project_root, "actions")
+    if not os.path.exists(actions_dir):
+        printer.print_text("当前目录中未找到 actions 目录。请执行初始化 AutoCoder Nano", style="yellow")
+        return
+
+    action_files = [
+        f for f in os.listdir(actions_dir) if f[:3].isdigit() and "_" in f and f.endswith(".yml")
+    ]
+
+    def get_old_seq(name):
+        return name.split("_")[0]
+
+    if not action_files:
+        max_seq = 0
+    else:
+        seqs = [int(get_old_seq(f)) for f in action_files]
+        max_seq = max(seqs)
+
+    new_seq = str(max_seq + 1).zfill(12)
+    prev_files = [f for f in action_files if int(get_old_seq(f)) < int(new_seq)]
+
+    if not prev_files:
+        new_file = os.path.join(actions_dir, f"{new_seq}_chat_action.yml")
+        with open(new_file, "w") as f:
+            pass
+    else:
+        prev_file = sorted(prev_files)[-1]  # 取序号最大的文件
+        with open(os.path.join(actions_dir, prev_file), "r") as f:
+            content = f.read()
+        new_file = os.path.join(actions_dir, f"{new_seq}_chat_action.yml")
+        with open(new_file, "w") as f:
+            f.write(content)
+
+    printer.print_text(f"已成功创建新的 action 文件: {new_file}", style="green")
+    return

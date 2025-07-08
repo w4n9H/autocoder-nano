@@ -27,10 +27,8 @@ from autocoder_nano.utils.git_utils import (repo_init, commit_changes, revert_ch
 from autocoder_nano.utils.sys_utils import default_exclude_dirs, detect_env
 from autocoder_nano.utils.printer_utils import Printer
 from autocoder_nano.utils.config_utils import (get_final_config, convert_yaml_config_to_str, convert_config_value,
-                                               convert_yaml_to_config)
+                                               convert_yaml_to_config, get_last_yaml_file, prepare_chat_yaml)
 
-import yaml
-from jinja2 import Template
 from prompt_toolkit import prompt as _toolkit_prompt, PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.formatted_text import FormattedText
@@ -458,55 +456,6 @@ def init_project(project_type):
     return
 
 
-def get_last_yaml_file(actions_dir: str) -> Optional[str]:
-    action_files = [f for f in os.listdir(actions_dir) if f[:3].isdigit() and "_" in f and f.endswith(".yml")]
-
-    def get_old_seq(name):
-        return int(name.split("_")[0])
-
-    sorted_action_files = sorted(action_files, key=get_old_seq)
-    return sorted_action_files[-1] if sorted_action_files else None
-
-
-def prepare_chat_yaml():
-    # auto_coder_main(["next", "chat_action"]) 准备聊天 yaml 文件
-    actions_dir = os.path.join(project_root, "actions")
-    if not os.path.exists(actions_dir):
-        printer.print_text("当前目录中未找到 actions 目录。请执行初始化 AutoCoder Nano", style="yellow")
-        return
-
-    action_files = [
-        f for f in os.listdir(actions_dir) if f[:3].isdigit() and "_" in f and f.endswith(".yml")
-    ]
-
-    def get_old_seq(name):
-        return name.split("_")[0]
-
-    if not action_files:
-        max_seq = 0
-    else:
-        seqs = [int(get_old_seq(f)) for f in action_files]
-        max_seq = max(seqs)
-
-    new_seq = str(max_seq + 1).zfill(12)
-    prev_files = [f for f in action_files if int(get_old_seq(f)) < int(new_seq)]
-
-    if not prev_files:
-        new_file = os.path.join(actions_dir, f"{new_seq}_chat_action.yml")
-        with open(new_file, "w") as f:
-            pass
-    else:
-        prev_file = sorted(prev_files)[-1]  # 取序号最大的文件
-        with open(os.path.join(actions_dir, prev_file), "r") as f:
-            content = f.read()
-        new_file = os.path.join(actions_dir, f"{new_seq}_chat_action.yml")
-        with open(new_file, "w") as f:
-            f.write(content)
-
-    printer.print_text(f"已成功创建新的 action 文件: {new_file}", style="green")
-    return
-
-
 def get_conversation_history() -> str:
     memory_dir = os.path.join(project_root, ".auto-coder", "memory")
     os.makedirs(memory_dir, exist_ok=True)
@@ -548,8 +497,8 @@ def coding_command(query: str, llm: AutoLLM):
     memory["conversation"].append({"role": "user", "content": query})
     conf = memory.get("conf", {})
 
-    prepare_chat_yaml()  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
-    latest_yaml_file = get_last_yaml_file(os.path.join(project_root, "actions"))
+    prepare_chat_yaml(project_root)  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
+    latest_yaml_file = get_last_yaml_file(project_root)
 
     if latest_yaml_file:
         yaml_config = {
@@ -608,7 +557,7 @@ def execute_revert(args: AutoCoderArgs):
 
 
 def revert():
-    last_yaml_file = get_last_yaml_file(os.path.join(project_root, "actions"))
+    last_yaml_file = get_last_yaml_file(project_root)
     if last_yaml_file:
         file_path = os.path.join(project_root, "actions", last_yaml_file)
         args = convert_yaml_to_config(file_path)
@@ -636,9 +585,9 @@ def print_commit_info(commit_result: CommitResult):
 
 def commit_info(query: str, llm: AutoLLM):
     repo_path = project_root
-    prepare_chat_yaml()  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
+    prepare_chat_yaml(project_root)  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
 
-    latest_yaml_file = get_last_yaml_file(os.path.join(project_root, "actions"))
+    latest_yaml_file = get_last_yaml_file(project_root)
     execute_file = None
 
     if latest_yaml_file:
@@ -651,7 +600,8 @@ def commit_info(query: str, llm: AutoLLM):
                 "skip_confirm": conf.get("skip_confirm", "true") == "true",
                 "chat_model": conf.get("chat_model", ""),
                 "code_model": conf.get("code_model", ""),
-                "auto_merge": conf.get("auto_merge", "editblock")
+                "auto_merge": conf.get("auto_merge", "editblock"),
+                "context": ""
             }
             for key, value in conf.items():
                 converted_value = convert_config_value(key, value)
@@ -712,7 +662,7 @@ def agentic_command(query: str, llm: AutoLLM):
 
 
 @prompt()
-def _generate_shell_script(user_input: str) -> str:
+def _generate_shell_script(user_input: str):
     """
     环境信息如下:
 
@@ -1009,13 +959,6 @@ def initialize_system():
             else:
                 printer.print_text("退出而不初始化.", style="yellow")
                 exit(1)
-
-        # if not os.path.exists(base_persist_dir):
-        #     os.makedirs(base_persist_dir, exist_ok=True)
-        #     printer.print_text("创建目录：{}".format(base_persist_dir), style="green")
-
-        # if first_time:  # 首次启动,配置项目类型
-        #     project_type = configure_project_type()
 
         printer.print_text("项目初始化完成.", style="green")
 
@@ -1586,7 +1529,6 @@ def main():
             elif user_input.startswith("/conf"):
                 conf = user_input[len("/conf"):].strip()
                 if not conf:
-                    # print(memory["conf"])
                     print_conf(memory["conf"])
                 else:
                     configure(conf)
