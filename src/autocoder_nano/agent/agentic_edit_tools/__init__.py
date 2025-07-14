@@ -11,6 +11,8 @@ from .ask_followup_question_tool import AskFollowupQuestionToolResolver
 from .attempt_completion_tool import AttemptCompletionToolResolver
 from .plan_mode_respond_tool import PlanModeRespondToolResolver
 from .list_package_info_tool import ListPackageInfoToolResolver
+from .record_memory_tool import RecordMemoryToolResolver
+from .recall_memory_tool import RecallMemoryToolResolver
 
 __all__ = [
     "BaseToolResolver",
@@ -25,4 +27,6 @@ __all__ = [
     "AttemptCompletionToolResolver",
     "PlanModeRespondToolResolver",
     "ListPackageInfoToolResolver",
+    "RecordMemoryToolResolver",
+    "RecallMemoryToolResolver"
 ]

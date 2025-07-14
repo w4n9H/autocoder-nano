@@ -24,7 +24,8 @@ from autocoder_nano.agent.agentic_edit_tools import (  # Import specific resolve
     ExecuteCommandToolResolver, ReadFileToolResolver, WriteToFileToolResolver,
     ReplaceInFileToolResolver, SearchFilesToolResolver, ListFilesToolResolver,
     ListCodeDefinitionNamesToolResolver, AskFollowupQuestionToolResolver,
-    AttemptCompletionToolResolver, PlanModeRespondToolResolver, ListPackageInfoToolResolver
+    AttemptCompletionToolResolver, PlanModeRespondToolResolver, ListPackageInfoToolResolver,
+    RecordMemoryToolResolver, RecallMemoryToolResolver
 )
 
 printer = Printer()
@@ -66,6 +67,16 @@ TOOL_DISPLAY_MESSAGES: Dict[Type[BaseTool], Dict[str, str]] = {
             "AutoCoder Nano 正在提问：\n{{ question }}\n{{ options_text }}"
         )
     },
+    RecordMemoryTool: {
+        "zh": (
+            "AutoCoder Nano 正在记录笔记：\n{{ content }}"
+        )
+    },
+    RecallMemoryTool: {
+        "zh": (
+            "AutoCoder Nano 正在检索笔记, 提问：\n{{ query }}"
+        )
+    }
 }
 
 
@@ -113,6 +124,10 @@ def get_tool_display_message(tool: BaseTool, lang: str = "zh") -> str:
         context = {
             "question": tool.question, "options_text": options_text_zh
         }
+    elif isinstance(tool, RecordMemoryTool):
+        context = {"content": tool.content}
+    elif isinstance(tool, RecallMemoryTool):
+        context = {"query": tool.query}
     else:
         # Generic context for tools not specifically handled above
         context = tool.model_dump()
@@ -136,7 +151,9 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     ListPackageInfoTool: ListPackageInfoToolResolver,
     AskFollowupQuestionTool: AskFollowupQuestionToolResolver,
     AttemptCompletionTool: AttemptCompletionToolResolver,  # Will stop the loop anyway
-    PlanModeRespondTool: PlanModeRespondToolResolver
+    PlanModeRespondTool: PlanModeRespondToolResolver,
+    RecordMemoryTool: RecordMemoryToolResolver,
+    RecallMemoryTool: RecallMemoryToolResolver
 }
 
 
@@ -336,6 +353,24 @@ class AgenticEdit:
         <list_code_definition_names>
         <path>Directory path here</path>
         </list_code_definition_names>
+
+        ## record_memory (记录笔记/记忆)
+        描述：这是给你设计的一套笔记系统, 用于存储你的长期记忆, 主要保存 a.任务执行所需要的待办list b.阅读代码后的代码自描述文档 c.任务执行完毕后的经验总结
+        参数：
+        - content（必填）：你的笔记正文, 笔记的具体用法下文会告知
+        用法：
+        <record_memory>
+        <content>Notebook Content</content>
+        </record_memory>
+
+        ## recall_memory (检索笔记/记忆)
+        描述：这是给你设计的一套笔记系统, 你可以在笔记系统中找到你曾经的待办list，代码的字描述文档，相关的经验总结
+        参数：
+        - query（必填）：你检索笔记的提问
+        用法：
+        <recall_memory>
+        <query>Recall Notebook Query</query>
+        </recall_memory>
 
         ask_followup_question（提出后续问题）
         描述：向用户提出问题以收集完成任务所需的额外信息。当遇到歧义、需要澄清或需要更多细节以有效推进时使用此工具。它通过与用户直接沟通实现交互式问题解决，应明智使用，以在收集必要信息和避免过多来回沟通之间取得平衡。
@@ -699,6 +734,7 @@ class AgenticEdit:
         # 最佳实践
 
         - 迭代方法：不要试图一次性理解所有内容，逐步积累知识。
+        - Notebook优先: 在深入研究代码之前，先检索笔记，有没有相关的内容
         - 文档优先：在深入研究代码之前，阅读现有的文档、注释和 README 文件。
         - 小步骤：进行增量更改并验证每个步骤。
         - 做好回滚准备：始终知道如何撤销更改（如果出现问题）。
@@ -802,6 +838,179 @@ class AgenticEdit:
         - 快速识别可能与你的任务相关的最近修改的文件。
         - 提供目录内容和目的的高级理解。
         - 帮助确定使用 read_file、shell 命令或 list_code_definition_names 等工具详细检查哪些文件的优先级。
+
+        =====
+
+        笔记系统 Notebook
+
+        ## 目的：
+        - 保存阅读代码后的代码自描述文档
+        - 保存任务执行完毕后, 记录事项列表以及经验总结
+        - 用于解决 agentic 无法保存长期记忆的问题
+
+        ## 笔记记录时机：
+        - 阅读代码文件后，分析并记录 代码的自描述文档
+        - 完成需求后，进行相关的工作总结, 比如完成的事项的列表, 需求完成情况, 完成该需求的经验总结
+
+        ## 笔记检索时机：
+        - 接收到需求并获取项目结构后, 即可开始检索笔记
+          - 检索以前是否有完成过类似的任务，可以查看以前的工作总结
+          - 阅读代码前，检索以前是否分析过该代码，可以查看分析结果（注意：如果同一个代码文件出现多个自描述文档, 以最新日期为准）
+
+        ## 笔记检索技巧：
+        - 因为笔记的存储，英文部分是大小写敏感的，当你在构思查询语句时，可以多尝试几次，比如
+          - 查询 "agent" 无结果时，可以试试 "Agent" 。这种情况尝试最多2次无论是否有结果都必须要进行下一步
+
+        ## 笔记记录示例
+        <record_memory>
+        <content>我在2025.07.01完成了notebook功能,用于解决agentic无法保存长期记忆的问题</content>
+        </record_memory>
+
+        ## 笔记检索示例
+        <recall_memory>
+        <query>notebook功能是什么时候实现添加的</query>
+        </recall_memory>
+
+        =====
+
+        笔记系统-代码自描述文件
+
+        ## 代码自描述文件的核心理念
+        - 代码自描述文件是一种全新的模块化组织方式，专为AI时代设计，它的核心理念可以概括为：
+
+        ### 1. 以AI为中心的设计思想
+
+        传统模块化主要考虑人类开发者的需求，而代码自描述文件首先考虑的是：**如何让AI更好地理解和使用这个模块？**
+
+        - 每个模块都有完整的自描述文档
+        - 所有信息都集中在一个描述文件中
+        - 使用AI友好的Markdown格式进行存储
+        - 严格控制Token数量，确保在模型窗口内
+
+        ### 2. 语言无关的模块定义
+
+        代码自描述文件不依赖特定的编程语言或框架：
+        - 一个代码自描述文件 = 功能实现 + 完整文档 + 使用示例 + 测试验证
+        - 无论是Python、JavaScript、Go还是Rust，AC模块的组织方式都是一致的。
+
+        ### 3. 自包含的文档化模块
+        每个自描述文件都是一个**自包含的知识单元**，包含：
+
+        - 功能描述和使用场景
+        - 完整的API文档
+        - 详细的使用示例
+        - 依赖关系说明
+        - 测试和验证方法
+
+        ## 代码自描述文件的关键特性
+
+        ### 1. Token限制约束下的精简设计
+
+        这是代码自描述文件最重要的约束条件。每个模块的总Token数必须小于大模型的上下文窗口，这迫使我们：
+
+        - **精简而完整**：只包含核心功能，但文档必须完整
+        - **高度内聚**：一个模块专注解决一个明确的问题
+        - **清晰表达**：用最少的文字表达最多的信息
+
+        ### 2. 标准化的模块结构
+
+        每个代码自描述文件都遵循统一的文档结构：
+
+        ```markdown
+        # 模块名称
+        简洁的功能描述
+
+        ## Directory Structure
+        目录结构和文件说明
+
+        ## Quick Start
+        快速开始指南和基本用法
+
+        ## Core Components
+        核心组件和主要方法
+
+        ## Mermaid File Dependency Graph
+        依赖关系的可视化图表
+
+        ## Dependency Relationships
+        与其他AC模块的依赖关系
+
+        ## Commands to Verify Module Functionality
+        功能验证命令
+        ```
+
+        ### 3. 完整的功能文档化
+
+        与传统的README不同，代码自描述文件不仅仅是说明，而是**完整的功能规格书**：
+
+        ```python
+        # 不仅告诉你怎么用
+        monitor = get_file_monitor("/path/to/project")
+        monitor.register("**/*.py", callback)
+        monitor.start()
+
+        # 还告诉你为什么这样设计
+        # 单例模式确保全局只有一个监控实例
+        # 支持glob模式匹配，提供灵活的文件过滤
+        # 异步监控不阻塞主线程
+        ```
+
+        ### 4. 依赖关系的清晰表达
+
+        代码自描述文件通过Mermaid图和简洁的列表清晰表达依赖关系：
+
+        ```mermaid
+        graph TB
+            FileMonitor[FileMonitor<br/>文件系统监控核心类]
+            Watchfiles[watchfiles<br/>文件系统监控库]
+            Pathspec[pathspec<br/>路径模式匹配库]
+
+            FileMonitor --> Watchfiles
+            FileMonitor --> Pathspec
+        ```
+
+        ## 代码自描述文件的技术实现
+
+        ### 代码自描述文件格式
+
+        代码自描述文件遵循严格的格式规范：
+
+        ```markdown
+        # [模块名称]
+        [一句话功能描述]
+
+        ## Directory Structure
+        [标准化的目录结构说明]
+
+        ## Quick Start
+        ### Basic Usage
+        [完整的使用示例代码]
+
+        ### Helper Functions
+        [辅助函数说明]
+
+        ### Configuration Management
+        [配置管理说明]
+
+        ## Core Components
+        ### 1. [主要类名] Main Class
+        **Core Features:**
+        - [特性1]: [详细描述]
+        - [特性2]: [详细描述]
+
+        **Main Methods:**
+        - `method1()`: [方法功能和参数描述]
+        - `method2()`: [方法功能和参数描述]
+
+        ## Mermaid File Dependency Graph
+        [依赖关系的可视化图表]
+
+        ## Dependency Relationships
+        [与其他AC模块的依赖关系列表]
+
+        ## Commands to Verify Module Functionality
+        [可执行的验证命令]
+        ```
 
         =====
 
