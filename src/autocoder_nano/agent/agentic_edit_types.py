@@ -156,4 +156,6 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "plan_mode_respond": PlanModeRespondTool,
     "use_rag_tool": UseRAGTool,
     "list_package_info": ListPackageInfoTool,
+    "record_memory": RecordMemoryTool,
+    "recall_memory": RecallMemoryTool
 }
