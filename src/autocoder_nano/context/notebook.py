@@ -6,6 +6,10 @@ import pandas as pd
 from pandas import DataFrame
 
 from autocoder_nano.utils.db_context_utils import DuckDBLocalContext
+from autocoder_nano.utils.printer_utils import Printer
+
+
+printer = Printer()
 
 
 class NoteBook:
@@ -198,22 +202,29 @@ class NoteBook:
     def _entity_search(self, user_id, query, limit):
         """ 实体搜索 """
         query_entities = [i[0] for i in self._extract_entities(query)]
+        if query_entities:
+            query_entities_join = f"{','.join(['?']*len(query_entities))}"
+        else:
+            query_entities_join = ""
+        print(query_entities_join)
         _query_sql = f"""
         SELECT n.id, n.content, n.created_at
         FROM notes n
         JOIN entities e ON n.id = e.note_id
         WHERE n.user_id = ? 
-          AND e.entity_value IN ({','.join(['?']*len(query_entities))})
+          AND e.entity_value IN (?)
         GROUP BY n.id, n.content, n.created_at
         ORDER BY COUNT(e.entity_value) DESC
         LIMIT ?
         """
-        query_params = [user_id, *query_entities, limit]
+        query_params = [user_id, query_entities_join, limit]
         with DuckDBLocalContext(self.database_path) as _conn:
             return _conn.execute(_query_sql, query_params).fetchdf()
 
     def _fulltext_search(self, user_id, query, limit):
         """ 全文搜索 """
+        query_words = self._extract_tokens(query)
+        query_words_join = " ".join(query_words)
         _query_sql = """
         SELECT n.id, n.content, n.created_at
         FROM notes n
@@ -232,20 +243,26 @@ class NoteBook:
         GROUP BY n.id, n.content, n.created_at
         LIMIT ?
         """
-        query_params = [query, user_id, limit]
+        query_params = [query_words_join, user_id, limit]
         with DuckDBLocalContext(self.database_path) as _conn:
             return _conn.execute(_query_sql, query_params).fetchdf()
 
     def search_by_query(self, user_id, query, limit=5) -> DataFrame:
         """ 统一搜索接口 """
-        combined = pd.concat(
-            [
-                self._keyword_search(user_id, query, limit),
-                self._entity_search(user_id, query, limit),
-                self._fulltext_search(user_id, query, limit)
-            ],
-            axis=0, ignore_index=True)
+        fs_df = self._keyword_search(user_id, query, limit)
+        es_df = self._entity_search(user_id, query, limit)
+        fts_df = self._fulltext_search(user_id, query, limit)
+        combined = pd.concat([fs_df, es_df, fts_df], axis=0, ignore_index=True)
         result = combined.drop_duplicates()
+        printer.print_key_value(
+            items={
+                "关键词检索": f"{len(fs_df)} 条",
+                "实体检索": f"{len(es_df)} 条",
+                "全文检索": f"{len(fts_df)} 条",
+                "整体去重后数据条数": f"{len(result)} 条",
+            },
+            title="Notebook 检索结果"
+        )
         return result
 
 
