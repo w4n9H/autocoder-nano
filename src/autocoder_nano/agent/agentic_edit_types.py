@@ -25,6 +25,14 @@ class ExecuteCommandTool(BaseTool):
     requires_approval: bool
 
 
+class RecordMemoryTool(BaseTool):
+    content: str
+
+
+class RecallMemoryTool(BaseTool):
+    query: str
+
+
 class ReadFileTool(BaseTool):
     path: str
 

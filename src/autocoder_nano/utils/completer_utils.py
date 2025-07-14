@@ -26,6 +26,7 @@ COMMANDS = {
     },
     "/exclude_files": {"/list": "", "/drop": ""},
     "/exclude_dirs": {},
+    "/auto": {},
     "/rules": {"/list": "", "/show": "", "/remove": "", "/analyze": "", "/commit": ""}
 }
 
@@ -337,7 +338,7 @@ class CommandCompleter(Completer):
                             if current_word and current_word in file_name:
                                 yield Completion(file_name, start_position=-len(current_word))
 
-            elif words[0] in ["/chat", "/coding"]:
+            elif words[0] in ["/chat", "/coding", "/auto"]:
                 image_extensions = (
                     ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".svg", ".ico",
                     ".heic", ".heif", ".raw", ".cr2", ".nef", ".arw", ".dng", ".orf", ".rw2", ".pef",

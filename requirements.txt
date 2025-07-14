@@ -16,3 +16,4 @@ tokenizers
 duckdb
 numpy
 psutil
+cutword
