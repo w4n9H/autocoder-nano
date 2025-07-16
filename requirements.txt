@@ -17,3 +17,4 @@ duckdb
 numpy
 psutil
 cutword
+torch
