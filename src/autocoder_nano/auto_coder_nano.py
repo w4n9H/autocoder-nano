@@ -19,6 +19,7 @@ from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import AutoLLM
 from autocoder_nano.core import prompt, extract_code
 from autocoder_nano.actypes import *
+from autocoder_nano.editor import run_editor
 from autocoder_nano.utils.completer_utils import CommandCompleter
 from autocoder_nano.version import __version__
 from autocoder_nano.templates import create_actions
@@ -53,7 +54,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
     "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
-    "/rules", "/auto", "/rag/build", "/rag/query"
+    "/rules", "/auto", "/rag/build", "/rag/query", "/editor"
 ]
 
 memory = {
@@ -659,6 +660,11 @@ def commit_info(query: str, llm: AutoLLM):
 def agentic_command(query: str, llm: AutoLLM):
     args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
     run_edit_agentic(llm=llm, args=args)
+
+
+def editor_command(file_path: str):
+    abs_input_path = os.path.abspath(os.path.join(project_root, file_path)) if not os.path.isabs(file_path) else file_path
+    run_editor(abs_input_path)
 
 
 @prompt()
@@ -1508,6 +1514,9 @@ def main():
             elif user_input.startswith("/remove_files"):
                 file_names = user_input[len("/remove_files"):].strip().split(",")
                 remove_files(file_names)
+            elif user_input.startswith("/editor"):
+                editor_files = user_input[len("/editor"):].strip()
+                editor_command(editor_files)
             elif user_input.startswith("/index/build"):
                 index_command(llm=auto_llm)
             elif user_input.startswith("/index/query"):

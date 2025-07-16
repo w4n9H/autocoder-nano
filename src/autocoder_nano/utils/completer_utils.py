@@ -27,6 +27,7 @@ COMMANDS = {
     "/exclude_files": {"/list": "", "/drop": ""},
     "/exclude_dirs": {},
     "/auto": {},
+    "/editor": {},
     "/rules": {"/list": "", "/show": "", "/remove": "", "/analyze": "", "/commit": ""}
 }
 
@@ -298,8 +299,8 @@ class CommandCompleter(Completer):
                     if mode.startswith(left_word.strip()):
                         yield Completion(mode, start_position=-len(left_word.strip()))
 
-            if words[0] == "/add_files":
-                new_text = text[len("/add_files"):]
+            if words[0] in ("/add_files", "/editor"):
+                new_text = text[len(words[0]):]
                 parser = CommandTextParser(new_text, words[0])
                 parser.add_files()
                 current_word = parser.current_word()
