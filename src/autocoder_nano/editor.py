@@ -626,15 +626,20 @@ class NanoEditor:
 
         self.search_input.buffer.on_text_changed += on_search_changed
 
+    def get_content(self):
+        """获取当前编辑内容"""
+        return self.text_area.text
+
     def run(self):
         """运行编辑器"""
         self.set_status_message("帮助: Ctrl-S = 保存文件 | Ctrl-Q = 退出编辑 | Ctrl-F = 查找 | F3 = 查找下一个")
         self.application.run()
 
 
-def run_editor(file_name):
+def run_editor(file_name) -> str:
     editor = NanoEditor(file_name)
     editor.run()
+    return editor.get_content()
 
 
 def main():
