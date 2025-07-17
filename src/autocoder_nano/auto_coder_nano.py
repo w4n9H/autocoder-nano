@@ -54,7 +54,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
     "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
-    "/rules", "/auto", "/rag/build", "/rag/query", "/editor"
+    "/rules", "/auto", "/rag/build", "/rag/query", "/editor", "/long_context_auto"
 ]
 
 memory = {
@@ -657,7 +657,21 @@ def commit_info(query: str, llm: AutoLLM):
                 os.remove(execute_file)
 
 
-def agentic_command(query: str, llm: AutoLLM):
+def auto_command(query: str, llm: AutoLLM):
+    args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
+    run_edit_agentic(llm=llm, args=args)
+
+
+def long_context_auto_command(llm: AutoLLM):
+    import tempfile
+    initial_content = f"请输入你的需求: \n"
+    # 创建临时文件
+    with tempfile.NamedTemporaryFile(mode='w+', delete=True, suffix='.txt') as tmpfile:
+        tmpfile.write(initial_content)
+        tmpfile.flush()
+        temp_path = tmpfile.name
+        query = run_editor(temp_path)
+
     args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
     run_edit_agentic(llm=llm, args=args)
 
@@ -1568,7 +1582,9 @@ def main():
                 if not query:
                     print("\033[91mPlease enter your request.\033[0m")
                     continue
-                agentic_command(query=query, llm=auto_llm)
+                auto_command(query=query, llm=auto_llm)
+            elif user_input.startswith("/long_context_auto"):
+                long_context_auto_command(llm=auto_llm)
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:
