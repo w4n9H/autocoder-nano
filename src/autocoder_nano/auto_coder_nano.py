@@ -1299,7 +1299,7 @@ def configure_project_model():
     default_model = {
         "1": {"name": "(Volcengine)deepseek/deepseek-r1-0528",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "deepseek-r1-0528"},
+              "model_name": "deepseek-r1-250528"},
         "2": {"name": "(Volcengine)deepseek/deepseek-v3-0324",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "deepseek-v3-250324"},
