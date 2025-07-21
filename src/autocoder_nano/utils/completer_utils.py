@@ -13,7 +13,7 @@ COMMANDS = {
     "/remove_files": {"/all": ""},
     "/coding": {"/apply": ""},
     "/chat": {"/history": "", "/new": "", "/review": ""},
-    "/models": {"/add_model": "", "/remove": "", "/list": "", "/check": ""},
+    "/models": {"/add_model": "", "/remove": "", "/list": "", "/check": "", "/add": ""},
     "/help": {
         "/add_files": "",
         "/remove_files": "",

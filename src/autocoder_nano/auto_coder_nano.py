@@ -1234,6 +1234,16 @@ def manage_models(models_args, models_data, llm: AutoLLM):
         print_models(models_data)
     if models_args[0] == "/check":
         check_models(models_data, llm)
+    if models_args[0] == "/add":
+        m1, m2, m3, m4 = configure_project_model()
+        printer.print_text("正在更新缓存...", style="yellow")
+        memory["models"][m1] = {"base_url": m3, "api_key": m4, "model": m2}
+        printer.print_text(f"供应商配置已成功完成！后续你可以使用 /models 命令, 查看, 新增和修改所有模型", style="green")
+        printer.print_text(f"正在部署 {m1} 模型...", style="green")
+        llm.setup_sub_client(m1,
+                             memory["models"][m1]["api_key"],
+                             memory["models"][m1]["base_url"],
+                             memory["models"][m1]["model"])
     elif models_args[0] == "/add_model":
         add_model_args = models_args[1:]
         add_model_info = {item.split('=')[0]: item.split('=')[1] for item in add_model_args if item}
@@ -1287,34 +1297,58 @@ def configure_project_model():
             HTML(f"<header>{escape(text)}</header>"), style=style)
 
     default_model = {
-        "1": {"name": "ark-deepseek-r1", "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+        "1": {"name": "(Volcengine)deepseek/deepseek-r1-0528",
+              "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "deepseek-r1-0528"},
-        "2": {"name": "ark-deepseek-v3", "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+        "2": {"name": "(Volcengine)deepseek/deepseek-v3-0324",
+              "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "deepseek-v3-250324"},
-        "3": {"name": "sili-deepseek-r1", "base_url": "https://api.siliconflow.cn/v1",
-              "model_name": "deepseek-ai/DeepSeek-R1"},
-        "4": {"name": "sili-deepseek-v3", "base_url": "https://api.siliconflow.cn/v1",
-              "model_name": "deepseek-ai/DeepSeek-V3"},
-        "5": {"name": "deepseek-r1", "base_url": "https://api.deepseek.com", "model_name": "deepseek-reasoner"},
-        "6": {"name": "deepseek-v3", "base_url": "https://api.deepseek.com", "model_name": "deepseek-chat"},
+        "3": {"name": "(Volcengine)byte/doubao-seed-1.6-250615",
+              "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+              "model_name": "doubao-seed-1-6-250615"},
+        "4": {"name": "(OpenRouter)google/gemini-2.5-pro",
+              "base_url": "https://openrouter.ai/api/v1",
+              "model_name": "google/gemini-2.5-pro"},
+        "5": {"name": "(OpenRouter)google/gemini-2.5-flash",
+              "base_url": "https://openrouter.ai/api/v1",
+              "model_name": "google/gemini-2.5-flash"},
+        "6": {"name": "(OpenRouter)anthropic/claude-opus-4",
+              "base_url": "https://openrouter.ai/api/v1",
+              "model_name": "anthropic/claude-opus-4"},
+        "7": {"name": "(OpenRouter)anthropic/claude-sonnet-4",
+              "base_url": "https://openrouter.ai/api/v1",
+              "model_name": "anthropic/claude-sonnet-4"},
+        "8": {"name": "(OpenRouter)moonshotai/kimi-k2",
+              "base_url": "https://openrouter.ai/api/v1",
+              "model_name": "moonshotai/kimi-k2"},
+        "9": {"name": "(OpenRouter)openai/o3-pro",
+              "base_url": "https://openrouter.ai/api/v1",
+              "model_name": "openai/o3-pro"},
     }
 
+    # 内置模型
     print_header(f"\n=== 正在配置项目模型 ===\n")
-    print_info("选择您的首选模型供应商: ")
-    print_info(f"  1. 火山方舟 DeepSeek-R1")
-    print_info(f"  2. 火山方舟 DeepSeek-V3")
-    print_info(f"  3. 硅基流动 DeepSeek-R1(非Pro)")
-    print_info(f"  4. 硅基流动 DeepSeek-V3(非Pro)")
-    print_info(f"  5. 官方 DeepSeek-R1")
-    print_info(f"  6. 官方 DeepSeek-V3")
-    print_info(f"  7. 其他供应商")
-    model_num = input(f"  请选择您想使用的模型供应商编号(1-6): ").strip().lower()
+    print_info("Volcengine: https://www.volcengine.com/")
+    print_info("OpenRouter: https://openrouter.ai/")
+    print_info("")
+    print_info(f"  1. (Volcengine)deepseek/deepseek-r1-0528")
+    print_info(f"  2. (Volcengine)deepseek/deepseek-v3-0324")
+    print_info(f"  3. (Volcengine)byte/doubao-seed-1.6-250615")
+    print_info(f"  4. (OpenRouter)google/gemini-2.5-pro")
+    print_info(f"  5. (OpenRouter)google/gemini-2.5-flash")
+    print_info(f"  6. (OpenRouter)anthropic/claude-opus-4")
+    print_info(f"  7. (OpenRouter)anthropic/claude-sonnet-4")
+    print_info(f"  8. (OpenRouter)moonshotai/kimi-k2")
+    print_info(f"  9. (OpenRouter)openai/o3-pro")
+    print_info(f"  10. 其他模型")
+    model_num = input(f"  请选择您想使用的模型供应商编号(1-10): ").strip().lower()
 
-    if int(model_num) < 1 or int(model_num) > 7:
-        printer.print_text("请选择 1-7", style="red")
+    if int(model_num) < 1 or int(model_num) > 10:
+        printer.print_text("请选择 1-10", style="red")
+        save_memory()
         exit(1)
 
-    if model_num == "7":
+    if model_num == "10":
         current_model = input(f"  设置你的首选模型别名(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
         current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
         current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()
