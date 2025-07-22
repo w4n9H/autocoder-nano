@@ -18,3 +18,4 @@ numpy
 psutil
 cutword
 torch
+pandas

@@ -1306,22 +1306,25 @@ def configure_project_model():
         "3": {"name": "(Volcengine)byte/doubao-seed-1.6-250615",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "doubao-seed-1-6-250615"},
-        "4": {"name": "(OpenRouter)google/gemini-2.5-pro",
+        "4": {"name": "(Volcengine)moonshotai/kimi-k2",
+              "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+              "model_name": "kimi-k2-250711"},
+        "5": {"name": "(OpenRouter)google/gemini-2.5-pro",
               "base_url": "https://openrouter.ai/api/v1",
               "model_name": "google/gemini-2.5-pro"},
-        "5": {"name": "(OpenRouter)google/gemini-2.5-flash",
+        "6": {"name": "(OpenRouter)google/gemini-2.5-flash",
               "base_url": "https://openrouter.ai/api/v1",
               "model_name": "google/gemini-2.5-flash"},
-        "6": {"name": "(OpenRouter)anthropic/claude-opus-4",
+        "7": {"name": "(OpenRouter)anthropic/claude-opus-4",
               "base_url": "https://openrouter.ai/api/v1",
               "model_name": "anthropic/claude-opus-4"},
-        "7": {"name": "(OpenRouter)anthropic/claude-sonnet-4",
+        "8": {"name": "(OpenRouter)anthropic/claude-sonnet-4",
               "base_url": "https://openrouter.ai/api/v1",
               "model_name": "anthropic/claude-sonnet-4"},
-        "8": {"name": "(OpenRouter)moonshotai/kimi-k2",
+        "9": {"name": "(OpenRouter)moonshotai/kimi-k2",
               "base_url": "https://openrouter.ai/api/v1",
               "model_name": "moonshotai/kimi-k2"},
-        "9": {"name": "(OpenRouter)openai/o3-pro",
+        "10": {"name": "(OpenRouter)openai/o3-pro",
               "base_url": "https://openrouter.ai/api/v1",
               "model_name": "openai/o3-pro"},
     }
@@ -1334,17 +1337,18 @@ def configure_project_model():
     print_info(f"  1. (Volcengine)deepseek/deepseek-r1-0528")
     print_info(f"  2. (Volcengine)deepseek/deepseek-v3-0324")
     print_info(f"  3. (Volcengine)byte/doubao-seed-1.6-250615")
-    print_info(f"  4. (OpenRouter)google/gemini-2.5-pro")
-    print_info(f"  5. (OpenRouter)google/gemini-2.5-flash")
-    print_info(f"  6. (OpenRouter)anthropic/claude-opus-4")
-    print_info(f"  7. (OpenRouter)anthropic/claude-sonnet-4")
-    print_info(f"  8. (OpenRouter)moonshotai/kimi-k2")
-    print_info(f"  9. (OpenRouter)openai/o3-pro")
-    print_info(f"  10. 其他模型")
-    model_num = input(f"  请选择您想使用的模型供应商编号(1-10): ").strip().lower()
+    print_info(f"  4. (Volcengine)moonshotai/kimi-k2")
+    print_info(f"  5. (OpenRouter)google/gemini-2.5-pro")
+    print_info(f"  6. (OpenRouter)google/gemini-2.5-flash")
+    print_info(f"  7. (OpenRouter)anthropic/claude-opus-4")
+    print_info(f"  8. (OpenRouter)anthropic/claude-sonnet-4")
+    print_info(f"  9. (OpenRouter)moonshotai/kimi-k2")
+    print_info(f"  10. (OpenRouter)openai/o3-pro")
+    print_info(f"  11. 其他模型")
+    model_num = input(f"  请选择您想使用的模型供应商编号(1-11): ").strip().lower()
 
-    if int(model_num) < 1 or int(model_num) > 10:
-        printer.print_text("请选择 1-10", style="red")
+    if int(model_num) < 1 or int(model_num) > 11:
+        printer.print_text("请选择 1-11", style="red")
         save_memory()
         exit(1)
 
