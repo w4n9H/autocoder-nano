@@ -17,5 +17,4 @@ duckdb
 numpy
 psutil
 cutword
-torch
 pandas
