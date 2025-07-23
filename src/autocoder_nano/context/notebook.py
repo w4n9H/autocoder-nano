@@ -15,7 +15,7 @@ printer = Printer()
 class NoteBook:
 
     def __init__(self, project_root: str, database_name: str = "notes.db", keywords_filter_length: int = 3,
-                 keywords_freq_top_n: int = 5):
+                 keywords_freq_top_n: int = 10):
         self.database_name = database_name
 
         self.notebook_dir = os.path.join(project_root, ".auto-coder", "notebook")
@@ -23,10 +23,10 @@ class NoteBook:
 
         import warnings
         warnings.filterwarnings("ignore", category=UserWarning)
-        from cutword import NER
+        # from cutword import NER
         from cutword import Cutter
         self.cutter = Cutter(want_long_word=True)
-        self.ner = NER()
+        # self.ner = NER()
 
         self.keywords_filter_length = keywords_filter_length
         self.keywords_freq_top_n = keywords_freq_top_n
@@ -106,10 +106,10 @@ class NoteBook:
         """ 分词 """
         return [kw for kw, _ in keyword_freq.most_common(self.keywords_freq_top_n)]
 
-    def _extract_entities(self, text):
-        doc = self.ner.predict(text, return_words=False)
-        entities = [(ent.entity, ent.ner_type_zh) for ent in doc[0] if doc[0]]
-        return entities
+    # def _extract_entities(self, text):
+    #     doc = self.ner.predict(text, return_words=False)
+    #     entities = [(ent.entity, ent.ner_type_zh) for ent in doc[0] if doc[0]]
+    #     return entities
 
     def extract_features(self, text: str):
         """提取关键词和实体"""
@@ -121,7 +121,7 @@ class NoteBook:
         # 提取实体,关键词
         return {
             "keywords": " ".join(keywords),
-            "entities": self._extract_entities(text),
+            # "entities": self._extract_entities(text),
             "top_keywords": top_keywords,
             "tf_keywords": keyword_freq
         }
@@ -142,7 +142,7 @@ class NoteBook:
         # 全文索引
         self._index_full_text(_note_id, features["keywords"])
         # 索引实体
-        self._index_entities(_note_id, features["entities"])
+        # self._index_entities(_note_id, features["entities"])
         # 重建全文索引
         self._rebuild_full_text_index()
 
@@ -199,27 +199,27 @@ class NoteBook:
         with DuckDBLocalContext(self.database_path) as _conn:
             return _conn.execute(_query_sql, query_params).fetchdf()
 
-    def _entity_search(self, user_id, query, limit):
-        """ 实体搜索 """
-        query_entities = [i[0] for i in self._extract_entities(query)]
-        if query_entities:
-            query_entities_join = f"{','.join(['?']*len(query_entities))}"
-        else:
-            query_entities_join = ""
-        print(query_entities_join)
-        _query_sql = f"""
-        SELECT n.id, n.content, n.created_at
-        FROM notes n
-        JOIN entities e ON n.id = e.note_id
-        WHERE n.user_id = ? 
-          AND e.entity_value IN (?)
-        GROUP BY n.id, n.content, n.created_at
-        ORDER BY COUNT(e.entity_value) DESC
-        LIMIT ?
-        """
-        query_params = [user_id, query_entities_join, limit]
-        with DuckDBLocalContext(self.database_path) as _conn:
-            return _conn.execute(_query_sql, query_params).fetchdf()
+    # def _entity_search(self, user_id, query, limit):
+    #     """ 实体搜索 """
+    #     query_entities = [i[0] for i in self._extract_entities(query)]
+    #     if query_entities:
+    #         query_entities_join = f"{','.join(['?']*len(query_entities))}"
+    #     else:
+    #         query_entities_join = ""
+    #     print(query_entities_join)
+    #     _query_sql = f"""
+    #     SELECT n.id, n.content, n.created_at
+    #     FROM notes n
+    #     JOIN entities e ON n.id = e.note_id
+    #     WHERE n.user_id = ?
+    #       AND e.entity_value IN (?)
+    #     GROUP BY n.id, n.content, n.created_at
+    #     ORDER BY COUNT(e.entity_value) DESC
+    #     LIMIT ?
+    #     """
+    #     query_params = [user_id, query_entities_join, limit]
+    #     with DuckDBLocalContext(self.database_path) as _conn:
+    #         return _conn.execute(_query_sql, query_params).fetchdf()
 
     def _fulltext_search(self, user_id, query, limit):
         """ 全文搜索 """
@@ -250,14 +250,14 @@ class NoteBook:
     def search_by_query(self, user_id, query, limit=5) -> DataFrame:
         """ 统一搜索接口 """
         fs_df = self._keyword_search(user_id, query, limit)
-        es_df = self._entity_search(user_id, query, limit)
+        # es_df = self._entity_search(user_id, query, limit)
         fts_df = self._fulltext_search(user_id, query, limit)
-        combined = pd.concat([fs_df, es_df, fts_df], axis=0, ignore_index=True)
+        combined = pd.concat([fs_df, fts_df], axis=0, ignore_index=True)
         result = combined.drop_duplicates()
         printer.print_key_value(
             items={
                 "关键词检索": f"{len(fs_df)} 条",
-                "实体检索": f"{len(es_df)} 条",
+                # "实体检索": f"{len(es_df)} 条",
                 "全文检索": f"{len(fts_df)} 条",
                 "整体去重后数据条数": f"{len(result)} 条",
             },
