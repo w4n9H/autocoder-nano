@@ -660,6 +660,17 @@ class AgenticEdit:
         - 定位关键目录：src/, lib/, components/, utils/
         - 查找配置文件：package.json, tsconfig.json, Makefile
 
+        ### 检索笔记，获取记忆
+
+        <recall_memory>
+        <query>package.json main.py coder.py 与需求有关联的词语</query>
+        </recall_memory>
+
+        - 了解项目结构后，结合任务需求，思考检索关键词，如代码文件名称，文档名称，以及与需求相关的关键词
+        - 关键词之间必须使用空格分割
+        - 最多尝试检索2次，无结果则默认无长期记忆
+        - 注意：如果同一个代码文件出现多个AC模块，或者类似的需求出现了多次总结，以最新日期为准
+
         ### 技术栈识别
 
         <execute_command>
@@ -682,6 +693,10 @@ class AgenticEdit:
 
         ### 使用模式分析
 
+        <read_file>
+        <path>src/autocoder_nano/main.py</path>
+        </read_file>
+
         - 使用 read_file 详细检查关键文件。
         - 理解函数签名，接口与约定。
         - 检查错误处理与边界情况。
@@ -692,6 +707,15 @@ class AgenticEdit:
         <command>grep -Rn "import.*targetModule" . | grep -v test</command>
         <requires_approval>false</requires_approval>
         </execute_command>
+
+        ### 记录 AC Module
+
+        <record_memory>
+        <content>AC Module 内容</content>
+        </record_memory>
+
+        - 在完成代码上下文探查后，务必使用 AC Module 的记录笔记
+        - 尽量以目录为模块进行记录，也可以对少量关键代码文件进行记录
 
         ## 阶段3：实施规划
 
@@ -754,6 +778,7 @@ class AgenticEdit:
         </execute_command>
 
         ### 文档和注释
+
         - 验证新函数 / 类是否有适当的文档。
         - 检查复杂逻辑是否有解释性注释。
         - 确保 README 或其他文档在需要时已更新。
@@ -771,6 +796,16 @@ class AgenticEdit:
         - 查找潜在的安全漏洞。
         - 验证输入验证和清理。
         - 检查错误/异常处理完备性。
+
+        ### 记录工作总结
+
+        <record_memory>
+        <content>任务完成工作总结</content>
+        </record_memory>
+
+        - 工作总结内容包括：
+            * 任务需求分析过程及结果（任务待办列表）
+            * 本次任务的经验总结
 
         ### 最终集成检查
 
@@ -912,21 +947,49 @@ class AgenticEdit:
         ## 笔记检索时机：
         - 接收到需求并获取项目结构后, 即可开始检索笔记
           - 检索以前是否有完成过类似的任务，可以查看以前的工作总结
-          - 阅读代码前，检索以前是否分析过该代码，可以查看分析结果（注意：如果同一个代码文件出现多个自描述文档, 以最新日期为准）
+          - 阅读代码前，检索以前是否分析过该代码，可以查看分析结果
+          - 注意：如果同一个代码文件出现多个AC模块，或者类似的需求出现了多次总结，以最新日期为准
+
+        ## 强制使用要求
+
+        你必须在以下时机使用笔记系统，否则将无法高效完成任务：
+
+        - 任务开始：使用 recall_memory 检索与当前任务相关的历史笔记，包括需求分析，AC模块，经验总结等。
+        - 阅读代码后：对每个阅读过的代码文件，生成AC模块并记录（使用 record_memory）。
+        - 任务完成：使用 record_memory 记录任务完成情况和工作总结。
 
         ## 笔记检索技巧：
         - 因为笔记的存储，英文部分是大小写敏感的，当你在构思查询语句时，可以多尝试几次，比如
           - 查询 "agent" 无结果时，可以试试 "Agent" 。这种情况尝试最多2次无论是否有结果都必须要进行下一步
 
-        ## 笔记记录示例
+        ### 示例1：任务开始时检索笔记
+
+        <recall_memory>
+        <query>登录 登录功能 登陆页面 login </query>
+        </recall_memory>
+
+        - 检索关于实现登录功能的需求分析，AC模块，经验总结
+
+        ### 示例2：阅读代码后记录AC模块
+
+        假设你阅读了 `src/auth/login.js` 文件，并生成了该文件的AC模块描述：
+
         <record_memory>
-        <content>我在2025.07.01完成了notebook功能,用于解决agentic无法保存长期记忆的问题</content>
+        <content>
+        ...（src/auth/login.js AC模块内容）...
+        </content>
         </record_memory>
 
-        ## 笔记检索示例
-        <recall_memory>
-        <query>notebook功能是什么时候实现添加的</query>
-        </recall_memory>
+        ### 示例3：任务完成后记录工作总结
+
+        <record_memory>
+        <content>
+        任务：实现登录功能
+        需求分析过程及结果：...
+        完成情况：成功实现了基于JWT的登录功能，包括前端表单和后端验证。
+        经验总结：在实现过程中，发现需要处理XSS攻击，已在前端输入过滤和后端验证中增加安全措施。
+        </content>
+        </record_memory>
 
         =====
 
@@ -1116,6 +1179,12 @@ class AgenticEdit:
         - 识别代码模式与依赖关系
         - 确保可靠变更的必经流程
 
+        ## 长期记忆与知识复用
+
+        - 通过笔记系统，你可以记录和检索历史任务的经验和代码分析结果，避免重复工作。
+        - 在任务开始时，通过检索笔记，可以快速获取相关任务的解决方案和注意事项。
+        - 在代码分析过程中，记录AC模块可以帮助你构建项目的知识库，便于后续任务使用。
+
         ## 多工具协同体系
 
         支持通过工具链完成全周期任务：
@@ -1182,6 +1251,15 @@ class AgenticEdit:
 
         - 编辑前必须搜索：任何文件编辑前必须通过 list_files / execute_command（grep） 探查上下文依赖，使用模式，关联引用
         - 修改后必验证：变更后必须通过搜索工具验证确认代码有无残留引用，新代码是否与现有模式正确集成
+
+        ## 强制笔记规则
+
+        - 任务开始时，必须使用 recall_memory 检索是否有相关任务的需求分析过程，AC模块信息，以及任务经验总结。
+            * 检索笔记时可以使用多个关键词（关键词可以根据任务需求自由发散），且必须使用空格分割关键词
+            * 注意：如果同一个代码文件出现多个AC模块，或者类似的需求出现了多次总结，以最新日期为准
+        - 在阅读代码文件后，必须使用 record_memory 记录生成的AC模块（代码自描述文档）。
+        - 任务完成后，必须使用 record_memory 记录任务完成情况和工作总结。
+        - 如果未按上述规则使用笔记系统，将导致任务消耗更多的 tokens。
 
         ## CLI命令执行铁律
 
