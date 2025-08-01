@@ -1356,11 +1356,11 @@ def configure_project_model():
         current_model = input(f"  设置你的首选模型别名(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
         current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
         current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()
-        current_api_key = input(f"  请输入您的API密钥: ").strip().lower()
+        current_api_key = input(f"  请输入您的API密钥: ").strip()
         return current_model, current_model_name, current_base_url, current_api_key
 
     model_name_value = default_model[model_num].get("model_name", "")
-    model_api_key = input(f"请输入您的 API 密钥：").strip().lower()
+    model_api_key = input(f"请输入您的 API 密钥：").strip()
     return (
         default_model[model_num]["name"],
         model_name_value,
