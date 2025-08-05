@@ -1,6 +1,10 @@
+import copy
 import json
-from typing import List, Tuple, Dict
+import re
+from typing import List, Tuple, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from pydantic import BaseModel
 
 from autocoder_nano.actypes import SourceCode, VerifyFileRelevance, AutoCoderArgs
 from autocoder_nano.core import prompt, extract_code, AutoLLM
@@ -11,13 +15,13 @@ from autocoder_nano.utils.printer_utils import Printer
 printer = Printer()
 
 
-class PruneContext:
+class ContentPruner:
 
-    def __init__(self, args: AutoCoderArgs, llm: AutoLLM, max_tokens: int, verbose: bool = False):
+    def __init__(self, args: AutoCoderArgs, llm: AutoLLM, max_tokens: int):
         self.args = args
         self.llm = llm
+        self.llm.setup_default_model_name(self.args.chat_model)
         self.max_tokens = max_tokens
-        self.verbose = verbose
 
     @staticmethod
     def _split_content_with_sliding_window(content: str, window_size=100, overlap=20) -> List[Tuple[int, int, str]]:
@@ -87,6 +91,109 @@ class PruneContext:
 
         return selected_files
 
+    @prompt()
+    def extract_code_snippets(
+            self, conversations: List[Dict[str, str]], content: str, is_partial_content: bool = False
+    ) -> str:
+        """
+        根据提供的代码文件和对话历史提取相关代码片段。
+
+        处理示例：
+        <examples>
+        1.  代码文件：
+        <code_file>
+            1 def add(a, b):
+            2     return a + b
+            3 def sub(a, b):
+            4     return a - b
+        </code_file>
+        <conversation_history>
+            <user>: 如何实现加法？
+        </conversation_history>
+
+        输出：
+        ```json
+        [
+            {"start_line": 1, "end_line": 2}
+        ]
+        ```
+
+        2.  代码文件：
+            1 class User:
+            2     def __init__(self, name):
+            3         self.name = name
+            4     def greet(self):
+            5         return f"Hello, {self.name}"
+        </code_file>
+        <conversation_history>
+            <user>: 如何创建一个User对象？
+        </conversation_history>
+
+        输出：
+        ```json
+        [
+            {"start_line": 1, "end_line": 3}
+        ]
+        ```
+
+        3.  代码文件：
+        <code_file>
+            1 def foo():
+            2     pass
+        </code_file>
+        <conversation_history>
+            <user>: 如何实现减法？
+        </conversation_history>
+
+        输出：
+        ```json
+        []
+        ```
+        </examples>
+
+        输入:
+        1. 代码文件内容:
+        <code_file>
+        {{ content }}
+        </code_file>
+
+        <% if is_partial_content: %>
+        <partial_content_process_note>
+        当前处理的是文件的局部内容（行号{start_line}-{end_line}），
+        请仅基于当前可见内容判断相关性，返回标注的行号区间。
+        </partial_content_process_note>
+        <% endif %>
+
+        2. 对话历史:
+        <conversation_history>
+        {% for msg in conversations %}
+        <{{ msg.role }}>: {{ msg.content }}
+        {% endfor %}
+        </conversation_history>
+
+        任务:
+        1. 分析最后一个用户问题及其上下文。
+        2. 在代码文件中找出与问题相关的一个或多个重要代码段。
+        3. 对每个相关代码段，确定其起始行号(start_line)和结束行号(end_line)。
+        4. 代码段数量不超过4个。
+
+        输出要求:
+        1. 返回一个JSON数组，每个元素包含"start_line"和"end_line"。
+        2. start_line和end_line必须是整数，表示代码文件中的行号。
+        3. 行号从1开始计数。
+        4. 如果没有相关代码段，返回空数组[]。
+
+        输出格式:
+        严格的JSON数组，不包含其他文字或解释。
+
+        ```json
+        [
+            {"start_line": 第一个代码段的起始行号, "end_line": 第一个代码段的结束行号},
+            {"start_line": 第二个代码段的起始行号, "end_line": 第二个代码段的结束行号}
+        ]
+        ```
+        """
+
     def _extract_code_snippets(
             self, file_sources: List[SourceCode], conversations: List[Dict[str, str]]
     ) -> List[SourceCode]:
@@ -103,109 +210,6 @@ class PruneContext:
             f"📋 处理策略: 完整文件优先阈值={full_file_tokens}, 最大token限制={self.max_tokens}", style="green"
         )
 
-        @prompt()
-        def extract_code_snippets(
-                conversations: List[Dict[str, str]], content: str, is_partial_content: bool = False
-        ) -> str:
-            """
-            根据提供的代码文件和对话历史提取相关代码片段。
-
-            处理示例：
-            <examples>
-            1.  代码文件：
-            <code_file>
-                1 def add(a, b):
-                2     return a + b
-                3 def sub(a, b):
-                4     return a - b
-            </code_file>
-            <conversation_history>
-                <user>: 如何实现加法？
-            </conversation_history>
-
-            输出：
-            ```json
-            [
-                {"start_line": 1, "end_line": 2}
-            ]
-            ```
-
-            2.  代码文件：
-                1 class User:
-                2     def __init__(self, name):
-                3         self.name = name
-                4     def greet(self):
-                5         return f"Hello, {self.name}"
-            </code_file>
-            <conversation_history>
-                <user>: 如何创建一个User对象？
-            </conversation_history>
-
-            输出：
-            ```json
-            [
-                {"start_line": 1, "end_line": 3}
-            ]
-            ```
-
-            3.  代码文件：
-            <code_file>
-                1 def foo():
-                2     pass
-            </code_file>
-            <conversation_history>
-                <user>: 如何实现减法？
-            </conversation_history>
-
-            输出：
-            ```json
-            []
-            ```
-            </examples>
-
-            输入:
-            1. 代码文件内容:
-            <code_file>
-            {{ content }}
-            </code_file>
-
-            <% if is_partial_content: %>
-            <partial_content_process_note>
-            当前处理的是文件的局部内容（行号{start_line}-{end_line}），
-            请仅基于当前可见内容判断相关性，返回标注的行号区间。
-            </partial_content_process_note>
-            <% endif %>
-
-            2. 对话历史:
-            <conversation_history>
-            {% for msg in conversations %}
-            <{{ msg.role }}>: {{ msg.content }}
-            {% endfor %}
-            </conversation_history>
-
-            任务:
-            1. 分析最后一个用户问题及其上下文。
-            2. 在代码文件中找出与问题相关的一个或多个重要代码段。
-            3. 对每个相关代码段，确定其起始行号(start_line)和结束行号(end_line)。
-            4. 代码段数量不超过4个。
-
-            输出要求:
-            1. 返回一个JSON数组，每个元素包含"start_line"和"end_line"。
-            2. start_line和end_line必须是整数，表示代码文件中的行号。
-            3. 行号从1开始计数。
-            4. 如果没有相关代码段，返回空数组[]。
-
-            输出格式:
-            严格的JSON数组，不包含其他文字或解释。
-
-            ```json
-            [
-                {"start_line": 第一个代码段的起始行号, "end_line": 第一个代码段的结束行号},
-                {"start_line": 第二个代码段的起始行号, "end_line": 第二个代码段的结束行号}
-            ]
-            ```
-            """
-
         for file_source in file_sources:
             try:
                 # 完整文件优先
@@ -214,19 +218,18 @@ class PruneContext:
                     selected_files.append(SourceCode(
                         module_name=file_source.module_name, source_code=file_source.source_code, tokens=tokens))
                     token_count += tokens
-                    if self.verbose:
-                        printer.print_text(
-                            f"✅ 文件 {file_source.module_name} 完整保留 (token数: {tokens}，当前总token数: {token_count})",
-                            style="green"
-                        )
+                    printer.print_text(
+                        f"✅ 文件 {file_source.module_name} 完整保留 (token数: {tokens}，当前总token数: {token_count})",
+                        style="green"
+                    )
                     continue
 
                 # 如果单个文件太大，那么先按滑动窗口分割，然后对窗口抽取代码片段
                 if tokens > self.max_tokens:
                     chunks = self._split_content_with_sliding_window(
                         file_source.source_code,
-                        1000,  # self.args.context_prune_sliding_window_size,
-                        100,  # self.args.context_prune_sliding_window_overlap
+                        self.args.context_prune_sliding_window_size,
+                        self.args.context_prune_sliding_window_overlap
                     )
                     printer.print_text(
                         f"📊 文件 {file_source.module_name} 通过滑动窗口分割为 {len(chunks)} 个chunks", style="green")
@@ -236,13 +239,13 @@ class PruneContext:
                     for chunk_idx, (chunk_start, chunk_end, chunk_content) in enumerate(chunks):
                         printer.print_text(
                             f"🔍 处理chunk {chunk_idx + 1}/{len(chunks)} (行号: {chunk_start}-{chunk_end})", style="green")
-                        extracted = extract_code_snippets.with_llm(self.llm).run(
+                        extracted = self.extract_code_snippets.with_llm(self.llm).run(
                             conversations=conversations,
                             content=chunk_content,
                             is_partial_content=True
                         )
-                        if extracted:
-                            json_str = extract_code(extracted)[0][1]
+                        if extracted.output:
+                            json_str = extract_code(extracted.output)[0][1]
                             snippets = json.loads(json_str)
 
                             if snippets:  # 有抽取结果
@@ -306,14 +309,14 @@ class PruneContext:
 
                 printer.print_text(f"🔍 开始对文件 {file_source.module_name} 进行整体代码片段抽取 (共 {len(lines)} 行)", style="green")
 
-                extracted = extract_code_snippets.with_llm(self.llm).run(
+                extracted = self.extract_code_snippets.with_llm(self.llm).run(
                     conversations=conversations,
                     content=new_content
                 )
 
                 # 构建代码片段内容
-                if extracted:
-                    json_str = extract_code(extracted)[0][1]
+                if extracted.output:
+                    json_str = extract_code(extracted.output)[0][1]
                     snippets = json.loads(json_str)
 
                     if snippets:
@@ -462,6 +465,32 @@ class PruneContext:
                                           source_code=file_source.source_code, tokens=0))
         return total_tokens, sources
 
+    @prompt()
+    def verify_file_relevance(self, file_content: str, conversations: List[Dict[str, str]]) -> str:
+        """
+        请验证下面的文件内容是否与用户对话相关:
+
+        文件内容:
+        {{ file_content }}
+
+        历史对话:
+        <conversation_history>
+        {% for msg in conversations %}
+        <{{ msg.role }}>: {{ msg.content }}
+        {% endfor %}
+        </conversation_history>
+
+        相关是指，需要依赖这个文件提供上下文，或者需要修改这个文件才能解决用户的问题。
+        请给出相应的可能性分数：0-10，并结合用户问题，理由控制在50字以内。格式如下:
+
+        ```json
+        {
+            "relevant_score": 0-10,
+            "reason": "这是相关的原因（不超过10个中文字符）..."
+        }
+        ```
+        """
+
     def _score_and_filter_files(
             self, file_sources: List[SourceCode], conversations: List[Dict[str, str]]
     ) -> List[SourceCode]:
@@ -470,38 +499,13 @@ class PruneContext:
         total_tokens = 0
         scored_files = []
 
-        @prompt()
-        def verify_file_relevance(file_content: str, conversations: List[Dict[str, str]]) -> str:
-            """
-            请验证下面的文件内容是否与用户对话相关:
-
-            文件内容:
-            {{ file_content }}
-
-            历史对话:
-            <conversation_history>
-            {% for msg in conversations %}
-            <{{ msg.role }}>: {{ msg.content }}
-            {% endfor %}
-            </conversation_history>
-
-            相关是指，需要依赖这个文件提供上下文，或者需要修改这个文件才能解决用户的问题。
-            请给出相应的可能性分数：0-10，并结合用户问题，理由控制在50字以内。格式如下:
-
-            ```json
-            {
-                "relevant_score": 0-10,
-                "reason": "这是相关的原因（不超过10个中文字符）..."
-            }
-            ```
-            """
-
         def _score_file(file_source: SourceCode) -> dict:
             try:
-                score_result = verify_file_relevance.with_llm(self.llm).with_return_type(VerifyFileRelevance).run(
+                score_result = self.verify_file_relevance.with_llm(self.llm).with_return_type(VerifyFileRelevance).run(
                     file_content=file_source.source_code,
                     conversations=conversations
                 )
+                print(score_result)
                 return {
                     "file_path": file_source.module_name,
                     "score": score_result.relevant_score,
@@ -538,27 +542,172 @@ class PruneContext:
         return selected_files
 
 
-if __name__ == '__main__':
-    auto_args = AutoCoderArgs()
-    auto_llm = AutoLLM()
-    auto_llm.setup_sub_client(
-        "glm-4.5",
-        "",
-        "https://open.bigmodel.cn/api/paas/v4",
-        "glm-4.5"
-    )
-    context_pruner = PruneContext(
-        max_tokens=8000,
-        args=auto_args,
-        llm=auto_llm
-    )
-    file_sources = list(
-        SourceCode(
+class PruneStrategy(BaseModel):
+    name: str
+    description: str
+    config: Dict[str, Any] = {"safe_zone_tokens": 0}
 
-        )
-    )
-    pruned_files = context_pruner.prune(
-        file_sources,  # 源文件列表 (SourceCode 对象)
-        [{"role": "user", "content": "如何实现登录功能？"}],  # 对话上下文，用于智能评估相关性和抽取
-        strategy="extract"  # 裁剪策略：score/delete/extract
-    )
+
+class ConversationsPruner:
+    def __init__(self, args: AutoCoderArgs, llm: AutoLLM):
+        self.args = args
+        self.llm = llm
+        self.replacement_message = ("This message has been cleared. If you still want to get this information, "
+                                    "you can call the tool again to retrieve it.")
+        self.strategies = {
+            "tool_output_cleanup": PruneStrategy(
+                name="tool_output_cleanup",
+                description="通过用占位消息替换内容来清理工具输出结果",
+                config={"safe_zone_tokens": self.args.conversation_prune_safe_zone_tokens}
+            )
+        }
+
+    def get_available_strategies(self) -> List[Dict[str, Any]]:
+        """ 获取所有可用策略 """
+        return [strategy.model_dump() for strategy in self.strategies.values()]
+
+    def prune_conversations(
+            self, conversations: List[Dict[str, Any]], strategy_name: str = "tool_output_cleanup"
+    ) -> List[Dict[str, Any]]:
+        """
+        根据策略修剪对话
+        Args:
+            conversations: 原始对话列表
+            strategy_name: 策略名称
+        Returns:
+            修剪后的对话列表
+        """
+        safe_zone_tokens = self.args.conversation_prune_safe_zone_tokens
+        current_tokens = count_tokens(json.dumps(conversations, ensure_ascii=False))
+
+        if current_tokens <= safe_zone_tokens:
+            return conversations
+
+        strategy = self.strategies.get(strategy_name, self.strategies["tool_output_cleanup"])
+
+        if strategy.name == "tool_output_cleanup":
+            return self._tool_output_cleanup_prune(conversations, strategy.config)
+        else:
+            printer.print_text(f"未知策略：{strategy_name}，已改为使用 tool_output_cleanup", style="yellow")
+            return self._tool_output_cleanup_prune(conversations, strategy.config)
+
+    def _tool_output_cleanup_prune(self, conversations: List[Dict[str, Any]], config: Dict[str, Any]
+                                   ) -> List[Dict[str, Any]]:
+        """
+        通过用占位消息替换内容来清理工具输出结果
+        该方法执行以下操作：
+        1. 识别工具结果消息（角色为'user'且内容包含'<tool_result'的消息）
+        2. 从首个工具输出开始依次清理
+        3. 当token计数进入安全区时停止处理
+        """
+        safe_zone_tokens = config.get("safe_zone_tokens", 50 * 1024)
+        processed_conversations = conversations.copy()
+
+        # 查找所有工具结果消息的索引
+        tool_result_indices = []
+        for i, conv in enumerate(processed_conversations):
+            if conv.get("role") == "user" and isinstance(conv.get("content"), str) and self._is_tool_result_message(conv.get("content", "")):
+                tool_result_indices.append(i)
+
+        printer.print_text(f"发现 {len(tool_result_indices)} 条可能需要清理的工具结果消息", style="green")
+
+        # 依次清理工具输出，从首个输出开始
+        current_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
+        for tool_index in tool_result_indices:
+            # current_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
+
+            if current_tokens <= safe_zone_tokens:
+                printer.print_text(f"Token计数（{current_tokens}）已在安全区（{safe_zone_tokens}）内，停止清理", style="green")
+                break
+
+            # 提取工具名称以生成更具体的替换消息
+            tool_name = self._extract_tool_name(processed_conversations[tool_index]["content"])
+            replacement_content = self._generate_replacement_message(tool_name)
+
+            # 替换内容
+            original_content = processed_conversations[tool_index]["content"]
+            processed_conversations[tool_index]["content"] = replacement_content
+
+            printer.print_text(
+                f"已清理索引[{tool_index}]的工具结果({tool_name}),字符数从 {len(original_content)} 减少到 {len(replacement_content)}",
+                style="green"
+            )
+
+        final_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
+        printer.print_text(f"清理完成。Token计数：{current_tokens} → {final_tokens}", style="green")
+
+        return processed_conversations
+
+    @staticmethod
+    def _is_tool_result_message(content: str) -> bool:
+        """
+        检查消息内容是否包含工具结果 XML 格式
+        Args:
+            content: 待检查的消息内容
+        Returns:
+            若内容包含工具结果格式则返回 True
+        """
+        return "<tool_result" in content and "tool_name=" in content
+
+    @staticmethod
+    def _extract_tool_name(content: str) -> str:
+        """
+        从工具结果 XML 内容中解析工具名称
+        Args:
+            content: 工具结果 XML 内容
+        Returns:
+            工具名称，若未找到则返回 'unknown'
+        """
+        # Pattern to match: <tool_result tool_name='...' or <tool_result tool_name="..."
+        pattern = r"<tool_result[^>]*tool_name=['\"]([^'\"]+)['\"]"
+        match = re.search(pattern, content)
+        if match:
+            return match.group(1)
+        return "unknown"
+
+    def _generate_replacement_message(self, tool_name: str) -> str:
+        """
+        生成清理后的工具结果替换消息
+        Args:
+            tool_name: 被调用工具的名称
+        Returns:
+            替换消息字符串
+        """
+        if tool_name and tool_name != "unknown":
+            return (f"<tool_result tool_name='{tool_name}' success='true'>"
+                    f"<message>Content cleared to save tokens</message>"
+                    f"<content>{self.replacement_message}</content>"
+                    f"</tool_result>")
+        else:
+            return (f"<tool_result success='true'><message>[Content cleared to save tokens, you can call the tool "
+                    f"again to get the tool result.]</message><"
+                    f"content>{self.replacement_message}</content></tool_result>")
+
+    def get_cleanup_statistics(self, original_conversations: List[Dict[str, Any]],
+                               pruned_conversations: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        获取清理过程的统计信息
+        Args:
+            original_conversations: 原始对话列表
+            pruned_conversations: 清理后的对话列表
+        Returns:
+            包含清理统计信息的字典
+        """
+        original_tokens = count_tokens(json.dumps(original_conversations, ensure_ascii=False))
+        pruned_tokens = count_tokens(json.dumps(pruned_conversations, ensure_ascii=False))
+
+        cleaned_count = 0
+        for orig, pruned in zip(original_conversations, pruned_conversations):
+            if (orig.get("role") == "user" and
+                    self._is_tool_result_message(orig.get("content", "")) and
+                    orig.get("content") != pruned.get("content")):
+                cleaned_count += 1
+
+        return {
+            "original_tokens": original_tokens,
+            "pruned_tokens": pruned_tokens,
+            "tokens_saved": original_tokens - pruned_tokens,
+            "compression_ratio": f"{(1 - pruned_tokens / original_tokens) * 100:.1f}%" if original_tokens > 0 else "0.0%",
+            "tool_results_cleaned": cleaned_count,
+            "total_messages": len(original_conversations)
+        }

@@ -85,6 +85,15 @@ class AutoCoderArgs(BaseModel):
     qa_model: Optional[str] = ""  # RAG 提问模型
     vl_model: Optional[str] = ""  # 多模态模型
 
+    # 上下文管理相关参数
+    conversation_prune_safe_zone_tokens: int = 30000
+
+    context_prune_strategy: Optional[str] = "extract"
+    context_prune: Optional[bool] = True
+    context_prune_safe_zone_tokens: Optional[int] = 15000
+    context_prune_sliding_window_size: Optional[int] = 1000
+    context_prune_sliding_window_overlap: Optional[int] = 100
+
     class Config:
         protected_namespaces = ()
 

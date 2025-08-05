@@ -142,6 +142,14 @@ class WindowLengthChangeEvent(BaseModel):
     tokens_used: int
 
 
+class AgenticEditConversationConfig(BaseModel):
+    conversation_name: Optional[str] = "current"
+    conversation_id: Optional[str] = None
+    action: Optional[str] = None
+    query: Optional[str] = None
+    pull_request: bool = False
+
+
 # Mapping from tool tag names to Pydantic models
 TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "execute_command": ExecuteCommandTool,
