@@ -7,6 +7,8 @@ import subprocess
 import time
 import uuid
 
+from autocoder_nano.utils.file_utils import load_tokenizer
+
 from autocoder_nano.chat import stream_chat_display
 from autocoder_nano.edit import run_edit
 from autocoder_nano.helper import show_help
@@ -14,7 +16,7 @@ from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
-from autocoder_nano.agent import run_edit_agentic
+from autocoder_nano.agent import run_edit_agentic, AgenticEditConversationConfig
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import AutoLLM
 from autocoder_nano.core import prompt, extract_code
@@ -659,7 +661,10 @@ def commit_info(query: str, llm: AutoLLM):
 
 def auto_command(query: str, llm: AutoLLM):
     args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
-    run_edit_agentic(llm=llm, args=args)
+    conversation_config = AgenticEditConversationConfig(
+        action="new"
+    )
+    run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def long_context_auto_command(llm: AutoLLM):
@@ -673,7 +678,10 @@ def long_context_auto_command(llm: AutoLLM):
         query = run_editor(temp_path)
 
     args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
-    run_edit_agentic(llm=llm, args=args)
+    conversation_config = AgenticEditConversationConfig(
+        action="new"
+    )
+    run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def editor_command(file_path: str):
@@ -1446,6 +1454,7 @@ def main():
         initialize_system()
 
     load_memory()
+    load_tokenizer()
     is_old_version()
     completer.update_current_files(memory["current_files"]["files"])
 

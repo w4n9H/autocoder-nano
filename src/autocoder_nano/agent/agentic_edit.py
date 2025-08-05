@@ -4,11 +4,14 @@ import os
 import re
 import time
 import xml.sax.saxutils
-from importlib import resources
+from copy import deepcopy
+# from importlib import resources
 from typing import Generator, Union, Tuple
 
+from autocoder_nano.context import get_context_manager, ConversationsPruner
+from autocoder_nano.rag.token_counter import count_tokens
 from rich.markdown import Markdown
-from tokenizers import Tokenizer
+# from tokenizers import Tokenizer
 
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.utils.config_utils import prepare_chat_yaml, get_last_yaml_file, convert_yaml_config_to_str
@@ -159,7 +162,8 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
 
 class AgenticEdit:
     def __init__(
-            self, args: AutoCoderArgs, llm: AutoLLM, files: SourceCodeList, history_conversation: List[Dict[str, Any]]
+            self, args: AutoCoderArgs, llm: AutoLLM, files: SourceCodeList, history_conversation: List[Dict[str, Any]],
+            conversation_config: Optional[AgenticEditConversationConfig] = None
     ):
         self.args = args
         self.llm = llm
@@ -169,19 +173,34 @@ class AgenticEdit:
         self.shadow_manager = None
         self.file_changes: Dict[str, FileChangeEntry] = {}
 
-        try:
-            tokenizer_path = resources.files("autocoder_nano").joinpath("data/tokenizer.json").__str__()
-        except FileNotFoundError:
-            tokenizer_path = None
-        self.tokenizer_model = Tokenizer.from_file(tokenizer_path)
+        # 对话管理器
+        self.conversation_config = conversation_config
+        self.conversation_manager = get_context_manager()
 
-    def count_tokens(self, text: str) -> int:
-        try:
-            encoded = self.tokenizer_model.encode(text)
-            v = len(encoded.ids)
-            return v
-        except Exception as e:
-            return -1
+        # Agentic 对话修剪器
+        self.agentic_pruner = ConversationsPruner(args=args, llm=self.llm)
+
+        if self.conversation_config.action == "new":
+            conversation_id = self.conversation_manager.create_conversation(
+                name=self.conversation_config.query or "New Conversation",
+                description=self.conversation_config.query or "New Conversation")
+            self.conversation_manager.set_current_conversation(conversation_id)
+        if self.conversation_config.action == "resume" and self.conversation_config.conversation_id:
+            self.conversation_manager.set_current_conversation(self.conversation_config.conversation_id)
+
+        # try:
+        #     tokenizer_path = resources.files("autocoder_nano").joinpath("data/tokenizer.json").__str__()
+        # except FileNotFoundError:
+        #     tokenizer_path = None
+        # self.tokenizer_model = Tokenizer.from_file(tokenizer_path)
+
+    # def count_tokens(self, text: str) -> int:
+    #     try:
+    #         encoded = self.tokenizer_model.encode(text)
+    #         v = len(encoded.ids)
+    #         return v
+    #     except Exception as e:
+    #         return -1
 
     def record_file_change(
             self, file_path: str, change_type: str, diff: Optional[str] = None, content: Optional[str] = None
@@ -600,6 +619,10 @@ class AgenticEdit:
         - 使用 | wc -l 获取总数。
         - 使用 2>/dev/null 抑制错误。
         - 与 || echo 结合使用以显示清晰的状态消息。
+
+        ## 关于 grep 命令 --exclude-dir 参数额外说明
+        - 一定要放入 .git,.auto-coder 这两个目录进行排除，示例 --exclude-dir={.git,.auto-coder}
+        - 然后根据项目类型进行其他目录的排除，以避免检索出无用内容
 
         # search_files（备选搜索）
 
@@ -1440,9 +1463,36 @@ class AgenticEdit:
         )
 
         conversations = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": request.user_input}
+            {"role": "system", "content": system_prompt}
         ]
+
+        if self.conversation_config.action == "resume":
+            current_conversation = self.conversation_manager.get_current_conversation()
+            # 如果继续的是当前的对话，将其消息加入到 conversations 中
+            if current_conversation and current_conversation.get('messages'):
+                for message in current_conversation['messages']:
+                    # 确保消息格式正确（包含 role 和 content 字段）
+                    if isinstance(message, dict) and 'role' in message and 'content' in message:
+                        conversations.append({
+                            "role": message['role'],
+                            "content": message['content']
+                        })
+                printer.print_text(f"恢复对话，已有 {len(current_conversation['messages'])} 条现有消息", style="green")
+        if self.conversation_manager.get_current_conversation_id() is None:
+            conv_id = self.conversation_manager.create_conversation(name=self.conversation_config.query,
+                                                                    description=self.conversation_config.query)
+            self.conversation_manager.set_current_conversation(conv_id)
+
+        self.conversation_manager.set_current_conversation(self.conversation_manager.get_current_conversation_id())
+
+        conversations.append({
+            "role": "user", "content": request.user_input
+        })
+
+        self.conversation_manager.append_message_to_current(
+            role="user",
+            content=request.user_input,
+            metadata={})
 
         self.current_conversations = conversations
 
@@ -1481,7 +1531,7 @@ class AgenticEdit:
             # 实际请求大模型
             llm_response_gen = stream_chat_with_continue(
                 llm=self.llm,
-                conversations=conversations,
+                conversations=self.agentic_pruner.prune_conversations(deepcopy(conversations)),
                 llm_config={},  # Placeholder for future LLM configs
                 args=self.args
             )
@@ -1518,11 +1568,15 @@ class AgenticEdit:
                         "role": "assistant",
                         "content": assistant_buffer + tool_xml
                     })
+                    self.conversation_manager.append_message_to_current(
+                        role="assistant",
+                        content=assistant_buffer + tool_xml,
+                        metadata={})
                     assistant_buffer = ""  # Reset buffer after tool call
 
                     # 计算当前对话的总 token 数量并触发事件
                     current_conversation_str = json.dumps(conversations, ensure_ascii=False)
-                    total_tokens = self.count_tokens(current_conversation_str)
+                    total_tokens = count_tokens(current_conversation_str)
                     yield WindowLengthChangeEvent(tokens_used=total_tokens)
 
                     yield event  # Yield the ToolCallEvent for display
@@ -1590,10 +1644,14 @@ class AgenticEdit:
                         "role": "user",  # Simulating the user providing the tool result
                         "content": error_xml
                     })
+                    self.conversation_manager.append_message_to_current(
+                        role="user",
+                        content=error_xml,
+                        metadata={})
 
                     # 计算当前对话的总 token 数量并触发事件
                     current_conversation_str = json.dumps(conversations, ensure_ascii=False)
-                    total_tokens = self.count_tokens(current_conversation_str)
+                    total_tokens = count_tokens(current_conversation_str)
                     yield WindowLengthChangeEvent(tokens_used=total_tokens)
 
                     # 一次交互只能有一次工具，剩下的其实就没有用了，但是如果不让流式处理完，我们就无法获取服务端
@@ -1618,13 +1676,15 @@ class AgenticEdit:
                     if last_message["role"] != "assistant":
                         printer.print_text("添加新的 Assistant 消息", style="green")
                         conversations.append({"role": "assistant", "content": assistant_buffer})
+                        self.conversation_manager.append_message_to_current(
+                            role="assistant", content=assistant_buffer, metadata={})
                     elif last_message["role"] == "assistant":
                         printer.print_text("追加已存在的 Assistant 消息")
                         last_message["content"] += assistant_buffer
 
                     # 计算当前对话的总 token 数量并触发事件
                     current_conversation_str = json.dumps(conversations, ensure_ascii=False)
-                    total_tokens = self.count_tokens(current_conversation_str)
+                    total_tokens = count_tokens(current_conversation_str)
                     yield WindowLengthChangeEvent(tokens_used=total_tokens)
 
                 # 添加系统提示，要求LLM必须使用工具或明确结束，而不是直接退出
@@ -1637,10 +1697,17 @@ class AgenticEdit:
                                "not provide text responses without taking concrete actions. Please select a suitable "
                                "tool to continue based on the user's task."
                 })
+                self.conversation_manager.append_message_to_current(
+                    role="user",
+                    content="NOTE: You must use an appropriate tool (such as read_file, write_to_file, "
+                            "execute_command, etc.) or explicitly complete the task (using attempt_completion). Do "
+                            "not provide text responses without taking concrete actions. Please select a suitable "
+                            "tool to continue based on the user's task.",
+                    metadata={})
 
                 # 计算当前对话的总 token 数量并触发事件
                 current_conversation_str = json.dumps(conversations, ensure_ascii=False)
-                total_tokens = self.count_tokens(current_conversation_str)
+                total_tokens = count_tokens(current_conversation_str)
                 yield WindowLengthChangeEvent(tokens_used=total_tokens)
                 # 继续循环，让 LLM 再思考，而不是 break
                 printer.print_text("持续运行 LLM 交互循环（保持不中断）", style="green")

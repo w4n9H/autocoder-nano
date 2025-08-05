@@ -22,3 +22,16 @@ def generate_content_md5(content: Union[str, bytes]) -> str:
 def get_file_size(file_path: str | Path) -> int:
     """获取文件大小（字节）"""
     return Path(file_path).stat().st_size
+
+
+def load_tokenizer(tokenizer_path: str = None):
+    from autocoder_nano.actypes import VariableHolder
+    from tokenizers import Tokenizer
+    from importlib import resources
+    try:
+        if not tokenizer_path:
+            tokenizer_path = resources.files("autocoder_nano").joinpath("data/tokenizer.json").__str__()
+        VariableHolder.TOKENIZER_PATH = tokenizer_path
+        VariableHolder.TOKENIZER_MODEL = Tokenizer.from_file(tokenizer_path)
+    except FileNotFoundError:
+        tokenizer_path = None
