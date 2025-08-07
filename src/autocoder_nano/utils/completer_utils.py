@@ -26,7 +26,7 @@ COMMANDS = {
     },
     "/exclude_files": {"/list": "", "/drop": ""},
     "/exclude_dirs": {},
-    "/auto": {},
+    "/auto": {"/new": "", "/resume": ""},
     "/editor": {},
     "/rules": {"/list": "", "/show": "", "/remove": "", "/analyze": "", "/commit": ""}
 }

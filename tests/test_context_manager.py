@@ -1,4 +1,5 @@
-from autocoder_nano.context import get_context_manager
+from autocoder_nano.context import get_context_manager, ContextManagerConfig, get_context_manager_config
+import os
 
 
 def context_manager_test():
@@ -25,5 +26,14 @@ def context_manager_test():
     )
 
 
+def context_manager_list_conversations_test():
+    cmc = ContextManagerConfig()
+    cmc.storage_path = os.path.join("/Users/moofs/Code/xxxxx", ".auto-coder", "context")
+    manager = get_context_manager(config=cmc)
+    print(manager.list_conversations(limit=5))
+    # print(manager.get_current_conversation_id())
+    # print(manager.delete_conversation("a49866c6-1bc1-45cf-bcf1-94d428426600"))
+
+
 if __name__ == '__main__':
-    context_manager_test()
+    context_manager_list_conversations_test()
