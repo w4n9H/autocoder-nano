@@ -2027,8 +2027,8 @@ class AgenticEdit:
                     base_content += f"信息: {result.message}\n"
 
                     def _format_content(_content):
-                        if len(_content) > 200:
-                            return f"{_content[:100]}\n...\n{_content[-100:]}"
+                        if len(_content) > 500:
+                            return f"{_content[:200]}\n......\n{_content[-200:]}"
                         else:
                             return _content
 
@@ -2041,7 +2041,7 @@ class AgenticEdit:
                     if result.content is not None:
                         try:
                             if isinstance(result.content, (dict, list)):
-                                content_str = json.dumps(result.content, indent=2, ensure_ascii=False)
+                                content_str = _format_content(json.dumps(result.content, indent=2, ensure_ascii=False))
                                 # syntax_content = Syntax(content_str, "json", theme="default", line_numbers=False)
                             elif isinstance(result.content, str) and (
                                     '\n' in result.content or result.content.strip().startswith('<')):
@@ -2071,7 +2071,7 @@ class AgenticEdit:
                                 else:
                                     lexer = "text"
 
-                                content_str = str(result.content)
+                                content_str = _format_content(str(result.content))
                                 # syntax_content = Syntax(
                                 #     _format_content(result.content), lexer, theme="default", line_numbers=True
                                 # )
