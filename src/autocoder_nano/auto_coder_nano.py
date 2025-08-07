@@ -187,8 +187,11 @@ def load_memory():
     global memory
     memory_path = os.path.join(base_persist_dir, "nano-memory.json")
     if os.path.exists(memory_path):
-        with open(memory_path, "r") as f:
-            memory = json.load(f)
+        try:
+            with open(memory_path, "r") as f:
+                memory = json.load(f)
+        except json.JSONDecodeError as e:
+            raise Exception(f"The returned string is not a valid JSON, e: {str(e)} string: {f.read()}")
 
 
 def get_memory():
@@ -671,14 +674,13 @@ def auto_command(query: str, llm: AutoLLM):
         data_list = []
         for i in _conversation_list:
             data_list.append([
-                i["conversation_id"], i["description"],
-                datetime.fromtimestamp(i["created_at"]).strftime("%Y-%m-%d %H:%M:%S"),
-                datetime.fromtimestamp(i["updated_at"]).strftime("%Y-%m-%d %H:%M:%S"),
+                i["conversation_id"], f"{i['description'][:20]} ......",
+                datetime.fromtimestamp(i["updated_at"]).strftime("%Y-%m-%d %H:%M"),
                 len(i["messages"])
             ])
         printer.print_table_compact(
             title="历史会话列表",
-            headers=["会话ID", "会话描述", "会话创建时间", "会话更新时间", "会话消息数量"],
+            headers=["会话ID", "会话描述", "会话更新时间", "会话消息数量"],
             data=data_list
         )
 
@@ -712,6 +714,7 @@ def auto_command(query: str, llm: AutoLLM):
                     center=True
                 )
         else:
+            # 这里可能需要判断一下会话id是否真实存在
             conversation_config.action = "resume"
             conversation_config.query = query.strip()
             conversation_config.conversation_id = _conv_id
