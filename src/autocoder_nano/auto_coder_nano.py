@@ -6,9 +6,10 @@ import json
 import subprocess
 import time
 import uuid
+from datetime import datetime
 
 from autocoder_nano.utils.file_utils import load_tokenizer
-
+from autocoder_nano.context import get_context_manager, ContextManagerConfig
 from autocoder_nano.chat import stream_chat_display
 from autocoder_nano.edit import run_edit
 from autocoder_nano.helper import show_help
@@ -18,8 +19,7 @@ from autocoder_nano.index import (index_export, index_import, index_build,
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
 from autocoder_nano.agent import run_edit_agentic, AgenticEditConversationConfig
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
-from autocoder_nano.core import AutoLLM
-from autocoder_nano.core import prompt, extract_code
+from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.actypes import *
 from autocoder_nano.editor import run_editor
 from autocoder_nano.utils.completer_utils import CommandCompleter
@@ -660,10 +660,77 @@ def commit_info(query: str, llm: AutoLLM):
 
 
 def auto_command(query: str, llm: AutoLLM):
-    args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
-    conversation_config = AgenticEditConversationConfig(
-        action="new"
-    )
+    # args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
+    conversation_config = AgenticEditConversationConfig()
+    # 获取上下文管理器实例
+    cmc = ContextManagerConfig()
+    cmc.storage_path = os.path.join(project_root, ".auto-coder", "context")
+    gcm = get_context_manager(config=cmc)
+
+    def _printer_conversation_table(_conversation_list):
+        data_list = []
+        for i in _conversation_list:
+            data_list.append([
+                i["conversation_id"], i["description"],
+                datetime.fromtimestamp(i["created_at"]).strftime("%Y-%m-%d %H:%M:%S"),
+                datetime.fromtimestamp(i["updated_at"]).strftime("%Y-%m-%d %H:%M:%S"),
+                len(i["messages"])
+            ])
+        printer.print_table_compact(
+            title="历史会话列表",
+            headers=["会话ID", "会话描述", "会话创建时间", "会话更新时间", "会话消息数量"],
+            data=data_list
+        )
+
+    def _printer_resume_conversation(_conversation_id):
+        printer.print_panel(
+            Text(f"Agent 恢复对话[{_conversation_id}]", style="green"),
+            title="Agent Session Status",
+            center=True
+        )
+
+    def _resume_conversation(_query):
+        _conv_id = gcm.get_current_conversation_id()
+        if not _conv_id:
+            printer.print_text(f"未获取到当前会话ID, 请手动进行选择", style="yellow")
+            _convs = gcm.list_conversations(limit=10)
+            if _convs:
+                _printer_conversation_table(_convs)
+                _conv_id = input(f"  以上为最近10个会话列表, 请选择您想要恢复对话的ID: ").strip().lower()
+                conversation_config.action = "resume"
+                conversation_config.query = query.strip()
+                conversation_config.conversation_id = _conv_id
+                _printer_resume_conversation(_conv_id)
+            else:
+                printer.print_text(f"未获取到历史会话, 默认创建新会话开始 Agent", style="yellow")
+                conversation_config.action = "new"
+                conversation_config.query = query.strip()
+                conversation_config.conversation_id = None
+                printer.print_panel(
+                    Text("Agent 新会话已开始.", style="green"),
+                    title="Agent Session Status",
+                    center=True
+                )
+        else:
+            _printer_resume_conversation(_conv_id)
+
+    if "/new" in query:
+        query = query.replace("/new", "", 1).strip()
+        conversation_config.action = "new"
+        conversation_config.query = query
+        conversation_config.conversation_id = None
+        printer.print_panel(
+            Text("Agent 新会话已开始.", style="green"),
+            title="Agent Session Status",
+            center=True
+        )
+    elif "/resume" in query:
+        query = query.replace("/resume", "", 1).strip()
+        _resume_conversation(query)
+    else:
+        _resume_conversation(query)
+
+    args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
     run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
@@ -679,7 +746,8 @@ def long_context_auto_command(llm: AutoLLM):
 
     args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
     conversation_config = AgenticEditConversationConfig(
-        action="new"
+        action="new",
+        query=query.strip()
     )
     run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
@@ -1333,8 +1401,8 @@ def configure_project_model():
               "base_url": "https://openrouter.ai/api/v1",
               "model_name": "moonshotai/kimi-k2"},
         "10": {"name": "(OpenRouter)openai/o3-pro",
-              "base_url": "https://openrouter.ai/api/v1",
-              "model_name": "openai/o3-pro"},
+               "base_url": "https://openrouter.ai/api/v1",
+               "model_name": "openai/o3-pro"},
     }
 
     # 内置模型

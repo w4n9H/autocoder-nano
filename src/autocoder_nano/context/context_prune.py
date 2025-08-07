@@ -1,4 +1,4 @@
-import copy
+from copy import deepcopy
 import json
 import re
 from typing import List, Tuple, Dict, Any
@@ -612,9 +612,9 @@ class ConversationsPruner:
         printer.print_text(f"发现 {len(tool_result_indices)} 条可能需要清理的工具结果消息", style="green")
 
         # 依次清理工具输出，从首个输出开始
-        current_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
+        init_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
         for tool_index in tool_result_indices:
-            # current_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
+            current_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
 
             if current_tokens <= safe_zone_tokens:
                 printer.print_text(f"Token计数（{current_tokens}）已在安全区（{safe_zone_tokens}）内，停止清理", style="green")
@@ -622,19 +622,22 @@ class ConversationsPruner:
 
             # 提取工具名称以生成更具体的替换消息
             tool_name = self._extract_tool_name(processed_conversations[tool_index]["content"])
-            replacement_content = self._generate_replacement_message(tool_name)
+            if tool_name in ["RecordMemoryTool"]:
+                printer.print_text(f"已跳过清理索引[{tool_index}]的工具结果({tool_name})")
+            else:
+                replacement_content = self._generate_replacement_message(tool_name)
 
-            # 替换内容
-            original_content = processed_conversations[tool_index]["content"]
-            processed_conversations[tool_index]["content"] = replacement_content
+                # 替换内容
+                original_content = processed_conversations[tool_index]["content"]
+                processed_conversations[tool_index]["content"] = replacement_content
 
-            printer.print_text(
-                f"已清理索引[{tool_index}]的工具结果({tool_name}),字符数从 {len(original_content)} 减少到 {len(replacement_content)}",
-                style="green"
-            )
+                printer.print_text(
+                    f"已清理索引[{tool_index}]的工具结果({tool_name}),字符数从 {len(original_content)} 减少到 {len(replacement_content)}",
+                    style="green"
+                )
 
         final_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
-        printer.print_text(f"清理完成。Token计数：{current_tokens} → {final_tokens}", style="green")
+        printer.print_text(f"清理完成。Token计数：{init_tokens} → {final_tokens}", style="green")
 
         return processed_conversations
 
