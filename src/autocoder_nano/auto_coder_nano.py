@@ -712,6 +712,9 @@ def auto_command(query: str, llm: AutoLLM):
                     center=True
                 )
         else:
+            conversation_config.action = "resume"
+            conversation_config.query = query.strip()
+            conversation_config.conversation_id = _conv_id
             _printer_resume_conversation(_conv_id)
 
     if "/new" in query:
@@ -726,7 +729,17 @@ def auto_command(query: str, llm: AutoLLM):
         )
     elif "/resume" in query:
         query = query.replace("/resume", "", 1).strip()
-        _resume_conversation(query)
+        convs = gcm.list_conversations(limit=10)
+        if convs:
+            _printer_conversation_table(convs)
+            conv_id = input(f" 以上为最近10个会话列表, 请选择您想要恢复对话的ID: ").strip().lower()
+            conversation_config.action = "resume"
+            conversation_config.query = query.strip()
+            conversation_config.conversation_id = conv_id
+            _printer_resume_conversation(conv_id)
+        else:
+            raise Exception("未获取到历史会话, 请直接使用 /auto 或者 /auto /new")
+        # _resume_conversation(query)
     else:
         _resume_conversation(query)
 
