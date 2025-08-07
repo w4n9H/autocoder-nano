@@ -191,7 +191,7 @@ def load_memory():
             with open(memory_path, "r") as f:
                 memory = json.load(f)
         except json.JSONDecodeError as e:
-            raise Exception(f"The returned string is not a valid JSON, e: {str(e)} string: {f.read()}")
+            raise Exception(f"打开配置文件失败, 文件内容不是有效的JSON格式, 错误原因: {str(e)} , 文件位置: {memory_path}")
 
 
 def get_memory():
@@ -1537,9 +1537,14 @@ def main():
     if not runing_args.quick:
         initialize_system()
 
-    load_memory()
-    load_tokenizer()
-    is_old_version()
+    try:
+        load_memory()
+        load_tokenizer()
+        is_old_version()
+    except Exception as e:
+        print(f"\033[91m发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
+        exit(1)
+
     completer.update_current_files(memory["current_files"]["files"])
 
     if len(memory["models"]) == 0:
