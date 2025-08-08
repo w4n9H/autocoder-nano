@@ -1723,7 +1723,9 @@ class AgenticEdit:
         in_tool_block = False
         in_thinking_block = False
         current_tool_tag = None
-        tool_start_pattern = re.compile(r"<(?!thinking\b)([a-zA-Z0-9_]+)>")  # Matches tool tags
+        valid_tool_tags = set(TOOL_MODEL_MAP.keys())
+        tool_start_pattern = re.compile(r"<(" + "|".join(valid_tool_tags) + r")>")
+        # tool_start_pattern = re.compile(r"<(?!thinking\b)([a-zA-Z0-9_]+)>")  # Matches tool tags
         thinking_start_tag = "<thinking>"
         thinking_end_tag = "</thinking>"
 
@@ -1786,11 +1788,11 @@ class AgenticEdit:
             last_metadata = metadata
             buffer += content_chunk
 
-            while True:
-                # Check for transitions: thinking -> text, tool -> text, text -> thinking, text -> tool
+            while True:  # 循环处理缓冲区直到无法解析完整事件
+                # 检查状态转换：思考->文本，工具->文本，文本->思考，文本->工具
                 found_event = False
 
-                # 1. Check for </thinking> if inside thinking block
+                # 1. 如果在思考块中，检查</thinking>
                 if in_thinking_block:
                     end_think_pos = buffer.find(thinking_end_tag)
                     if end_think_pos != -1:
@@ -1799,12 +1801,11 @@ class AgenticEdit:
                         buffer = buffer[end_think_pos + len(thinking_end_tag):]
                         in_thinking_block = False
                         found_event = True
-                        continue  # Restart loop with updated buffer/state
+                        continue  # 用更新后的缓冲区/状态重新开始循环
                     else:
-                        # Need more data to close thinking block
-                        break
+                        break  # 需要更多数据来关闭思考块
 
-                # 2. Check for </tool_tag> if inside tool block
+                # 2. 如果在工具块中，检查</tool_tag>
                 elif in_tool_block:
                     end_tag = f"</{current_tool_tag}>"
                     end_tool_pos = buffer.find(end_tag)
@@ -1814,35 +1815,34 @@ class AgenticEdit:
                         tool_obj = parse_tool_xml(tool_xml, current_tool_tag)
 
                         if tool_obj:
-                            # Reconstruct the XML accurately here AFTER successful parsing
-                            # This ensures the XML yielded matches what was parsed.
+                            # 成功解析后精确重建XML, 确保生成的XML与解析内容匹配
                             reconstructed_xml = self._reconstruct_tool_xml(tool_obj)
                             if reconstructed_xml.startswith("<error>"):
                                 yield ErrorEvent(message=f"Failed to reconstruct XML for tool {current_tool_tag}")
                             else:
                                 yield ToolCallEvent(tool=tool_obj, tool_xml=reconstructed_xml)
                         else:
-                            yield ErrorEvent(message=f"Failed to parse tool: <{current_tool_tag}>")
-                            # Optionally yield the raw XML as plain text?
+                            # yield ErrorEvent(message=f"Failed to parse tool: <{current_tool_tag}>")
+                            # 可选：将原始XML作为纯文本输出？
                             # yield LLMOutputEvent(text=tool_xml)
+                            yield LLMOutputEvent(text=f"Failed to parse tool: <{current_tool_tag}> {tool_xml}")
 
                         buffer = buffer[tool_block_end_index:]
                         in_tool_block = False
                         current_tool_tag = None
                         found_event = True
-                        continue  # Restart loop
+                        continue  # 重新开始循环
                     else:
-                        # Need more data to close tool block
-                        break
+                        break  # 需要更多数据来关闭工具块
 
-                # 3. Check for <thinking> or <tool_tag> if in plain text state
+                # 3. 如果在纯文本状态，检查<thinking>或<tool_tag>
                 else:
                     start_think_pos = buffer.find(thinking_start_tag)
                     tool_match = tool_start_pattern.search(buffer)
                     start_tool_pos = tool_match.start() if tool_match else -1
                     tool_name = tool_match.group(1) if tool_match else None
 
-                    # Determine which tag comes first (if any)
+                    # 确定哪个标签先出现（如果有）
                     first_tag_pos = -1
                     is_thinking = False
                     is_tool = False
@@ -1851,60 +1851,57 @@ class AgenticEdit:
                         first_tag_pos = start_think_pos
                         is_thinking = True
                     elif start_tool_pos != -1 and (start_think_pos == -1 or start_tool_pos < start_think_pos):
-                        # Check if it's a known tool
-                        if tool_name in TOOL_MODEL_MAP:
+                        if tool_name in TOOL_MODEL_MAP:  # 检查是否是已知工具
                             first_tag_pos = start_tool_pos
                             is_tool = True
                         else:
-                            # Unknown tag, treat as text for now, let buffer grow
-                            pass
+                            pass  # 未知标签，暂时视为文本，让缓冲区继续累积
 
-                    if first_tag_pos != -1:  # Found either <thinking> or a known <tool>
-                        # Yield preceding text if any
+                    if first_tag_pos != -1:  # 找到<thinking>或已知<tool>
+                        # 如果有前置文本则输出
                         preceding_text = buffer[:first_tag_pos]
                         if preceding_text:
                             yield LLMOutputEvent(text=preceding_text)
 
-                        # Transition state
+                        # 状态转换
                         if is_thinking:
                             buffer = buffer[first_tag_pos + len(thinking_start_tag):]
                             in_thinking_block = True
                         elif is_tool:
-                            # Keep the starting tag
+                            # 保留开始标签
                             buffer = buffer[first_tag_pos:]
                             in_tool_block = True
                             current_tool_tag = tool_name
 
                         found_event = True
-                        continue  # Restart loop
+                        continue  # 重新开始循环
                     else:
-                        # No tags found, or only unknown tags found. Need more data or end of stream.
-                        # Yield text chunk but keep some buffer for potential tag start
-                        # Keep last 100 chars
+                        # 未找到标签，或只找到未知标签. 需要更多数据或流结束。
+                        # 输出文本块但保留部分缓冲区以防标签开始, 保留最后128个字符
                         split_point = max(0, len(buffer) - 1024)
                         text_to_yield = buffer[:split_point]
                         if text_to_yield:
                             yield LLMOutputEvent(text=text_to_yield)
                             buffer = buffer[split_point:]
-                        break  # Need more data
-                # If no event was processed in this iteration, break inner loop
+                        break  # 需要更多数据
+                # 如果本轮未处理事件，跳出内层循环
                 if not found_event:
                     break
 
-        # After generator exhausted, yield any remaining content
+        # 生成器耗尽后，输出剩余内容
         if in_thinking_block:
-            # Unterminated thinking block
+            # 未终止的思考块
             yield ErrorEvent(message="Stream ended with unterminated <thinking> block.")
             if buffer:
-                # Yield remaining as thinking
+                # 将剩余内容作为思考输出
                 yield LLMThinkingEvent(text=buffer)
         elif in_tool_block:
-            # Unterminated tool block
+            # 未终止的工具块
             yield ErrorEvent(message=f"Stream ended with unterminated <{current_tool_tag}> block.")
             if buffer:
-                yield LLMOutputEvent(text=buffer)  # Yield remaining as text
+                yield LLMOutputEvent(text=buffer)  # 将剩余内容作为文本输出
         elif buffer:
-            # Yield remaining plain text
+            # 输出剩余纯文本
             yield LLMOutputEvent(text=buffer)
 
         # 这个要放在最后，防止其他关联的多个事件的信息中断
