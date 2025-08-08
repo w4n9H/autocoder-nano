@@ -86,11 +86,11 @@ class AutoCoderArgs(BaseModel):
     vl_model: Optional[str] = ""  # 多模态模型
 
     # 上下文管理相关参数
-    conversation_prune_safe_zone_tokens: int = 30000
+    conversation_prune_safe_zone_tokens: int = 50000
 
     context_prune_strategy: Optional[str] = "extract"
     context_prune: Optional[bool] = True
-    context_prune_safe_zone_tokens: Optional[int] = 15000
+    context_prune_safe_zone_tokens: Optional[int] = 20000
     context_prune_sliding_window_size: Optional[int] = 1000
     context_prune_sliding_window_overlap: Optional[int] = 100
 
@@ -146,12 +146,12 @@ class LLMRequest(BaseModel):
     messages: List[Dict[str, str]]  # 包含对话消息的列表，每个消息是一个字典，包含 "role"（角色）和 "content"（内容）
     stream: bool = False  # 是否以流式方式返回响应，默认为 False
     max_tokens: Optional[int] = None  # 生成的最大 token 数量，如果未指定，则使用模型默认值
-    temperature: Optional[float] = None  # 控制生成文本的随机性，值越高生成的内容越随机，默认为模型默认值
-    top_p: Optional[float] = None  # 控制生成文本的多样性，值越高生成的内容越多样，默认为模型默认值
-    n: Optional[int] = None  # 生成多少个独立的响应，默认为 1
+    temperature: Optional[float] = 1  # None  # 控制生成文本的随机性，值越高生成的内容越随机，默认为模型默认值
+    top_p: Optional[float] = 1  # None  # 控制生成文本的多样性，值越高生成的内容越多样，默认为模型默认值
+    n: Optional[int] = 1  # None  # 生成多少个独立的响应，默认为 1
     stop: Optional[List[str]] = None  # 指定生成文本的停止条件，当生成的内容包含这些字符串时停止生成
-    presence_penalty: Optional[float] = None  # 控制生成文本中是否鼓励引入新主题，值越高越鼓励新主题，默认为 0
-    frequency_penalty: Optional[float] = None  # 控制生成文本中是否减少重复内容，值越高越减少重复，默认为 0
+    presence_penalty: Optional[float] = 0  # None  # 控制生成文本中是否鼓励引入新主题，值越高越鼓励新主题，默认为 0
+    frequency_penalty: Optional[float] = 0  # None  # 控制生成文本中是否减少重复内容，值越高越减少重复，默认为 0
 
 
 class LLMResponse(BaseModel):
