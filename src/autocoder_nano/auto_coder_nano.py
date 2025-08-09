@@ -1416,9 +1416,9 @@ def configure_project_model():
         "9": {"name": "(OpenRouter)moonshotai/kimi-k2",
               "base_url": "https://openrouter.ai/api/v1",
               "model_name": "moonshotai/kimi-k2"},
-        "10": {"name": "(OpenRouter)openai/o3-pro",
+        "10": {"name": "(OpenRouter)openai/gpt-5",
                "base_url": "https://openrouter.ai/api/v1",
-               "model_name": "openai/o3-pro"},
+               "model_name": "openai/gpt-5"},
     }
 
     # 内置模型

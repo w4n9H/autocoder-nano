@@ -1,3 +1,3 @@
-__version__ = "0.2.10"
+__version__ = "0.2.11"
 __author__ = "moofs"
 __license__ = "Apache License 2.0"
