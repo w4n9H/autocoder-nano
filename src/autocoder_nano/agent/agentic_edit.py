@@ -1878,12 +1878,26 @@ class AgenticEdit:
                     else:
                         # 未找到标签，或只找到未知标签. 需要更多数据或流结束。
                         # 输出文本块但保留部分缓冲区以防标签开始, 保留最后128个字符
-                        split_point = max(0, len(buffer) - 1024)
-                        text_to_yield = buffer[:split_point]
-                        if text_to_yield:
-                            yield LLMOutputEvent(text=text_to_yield)
-                            buffer = buffer[split_point:]
-                        break  # 需要更多数据
+                        # split_point = max(0, len(buffer) - 4096)
+                        # text_to_yield = buffer[:split_point]
+                        # if text_to_yield:
+                        #     yield LLMOutputEvent(text=text_to_yield)
+                        #     buffer = buffer[split_point:]
+                        # break  # 需要更多数据
+                        if len(buffer) > 2048:
+                            split_point = len(buffer) - 512  # 减少保留的缓冲区大小
+                            # 寻找最近的换行符
+                            newline_pos = buffer.rfind('\n', 0, split_point)
+                            if newline_pos > split_point - 200:  # 如果换行符距离截断点不太远
+                                split_point = newline_pos + 1
+
+                            text_to_yield = buffer[:split_point]
+                            if text_to_yield:
+                                yield LLMOutputEvent(text=text_to_yield)
+                                buffer = buffer[split_point:]
+                            break  # 需要更多数据
+                        else:
+                            break  # buffer较小，不进行截断
                 # 如果本轮未处理事件，跳出内层循环
                 if not found_event:
                     break
