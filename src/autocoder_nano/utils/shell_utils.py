@@ -76,7 +76,7 @@ def run_cmd_subprocess(command, verbose=False, cwd=None, encoding=sys.stdout.enc
             chunk = process.stdout.read(1)
             if not chunk:
                 break
-            print(chunk, end="", flush=True)  # Print the chunk in real-time
+            # print(chunk, end="", flush=True)  # Print the chunk in real-time
             output.append(chunk)  # Store the chunk for later use
 
         process.wait()
