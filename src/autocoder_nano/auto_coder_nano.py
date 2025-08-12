@@ -1435,7 +1435,7 @@ def configure_project_model():
     print_info(f"  7. (OpenRouter)anthropic/claude-opus-4")
     print_info(f"  8. (OpenRouter)anthropic/claude-sonnet-4")
     print_info(f"  9. (OpenRouter)moonshotai/kimi-k2")
-    print_info(f"  10. (OpenRouter)openai/o3-pro")
+    print_info(f"  10. (OpenRouter)openai/gpt-5")
     print_info(f"  11. 其他模型")
     model_num = input(f"  请选择您想使用的模型供应商编号(1-11): ").strip().lower()
 
