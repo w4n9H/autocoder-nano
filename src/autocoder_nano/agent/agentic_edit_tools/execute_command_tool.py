@@ -1,5 +1,5 @@
 import typing
-from typing import Optional
+from typing import Optional, Union
 
 from autocoder_nano.agent.agentic_edit_tools.base_tool_resolver import BaseToolResolver
 from autocoder_nano.agent.agentic_edit_types import ExecuteCommandTool, ToolResult
@@ -16,7 +16,8 @@ printer = Printer()
 
 
 class ExecuteCommandToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: ExecuteCommandTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticEdit', 'AgenticAsk']], tool: ExecuteCommandTool,
+                 args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: ExecuteCommandTool = tool  # For type hinting
 

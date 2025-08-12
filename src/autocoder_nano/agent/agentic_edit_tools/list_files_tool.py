@@ -14,7 +14,7 @@ if typing.TYPE_CHECKING:
 
 
 class ListFilesToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: ListFilesTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticEdit', 'AgenticAsk']], tool: ListFilesTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: ListFilesTool = tool
         self.exclude_files = args.exclude_files + default_exclude_dirs

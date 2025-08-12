@@ -1,6 +1,6 @@
 import os
 import typing
-from typing import Optional
+from typing import Optional, Union
 
 from autocoder_nano.rag.token_counter import count_tokens
 
@@ -15,7 +15,7 @@ if typing.TYPE_CHECKING:
 
 
 class ReadFileToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: ReadFileTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticEdit', 'AgenticAsk']], tool: ReadFileTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: ReadFileTool = tool  # For type hinting
         self.shadow_manager = self.agent.shadow_manager if self.agent else None

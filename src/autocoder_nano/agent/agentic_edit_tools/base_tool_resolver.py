@@ -1,4 +1,5 @@
 import typing
+from typing import Union
 from abc import ABC, abstractmethod
 
 from autocoder_nano.agent.agentic_edit_types import *
@@ -10,7 +11,7 @@ if typing.TYPE_CHECKING:
 
 
 class BaseToolResolver(ABC):
-    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: BaseTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticEdit', 'AgenticAsk']], tool: BaseTool, args: AutoCoderArgs):
         """
         Initializes the resolver.
         Args:

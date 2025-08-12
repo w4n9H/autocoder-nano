@@ -1,5 +1,5 @@
 import typing
-from typing import Optional
+from typing import Optional, Union
 
 from prompt_toolkit import PromptSession
 
@@ -16,7 +16,8 @@ printer = Printer()
 
 
 class AskFollowupQuestionToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: AskFollowupQuestionTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticEdit', 'AgenticAsk']], tool: AskFollowupQuestionTool,
+                 args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: AskFollowupQuestionTool = tool
 

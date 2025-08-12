@@ -15,7 +15,7 @@ if typing.TYPE_CHECKING:
 
 
 class SearchFilesToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: SearchFilesTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticEdit', 'AgenticAsk']], tool: SearchFilesTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: SearchFilesTool = tool
         self.exclude_files = args.exclude_files + default_exclude_dirs

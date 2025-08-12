@@ -1,5 +1,5 @@
 import typing
-from typing import Optional
+from typing import Optional, Union
 
 from autocoder_nano.agent.agentic_edit_tools.base_tool_resolver import BaseToolResolver
 from autocoder_nano.agent.agentic_edit_types import RecallMemoryTool, ToolResult
@@ -12,7 +12,7 @@ if typing.TYPE_CHECKING:
 
 
 class RecallMemoryToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: RecallMemoryTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticEdit', 'AgenticAsk']], tool: RecallMemoryTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: RecallMemoryTool = tool  # For type hinting
 
