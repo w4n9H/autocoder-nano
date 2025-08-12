@@ -8,10 +8,11 @@ from autocoder_nano.context import recall_memory
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_edit import AgenticEdit
+    from autocoder_nano.agent.agentic_ask import AgenticAsk
 
 
 class RecallMemoryToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit'], tool: RecallMemoryTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: RecallMemoryTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: RecallMemoryTool = tool  # For type hinting
 

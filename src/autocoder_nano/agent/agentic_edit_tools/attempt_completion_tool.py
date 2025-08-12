@@ -7,10 +7,11 @@ from autocoder_nano.actypes import AutoCoderArgs
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_edit import AgenticEdit
+    from autocoder_nano.agent.agentic_ask import AgenticAsk
 
 
 class AttemptCompletionToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit'], tool: AttemptCompletionTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: AttemptCompletionTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: AttemptCompletionTool = tool
 

@@ -11,10 +11,11 @@ from autocoder_nano.context import ContentPruner
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_edit import AgenticEdit
+    from autocoder_nano.agent.agentic_ask import AgenticAsk
 
 
 class ReadFileToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit'], tool: ReadFileTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: ReadFileTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: ReadFileTool = tool  # For type hinting
         self.shadow_manager = self.agent.shadow_manager if self.agent else None

@@ -11,10 +11,11 @@ from autocoder_nano.utils.sys_utils import default_exclude_dirs
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_edit import AgenticEdit
+    from autocoder_nano.agent.agentic_ask import AgenticAsk
 
 
 class SearchFilesToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit'], tool: SearchFilesTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional['AgenticEdit', 'AgenticAsk'], tool: SearchFilesTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: SearchFilesTool = tool
         self.exclude_files = args.exclude_files + default_exclude_dirs
