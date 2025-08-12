@@ -1419,6 +1419,9 @@ def configure_project_model():
         "10": {"name": "(OpenRouter)openai/gpt-5",
                "base_url": "https://openrouter.ai/api/v1",
                "model_name": "openai/gpt-5"},
+        "11": {"name": "(BigModel)bigmodel/glm-4.5",
+               "base_url": "https://open.bigmodel.cn/api/paas/v4",
+               "model_name": "glm-4.5"},
     }
 
     # 内置模型
@@ -1436,15 +1439,16 @@ def configure_project_model():
     print_info(f"  8. (OpenRouter)anthropic/claude-sonnet-4")
     print_info(f"  9. (OpenRouter)moonshotai/kimi-k2")
     print_info(f"  10. (OpenRouter)openai/gpt-5")
-    print_info(f"  11. 其他模型")
+    print_info(f"  11. (BigModel)bigmodel/glm-4.5")
+    print_info(f"  12. 其他模型")
     model_num = input(f"  请选择您想使用的模型供应商编号(1-11): ").strip().lower()
 
-    if int(model_num) < 1 or int(model_num) > 11:
-        printer.print_text("请选择 1-11", style="red")
+    if int(model_num) < 1 or int(model_num) > 12:
+        printer.print_text("请选择 1-12", style="red")
         save_memory()
         exit(1)
 
-    if model_num == "11":  # 只有选择"其他模型"才需要手动输入所有信息
+    if model_num == "12":  # 只有选择"其他模型"才需要手动输入所有信息
         current_model = input(f"  设置你的首选模型别名(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
         current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
         current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()
