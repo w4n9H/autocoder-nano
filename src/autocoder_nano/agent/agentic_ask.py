@@ -917,9 +917,15 @@ class AgenticAsk(BaseAgent):
                     )
 
                 elif isinstance(event, ToolCallEvent):
-                    # Skip displaying AttemptCompletionTool's tool call
+                    # 不显示 AttemptCompletionTool 结果
                     if isinstance(event.tool, AttemptCompletionTool):
-                        continue  # Do not display AttemptCompletionTool tool call
+                        continue
+
+                    # Ask Agentic RecordMemoryTool 结果需要保存
+                    if isinstance(event.tool, RecordMemoryTool):
+                        ask_file = os.path.join(self.args.source_dir, ".auto-coder", "ask.txt")
+                        with open(os.path.join(ask_file), "w") as f:
+                            f.write(event.tool.content)
 
                     tool_name = type(event.tool).__name__
                     # Use the new internationalized display function
@@ -932,12 +938,6 @@ class AgenticAsk(BaseAgent):
                         continue
                     if event.tool_name == "PlanModeRespondTool":
                         continue
-
-                    # Ask Agentic RecordMemoryTool 结果需要保存
-                    if event.tool_name == "RecordMemoryTool":
-                        ask_file = os.path.join(self.args.source_dir, ".auto-coder", "ask.txt")
-                        with open(os.path.join(ask_file), "w") as f:
-                            f.write(event.result.message)
 
                     result = event.result
                     title = f"✅ 工具返回: {event.tool_name}" if result.success else f"❌ 工具返回: {event.tool_name}"
