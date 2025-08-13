@@ -1,5 +1,5 @@
 import typing
-from typing import Optional
+from typing import Optional, Union
 
 from prompt_toolkit import PromptSession
 
@@ -10,12 +10,14 @@ from autocoder_nano.utils.printer_utils import Printer
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_edit import AgenticEdit
+    from autocoder_nano.agent.agentic_ask import AgenticAsk
 
 printer = Printer()
 
 
 class AskFollowupQuestionToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit'], tool: AskFollowupQuestionTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticEdit', 'AgenticAsk']], tool: AskFollowupQuestionTool,
+                 args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: AskFollowupQuestionTool = tool
 

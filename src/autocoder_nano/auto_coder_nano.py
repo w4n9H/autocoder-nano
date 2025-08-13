@@ -17,7 +17,7 @@ from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
-from autocoder_nano.agent import run_edit_agentic, AgenticEditConversationConfig
+from autocoder_nano.agent import run_edit_agentic, AgenticEditConversationConfig, run_ask_agentic
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.actypes import *
@@ -747,7 +747,20 @@ def auto_command(query: str, llm: AutoLLM):
         _resume_conversation(query)
 
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
-    run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    if args.enable_agentic_ask:
+        run_ask_agentic(llm=llm, args=args, conversation_config=conversation_config)
+        ask_file = os.path.join(args.source_dir, ".auto-coder", "ask.txt")
+        with open(os.path.join(ask_file), "r") as f:
+            ask_content = f.read()
+        if args.only_ask:
+            printer.print_markdown(text=ask_content, panel=True)
+        else:
+            conversation_config.action = "resume"
+            conversation_config.query = ask_content
+            conversation_config.conversation_id = gcm.get_current_conversation_id()
+            run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    else:
+        run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def long_context_auto_command(llm: AutoLLM):
@@ -1419,6 +1432,9 @@ def configure_project_model():
         "10": {"name": "(OpenRouter)openai/gpt-5",
                "base_url": "https://openrouter.ai/api/v1",
                "model_name": "openai/gpt-5"},
+        "11": {"name": "(BigModel)bigmodel/glm-4.5",
+               "base_url": "https://open.bigmodel.cn/api/paas/v4",
+               "model_name": "glm-4.5"},
     }
 
     # 内置模型
@@ -1435,16 +1451,17 @@ def configure_project_model():
     print_info(f"  7. (OpenRouter)anthropic/claude-opus-4")
     print_info(f"  8. (OpenRouter)anthropic/claude-sonnet-4")
     print_info(f"  9. (OpenRouter)moonshotai/kimi-k2")
-    print_info(f"  10. (OpenRouter)openai/o3-pro")
-    print_info(f"  11. 其他模型")
+    print_info(f"  10. (OpenRouter)openai/gpt-5")
+    print_info(f"  11. (BigModel)bigmodel/glm-4.5")
+    print_info(f"  12. 其他模型")
     model_num = input(f"  请选择您想使用的模型供应商编号(1-11): ").strip().lower()
 
-    if int(model_num) < 1 or int(model_num) > 11:
-        printer.print_text("请选择 1-11", style="red")
+    if int(model_num) < 1 or int(model_num) > 12:
+        printer.print_text("请选择 1-12", style="red")
         save_memory()
         exit(1)
 
-    if model_num == "11":  # 只有选择"其他模型"才需要手动输入所有信息
+    if model_num == "12":  # 只有选择"其他模型"才需要手动输入所有信息
         current_model = input(f"  设置你的首选模型别名(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
         current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
         current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()

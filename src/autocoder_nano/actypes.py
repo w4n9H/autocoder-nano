@@ -70,6 +70,8 @@ class AutoCoderArgs(BaseModel):
 
     # Agent 相关参数
     generate_max_rounds: Optional[int] = 5
+    enable_agentic_ask: Optional[bool] = False
+    only_ask: Optional[bool] = False
 
     # 模型相关参数
     current_chat_model: Optional[str] = ""
