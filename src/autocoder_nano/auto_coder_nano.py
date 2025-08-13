@@ -751,10 +751,14 @@ def auto_command(query: str, llm: AutoLLM):
         run_ask_agentic(llm=llm, args=args, conversation_config=conversation_config)
         ask_file = os.path.join(args.source_dir, ".auto-coder", "ask.txt")
         with open(os.path.join(ask_file), "r") as f:
+            ask_content = f.read()
+        if args.only_ask:
+            printer.print_markdown(text=ask_content, panel=True)
+        else:
             conversation_config.action = "resume"
-            conversation_config.query = f.read()
+            conversation_config.query = ask_content
             conversation_config.conversation_id = gcm.get_current_conversation_id()
-    run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
+            run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def long_context_auto_command(llm: AutoLLM):
