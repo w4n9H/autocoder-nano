@@ -7,12 +7,6 @@ from autocoder_nano.actypes import SourceCodeList, AutoCoderArgs
 
 def run_edit_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig):
     sources = SourceCodeList([])
-    if args.enable_agentic_ask:
-        agentic_asker = AgenticAsk(
-            args=args, llm=llm, files=sources, history_conversation=[], conversation_config=conversation_config,
-        )
-        request = AgenticEditRequest(user_input=args.query)
-        agentic_asker.run_in_terminal(request)
     agentic_editor = AgenticEdit(
         args=args, llm=llm, files=sources, history_conversation=[], conversation_config=conversation_config,
     )
@@ -20,4 +14,13 @@ def run_edit_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: Age
     agentic_editor.run_in_terminal(request)
 
 
-__all__ = ["run_edit_agentic", "AgenticEditConversationConfig"]
+def run_ask_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig):
+    sources = SourceCodeList([])
+    agentic_asker = AgenticAsk(
+        args=args, llm=llm, files=sources, history_conversation=[], conversation_config=conversation_config,
+    )
+    request = AgenticEditRequest(user_input=args.query)
+    agentic_asker.run_in_terminal(request)
+
+
+__all__ = ["run_edit_agentic", "AgenticEditConversationConfig", "run_ask_agentic"]

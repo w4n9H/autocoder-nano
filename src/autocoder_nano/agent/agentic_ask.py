@@ -927,11 +927,17 @@ class AgenticAsk(BaseAgent):
                     printer.print_panel(content=display_content, title=f"🛠️ 工具调用: {tool_name}", center=True)
 
                 elif isinstance(event, ToolResultEvent):
-                    # Skip displaying AttemptCompletionTool's result
+                    # 不显示 AttemptCompletionTool 和 PlanModeRespondTool 结果
                     if event.tool_name == "AttemptCompletionTool":
-                        continue  # Do not display AttemptCompletionTool result
+                        continue
                     if event.tool_name == "PlanModeRespondTool":
                         continue
+
+                    # Ask Agentic RecordMemoryTool 结果需要保存
+                    if event.tool_name == "RecordMemoryTool":
+                        ask_file = os.path.join(self.args.source_dir, ".auto-coder", "ask.txt")
+                        with open(os.path.join(ask_file), "w") as f:
+                            f.write(event.result.message)
 
                     result = event.result
                     title = f"✅ 工具返回: {event.tool_name}" if result.success else f"❌ 工具返回: {event.tool_name}"
@@ -1015,10 +1021,11 @@ class AgenticAsk(BaseAgent):
 
                 elif isinstance(event, CompletionEvent):
                     # 在这里完成实际合并
-                    try:
-                        self.apply_changes(request)
-                    except Exception as e:
-                        printer.print_text(f"Error merging shadow changes to project: {e}", style="red")
+                    # Ask 模式不会对代码进行变更,故放弃合并
+                    # try:
+                    #     self.apply_changes(request)
+                    # except Exception as e:
+                    #     printer.print_text(f"Error merging shadow changes to project: {e}", style="red")
 
                     printer.print_panel(
                         content=Markdown(event.completion.result),
