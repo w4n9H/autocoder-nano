@@ -759,6 +759,8 @@ def auto_command(query: str, llm: AutoLLM):
             conversation_config.query = ask_content
             conversation_config.conversation_id = gcm.get_current_conversation_id()
             run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    else:
+        run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def long_context_auto_command(llm: AutoLLM):
