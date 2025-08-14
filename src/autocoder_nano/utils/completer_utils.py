@@ -28,7 +28,8 @@ COMMANDS = {
     "/exclude_dirs": {},
     "/auto": {"/new": "", "/resume": ""},
     "/editor": {},
-    "/rules": {"/list": "", "/show": "", "/remove": "", "/analyze": "", "/commit": ""}
+    "/rules": {"/list": "", "/show": "", "/remove": "", "/analyze": "", "/commit": ""},
+    "/context": {"/list": "", "/remove": ""}
 }
 
 
@@ -545,6 +546,15 @@ class CommandCompleter(Completer):
 
             elif words[0] == "/rules":
                 new_text = text[len("/rules"):]
+                parser = CommandTextParser(new_text, words[0])
+                parser.add_files()
+                current_word = parser.current_word()
+                for command in parser.get_sub_commands():
+                    if command.startswith(current_word):
+                        yield Completion(command, start_position=-len(current_word))
+
+            elif words[0] == "/context":
+                new_text = text[len("/context"):]
                 parser = CommandTextParser(new_text, words[0])
                 parser.add_files()
                 current_word = parser.current_word()

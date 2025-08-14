@@ -56,7 +56,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
     "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
-    "/rules", "/auto", "/rag/build", "/rag/query", "/editor", "/long_context_auto"
+    "/rules", "/auto", "/rag/build", "/rag/query", "/editor", "/long_context_auto", "/context"
 ]
 
 memory = {
@@ -662,6 +662,21 @@ def commit_info(query: str, llm: AutoLLM):
                 os.remove(execute_file)
 
 
+def printer_conversation_table(_conversation_list):
+    data_list = []
+    for i in _conversation_list:
+        data_list.append([
+            i["conversation_id"], f"{i['description'][:20]} ......",
+            datetime.fromtimestamp(i["updated_at"]).strftime("%Y-%m-%d %H:%M"),
+            len(i["messages"])
+        ])
+    printer.print_table_compact(
+        title="历史会话列表",
+        headers=["会话ID", "会话描述", "会话更新时间", "会话消息数量"],
+        data=data_list
+    )
+
+
 def auto_command(query: str, llm: AutoLLM):
     # args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
     conversation_config = AgenticEditConversationConfig()
@@ -669,20 +684,6 @@ def auto_command(query: str, llm: AutoLLM):
     cmc = ContextManagerConfig()
     cmc.storage_path = os.path.join(project_root, ".auto-coder", "context")
     gcm = get_context_manager(config=cmc)
-
-    def _printer_conversation_table(_conversation_list):
-        data_list = []
-        for i in _conversation_list:
-            data_list.append([
-                i["conversation_id"], f"{i['description'][:20]} ......",
-                datetime.fromtimestamp(i["updated_at"]).strftime("%Y-%m-%d %H:%M"),
-                len(i["messages"])
-            ])
-        printer.print_table_compact(
-            title="历史会话列表",
-            headers=["会话ID", "会话描述", "会话更新时间", "会话消息数量"],
-            data=data_list
-        )
 
     def _printer_resume_conversation(_conversation_id):
         printer.print_panel(
@@ -697,7 +698,7 @@ def auto_command(query: str, llm: AutoLLM):
             printer.print_text(f"未获取到当前会话ID, 请手动进行选择", style="yellow")
             _convs = gcm.list_conversations(limit=10)
             if _convs:
-                _printer_conversation_table(_convs)
+                printer_conversation_table(_convs)
                 _conv_id = input(f"  以上为最近10个会话列表, 请选择您想要恢复对话的ID: ").strip().lower()
                 conversation_config.action = "resume"
                 conversation_config.query = query.strip()
@@ -734,7 +735,7 @@ def auto_command(query: str, llm: AutoLLM):
         query = query.replace("/resume", "", 1).strip()
         convs = gcm.list_conversations(limit=10)
         if convs:
-            _printer_conversation_table(convs)
+            printer_conversation_table(convs)
             conv_id = input(f" 以上为最近10个会话列表, 请选择您想要恢复对话的ID: ").strip().lower()
             conversation_config.action = "resume"
             conversation_config.query = query.strip()
@@ -779,6 +780,31 @@ def long_context_auto_command(llm: AutoLLM):
         query=query.strip()
     )
     run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
+
+
+def context_command(context_args):
+    # 获取上下文管理器实例
+    cmc = ContextManagerConfig()
+    cmc.storage_path = os.path.join(project_root, ".auto-coder", "context")
+    gcm = get_context_manager(config=cmc)
+
+    if context_args[0] == "/list":
+        printer_conversation_table(gcm.list_conversations(limit=10))
+
+    if context_args[0] == "/remove":
+        printer_conversation_table(gcm.list_conversations(limit=10))
+        delete_conv_id = input(f" 以上为最近10个会话列表, 请选择您想要删除的对话ID: ").strip().lower()
+        delete_conv = gcm.get_conversation(delete_conv_id)
+        if delete_conv is None:
+            printer.print_text(f"该会话不存在 {delete_conv_id}", style="yellow")
+        if isinstance(delete_conv, dict):
+            try:
+                if gcm.delete_conversation(delete_conv_id):
+                    printer.print_text(f"删除会话 {delete_conv_id} 成功, 会话条数 {len(delete_conv['messages'])}", style="green")
+                else:
+                    printer.print_text(f"删除会话 {delete_conv_id} 失败, 会话可能不存在", style="red")
+            except Exception as e:
+                printer.print_text(f"{e}", style="red")
 
 
 def editor_command(file_path: str):
@@ -1738,6 +1764,12 @@ def main():
                 auto_command(query=query, llm=auto_llm)
             elif user_input.startswith("/long_context_auto"):
                 long_context_auto_command(llm=auto_llm)
+            elif user_input.startswith("/context"):
+                context_args = user_input[len("/context"):].strip().split()
+                if not context_args:
+                    print("\033[91mPlease enter your request.\033[0m")
+                    continue
+                context_command(context_args)
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:
