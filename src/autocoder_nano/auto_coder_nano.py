@@ -1431,9 +1431,9 @@ def configure_project_model():
         "1": {"name": "(Volcengine)deepseek/deepseek-r1-0528",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "deepseek-r1-250528"},
-        "2": {"name": "(Volcengine)deepseek/deepseek-v3-0324",
+        "2": {"name": "(Volcengine)deepseek/deepseek-v3.1-0821",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "deepseek-v3-250324"},
+              "model_name": "deepseek-v3-1-250821"},
         "3": {"name": "(Volcengine)byte/doubao-seed-1.6-250615",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "doubao-seed-1-6-250615"},
@@ -1469,7 +1469,7 @@ def configure_project_model():
     print_info("OpenRouter: https://openrouter.ai/")
     print_info("")
     print_info(f"  1. (Volcengine)deepseek/deepseek-r1-0528")
-    print_info(f"  2. (Volcengine)deepseek/deepseek-v3-0324")
+    print_info(f"  2. (Volcengine)deepseek/deepseek-v3.1-0821")
     print_info(f"  3. (Volcengine)byte/doubao-seed-1.6-250615")
     print_info(f"  4. (Volcengine)moonshotai/kimi-k2")
     print_info(f"  5. (OpenRouter)google/gemini-2.5-pro")
