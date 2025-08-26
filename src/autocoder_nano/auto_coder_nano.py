@@ -918,85 +918,12 @@ def execute_shell_command(command: str):
 
 
 def parse_args(input_args: Optional[List[str]] = None):
-    parser = argparse.ArgumentParser(description="使用AI编程")
+    parser = argparse.ArgumentParser(description="Auto-Coder Nano")
 
-    parser.add_argument("--debug", action="store_true",
-                        help="Enable debug mode")
-    parser.add_argument(
-        "--quick",
-        action="store_true",
-        help="Enter the auto-coder.chat without initializing the system",
-    )
-
-    parser.add_argument("--request_id", default="", help="Request ID")
-    parser.add_argument("--source_dir", required=False, help="项目源代码目录路径")
-    parser.add_argument("--git_url", help="用于克隆源代码的Git仓库URL")
-    parser.add_argument("--target_file", required=False, help="生成的源代码的输出文件路径")
-    parser.add_argument("--query", help="用户查询或处理源代码的指令")
-    parser.add_argument("--template", default="common", help="生成源代码使用的模板。默认为'common'")
-    parser.add_argument("--project_type", default="py",
-                        help="项目类型。当前可选值:py。默认为'py'")
-    parser.add_argument("--execute", action="store_true", help="模型是否生成代码")
-    parser.add_argument("--model", default="", help="使用的模型名称。默认为空")
-    parser.add_argument(
-        "--model_max_input_length",
-        type=int,
-        default=6000,
-        help="模型的最大输入长度。默认为6000。",
-    )
-    parser.add_argument(
-        "--index_filter_level", type=int, default=0,
-        help="索引过滤级别,0:仅过滤query 中提到的文件名，1. 过滤query 中提到的文件名以及可能会隐含会使用的文件 2. 从0,1 中获得的文件，再寻找这些文件相关的文件。"
-    )
-    parser.add_argument(
-        "--index_filter_workers", type=int, default=1, help="用于通过索引过滤文件的工作线程数"
-    )
-    parser.add_argument(
-        "--index_filter_file_num",
-        type=int,
-        default=-1,
-        help="过滤后的最大文件数。默认为-1,即全部",
-    )
-    parser.add_argument(
-        "--index_build_workers", type=int, default=1, help="用于构建索引的工作线程数"
-    )
-    parser.add_argument("--file", default=None, required=False, help="YAML配置文件路径")
-    parser.add_argument(
-        "--anti_quota_limit", type=int, default=1, help="每次API请求后等待的秒数。默认为1秒"
-    )
-    parser.add_argument(
-        "--skip_build_index", action="store_false", help="是否跳过构建源代码索引。默认为False"
-    )
-    parser.add_argument(
-        "--skip_filter_index", action="store_true", help="是否跳过使用索引过滤文件。默认为False"
-    )
-    parser.add_argument(
-        "--human_as_model", action="store_true", help="是否使用人工作为模型(功能开发中)。默认为False"
-    )
-    parser.add_argument(
-        "--human_model_num", type=int, default=1, help="使用的人工模型数量。默认为1"
-    )
-    parser.add_argument("--urls", default="", help="要爬取并提取文本的URL,多个URL以逗号分隔")
-    parser.add_argument(
-        "--auto_merge", nargs="?", const=True, default=False,
-        help="是否自动将生成的代码合并到现有文件中。默认为False。"
-    )
-    parser.add_argument(
-        "--editblock_similarity", type=float, default=0.9,
-        help="合并编辑块时TextSimilarity的相似度阈值。默认为0.9",
-    )
-    parser.add_argument(
-        "--enable_multi_round_generate", action="store_true",
-        help="是否开启多轮对话生成。默认为False",
-    )
-    parser.add_argument(
-        "--skip_confirm", action="store_true", help="跳过任何确认。默认为False"
-    )
-    parser.add_argument(
-        "--silence",
-        action="store_true",
-        help="是否静默执行,不打印任何信息。默认为False",
-    )
+    parser.add_argument("--debug", action="store_true", help="开启 debug 模式")
+    parser.add_argument("--quick", action="store_true", help="进入 auto-coder.nano 无需初始化系统")
+    # 新增 --agent 参数
+    parser.add_argument("--agent", type=str, help="指定要执行的代理指令")
 
     if input_args:
         _args = parser.parse_args(input_args)
@@ -1573,11 +1500,11 @@ def is_old_version():
 
 
 def main():
-    _args, runing_args = parse_args()
+    _args, _raw_args = parse_args()
     _args.source_dir = project_root
     convert_yaml_to_config(_args)
 
-    if not runing_args.quick:
+    if not _raw_args.quick:
         initialize_system()
 
     try:
@@ -1618,6 +1545,18 @@ def main():
         printer.print_text("首选 Chat 模型与部署模型不一致, 请使用 /conf chat_model:& 设置", style="red")
     if memory["conf"]["code_model"] not in memory["models"].keys():
         printer.print_text("首选 Code 模型与部署模型不一致, 请使用 /conf code_model:& 设置", style="red")
+
+    if _raw_args and _raw_args.agent:
+        instruction = _raw_args.agent
+        try:
+            auto_command(query=instruction, llm=auto_llm)
+        except Exception as e:
+            print(f"\033[91m发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
+            if _raw_args.debug:
+                import traceback
+                traceback.print_exc()
+        finally:
+            return
 
     MODES = {
         "normal": "正常模式",
@@ -1813,7 +1752,7 @@ def main():
             break
         except Exception as e:
             print(f"\033[91m发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
-            if runing_args and runing_args.debug:
+            if _raw_args and _raw_args.debug:
                 import traceback
                 traceback.print_exc()
 
