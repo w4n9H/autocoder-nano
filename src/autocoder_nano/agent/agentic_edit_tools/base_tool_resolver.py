@@ -8,10 +8,14 @@ from autocoder_nano.actypes import AutoCoderArgs
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_edit import AgenticEdit
     from autocoder_nano.agent.agentic_ask import AgenticAsk
+    from autocoder_nano.agent.agentic_cost import AgenticCost
 
 
 class BaseToolResolver(ABC):
-    def __init__(self, agent: Optional[Union['AgenticEdit', 'AgenticAsk']], tool: BaseTool, args: AutoCoderArgs):
+    def __init__(
+            self, agent: Optional[Union['AgenticEdit', 'AgenticAsk', 'AgenticCost']],
+            tool: BaseTool, args: AutoCoderArgs
+    ):
         """
         Initializes the resolver.
         Args:
