@@ -17,7 +17,8 @@ from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
-from autocoder_nano.agent import run_edit_agentic, AgenticEditConversationConfig, run_ask_agentic
+from autocoder_nano.agent import (run_edit_agentic, AgenticEditConversationConfig, run_ask_agentic,
+                                  run_cost_agentic)
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.actypes import *
@@ -748,20 +749,37 @@ def auto_command(query: str, llm: AutoLLM):
         _resume_conversation(query)
 
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
-    if args.enable_agentic_ask:
-        run_ask_agentic(llm=llm, args=args, conversation_config=conversation_config)
-        ask_file = os.path.join(args.source_dir, ".auto-coder", "ask.txt")
-        with open(os.path.join(ask_file), "r") as f:
-            ask_content = f.read()
-        if args.only_ask:
-            printer.print_markdown(text=ask_content, panel=True)
-        else:
-            conversation_config.action = "resume"
-            conversation_config.query = ask_content
-            conversation_config.conversation_id = gcm.get_current_conversation_id()
-            run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    cost = run_cost_agentic(llm=llm, args=args, conversation_config=conversation_config)
+
+    # 使用历史对话
+    conversation_config.action = "resume"
+    conversation_config.conversation_id = gcm.get_current_conversation_id()
+
+    cost_dict = json.loads(cost)
+    if cost_dict and isinstance(cost_dict, dict):
+        printer.print_key_value(items=cost_dict)
+        if cost_dict["need_research"]:
+            pass
+        if cost_dict["need_ask"]:
+            run_ask_agentic(llm=llm, args=args, conversation_config=conversation_config)
+
+        run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
     else:
         run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    # if args.enable_agentic_ask:
+    #     run_ask_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    #     ask_file = os.path.join(args.source_dir, ".auto-coder", "ask.txt")
+    #     with open(os.path.join(ask_file), "r") as f:
+    #         ask_content = f.read()
+    #     if args.only_ask:
+    #         printer.print_markdown(text=ask_content, panel=True)
+    #     else:
+    #         conversation_config.action = "resume"
+    #         conversation_config.query = ask_content
+    #         conversation_config.conversation_id = gcm.get_current_conversation_id()
+    #         run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    # else:
+    #     run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def long_context_auto_command(llm: AutoLLM):
@@ -918,85 +936,12 @@ def execute_shell_command(command: str):
 
 
 def parse_args(input_args: Optional[List[str]] = None):
-    parser = argparse.ArgumentParser(description="使用AI编程")
+    parser = argparse.ArgumentParser(description="Auto-Coder Nano")
 
-    parser.add_argument("--debug", action="store_true",
-                        help="Enable debug mode")
-    parser.add_argument(
-        "--quick",
-        action="store_true",
-        help="Enter the auto-coder.chat without initializing the system",
-    )
-
-    parser.add_argument("--request_id", default="", help="Request ID")
-    parser.add_argument("--source_dir", required=False, help="项目源代码目录路径")
-    parser.add_argument("--git_url", help="用于克隆源代码的Git仓库URL")
-    parser.add_argument("--target_file", required=False, help="生成的源代码的输出文件路径")
-    parser.add_argument("--query", help="用户查询或处理源代码的指令")
-    parser.add_argument("--template", default="common", help="生成源代码使用的模板。默认为'common'")
-    parser.add_argument("--project_type", default="py",
-                        help="项目类型。当前可选值:py。默认为'py'")
-    parser.add_argument("--execute", action="store_true", help="模型是否生成代码")
-    parser.add_argument("--model", default="", help="使用的模型名称。默认为空")
-    parser.add_argument(
-        "--model_max_input_length",
-        type=int,
-        default=6000,
-        help="模型的最大输入长度。默认为6000。",
-    )
-    parser.add_argument(
-        "--index_filter_level", type=int, default=0,
-        help="索引过滤级别,0:仅过滤query 中提到的文件名，1. 过滤query 中提到的文件名以及可能会隐含会使用的文件 2. 从0,1 中获得的文件，再寻找这些文件相关的文件。"
-    )
-    parser.add_argument(
-        "--index_filter_workers", type=int, default=1, help="用于通过索引过滤文件的工作线程数"
-    )
-    parser.add_argument(
-        "--index_filter_file_num",
-        type=int,
-        default=-1,
-        help="过滤后的最大文件数。默认为-1,即全部",
-    )
-    parser.add_argument(
-        "--index_build_workers", type=int, default=1, help="用于构建索引的工作线程数"
-    )
-    parser.add_argument("--file", default=None, required=False, help="YAML配置文件路径")
-    parser.add_argument(
-        "--anti_quota_limit", type=int, default=1, help="每次API请求后等待的秒数。默认为1秒"
-    )
-    parser.add_argument(
-        "--skip_build_index", action="store_false", help="是否跳过构建源代码索引。默认为False"
-    )
-    parser.add_argument(
-        "--skip_filter_index", action="store_true", help="是否跳过使用索引过滤文件。默认为False"
-    )
-    parser.add_argument(
-        "--human_as_model", action="store_true", help="是否使用人工作为模型(功能开发中)。默认为False"
-    )
-    parser.add_argument(
-        "--human_model_num", type=int, default=1, help="使用的人工模型数量。默认为1"
-    )
-    parser.add_argument("--urls", default="", help="要爬取并提取文本的URL,多个URL以逗号分隔")
-    parser.add_argument(
-        "--auto_merge", nargs="?", const=True, default=False,
-        help="是否自动将生成的代码合并到现有文件中。默认为False。"
-    )
-    parser.add_argument(
-        "--editblock_similarity", type=float, default=0.9,
-        help="合并编辑块时TextSimilarity的相似度阈值。默认为0.9",
-    )
-    parser.add_argument(
-        "--enable_multi_round_generate", action="store_true",
-        help="是否开启多轮对话生成。默认为False",
-    )
-    parser.add_argument(
-        "--skip_confirm", action="store_true", help="跳过任何确认。默认为False"
-    )
-    parser.add_argument(
-        "--silence",
-        action="store_true",
-        help="是否静默执行,不打印任何信息。默认为False",
-    )
+    parser.add_argument("--debug", action="store_true", help="开启 debug 模式")
+    parser.add_argument("--quick", action="store_true", help="进入 auto-coder.nano 无需初始化系统")
+    # 新增 --agent 参数
+    parser.add_argument("--agent", type=str, help="指定要执行的代理指令")
 
     if input_args:
         _args = parser.parse_args(input_args)
@@ -1431,9 +1376,9 @@ def configure_project_model():
         "1": {"name": "(Volcengine)deepseek/deepseek-r1-0528",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "deepseek-r1-250528"},
-        "2": {"name": "(Volcengine)deepseek/deepseek-v3-0324",
+        "2": {"name": "(Volcengine)deepseek/deepseek-v3.1-0821",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "deepseek-v3-250324"},
+              "model_name": "deepseek-v3-1-250821"},
         "3": {"name": "(Volcengine)byte/doubao-seed-1.6-250615",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "doubao-seed-1-6-250615"},
@@ -1469,7 +1414,7 @@ def configure_project_model():
     print_info("OpenRouter: https://openrouter.ai/")
     print_info("")
     print_info(f"  1. (Volcengine)deepseek/deepseek-r1-0528")
-    print_info(f"  2. (Volcengine)deepseek/deepseek-v3-0324")
+    print_info(f"  2. (Volcengine)deepseek/deepseek-v3.1-0821")
     print_info(f"  3. (Volcengine)byte/doubao-seed-1.6-250615")
     print_info(f"  4. (Volcengine)moonshotai/kimi-k2")
     print_info(f"  5. (OpenRouter)google/gemini-2.5-pro")
@@ -1573,11 +1518,11 @@ def is_old_version():
 
 
 def main():
-    _args, runing_args = parse_args()
+    _args, _raw_args = parse_args()
     _args.source_dir = project_root
     convert_yaml_to_config(_args)
 
-    if not runing_args.quick:
+    if not _raw_args.quick:
         initialize_system()
 
     try:
@@ -1618,6 +1563,18 @@ def main():
         printer.print_text("首选 Chat 模型与部署模型不一致, 请使用 /conf chat_model:& 设置", style="red")
     if memory["conf"]["code_model"] not in memory["models"].keys():
         printer.print_text("首选 Code 模型与部署模型不一致, 请使用 /conf code_model:& 设置", style="red")
+
+    if _raw_args and _raw_args.agent:
+        instruction = _raw_args.agent
+        try:
+            auto_command(query=instruction, llm=auto_llm)
+        except Exception as e:
+            print(f"\033[91m发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
+            if _raw_args.debug:
+                import traceback
+                traceback.print_exc()
+        finally:
+            return
 
     MODES = {
         "normal": "正常模式",
@@ -1813,7 +1770,7 @@ def main():
             break
         except Exception as e:
             print(f"\033[91m发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
-            if runing_args and runing_args.debug:
+            if _raw_args and _raw_args.debug:
                 import traceback
                 traceback.print_exc()
 
