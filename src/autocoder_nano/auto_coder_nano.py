@@ -18,7 +18,7 @@ from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
 from autocoder_nano.agent import (run_edit_agentic, AgenticEditConversationConfig, run_ask_agentic,
-                                  run_cost_agentic)
+                                  run_cost_agentic, run_report_agentic)
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.actypes import *
@@ -759,7 +759,7 @@ def auto_command(query: str, llm: AutoLLM):
     if cost_dict and isinstance(cost_dict, dict):
         printer.print_key_value(items=cost_dict)
         if cost_dict["need_research"]:
-            pass
+            run_report_agentic(llm=llm, args=args, conversation_config=conversation_config)
         if cost_dict["need_ask"]:
             run_ask_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
