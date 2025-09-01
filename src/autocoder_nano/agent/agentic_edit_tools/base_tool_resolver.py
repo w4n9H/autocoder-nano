@@ -9,11 +9,12 @@ if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_edit import AgenticEdit
     from autocoder_nano.agent.agentic_ask import AgenticAsk
     from autocoder_nano.agent.agentic_cost import AgenticCost
+    from autocoder_nano.agent.agentic_report import AgenticReport
 
 
 class BaseToolResolver(ABC):
     def __init__(
-            self, agent: Optional[Union['AgenticEdit', 'AgenticAsk', 'AgenticCost']],
+            self, agent: Optional[Union['AgenticEdit', 'AgenticAsk', 'AgenticCost', 'AgenticReport']],
             tool: BaseTool, args: AutoCoderArgs
     ):
         """

@@ -58,6 +58,10 @@ class ListFilesTool(BaseTool):
     recursive: Optional[bool] = False
 
 
+class WebSearchTool(BaseTool):
+    query: str
+
+
 class ListCodeDefinitionNamesTool(BaseTool):
     path: str
 
@@ -165,5 +169,6 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "use_rag_tool": UseRAGTool,
     "list_package_info": ListPackageInfoTool,
     "record_memory": RecordMemoryTool,
-    "recall_memory": RecallMemoryTool
+    "recall_memory": RecallMemoryTool,
+    "web_search": WebSearchTool
 }

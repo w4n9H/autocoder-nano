@@ -13,6 +13,7 @@ from .plan_mode_respond_tool import PlanModeRespondToolResolver
 from .list_package_info_tool import ListPackageInfoToolResolver
 from .record_memory_tool import RecordMemoryToolResolver
 from .recall_memory_tool import RecallMemoryToolResolver
+from .web_search_tool import WebSearchToolResolver
 
 __all__ = [
     "BaseToolResolver",
@@ -28,5 +29,6 @@ __all__ = [
     "PlanModeRespondToolResolver",
     "ListPackageInfoToolResolver",
     "RecordMemoryToolResolver",
-    "RecallMemoryToolResolver"
+    "RecallMemoryToolResolver",
+    "WebSearchToolResolver"
 ]

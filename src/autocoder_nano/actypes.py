@@ -62,6 +62,10 @@ class AutoCoderArgs(BaseModel):
     duckdb_query_similarity: Optional[float] = 0.7  # DuckDB 向量化检索 相似度 阈值
     duckdb_query_top_k: Optional[int] = 50  # DuckDB 向量化检索 返回 TopK个结果(且大于相似度)
 
+    # Web search 相关参数
+    search_bocha_key: Optional[str] = None
+    search_metaso_key: Optional[str] = None
+
     # Git 相关参数
     skip_commit: Optional[bool] = False
 

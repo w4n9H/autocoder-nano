@@ -57,6 +57,11 @@ TOOL_DISPLAY_MESSAGES: Dict[Type[BaseTool], Dict[str, str]] = {
         "zh": (
             "AutoCoder Nano 正在检索笔记, 提问：\n{{ query }}"
         )
+    },
+    WebSearchTool: {
+        "zh": (
+            "AutoCoder Nano 正在联网搜索, 关键词：\n{{ query }}"
+        )
     }
 }
 
