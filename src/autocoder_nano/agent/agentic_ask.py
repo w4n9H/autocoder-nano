@@ -37,9 +37,7 @@ ASK_TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     ListCodeDefinitionNamesTool: ListCodeDefinitionNamesToolResolver,
     AskFollowupQuestionTool: AskFollowupQuestionToolResolver,
     AttemptCompletionTool: AttemptCompletionToolResolver,  # Will stop the loop anyway
-    PlanModeRespondTool: PlanModeRespondToolResolver,
-    RecordMemoryTool: RecordMemoryToolResolver,
-    RecallMemoryTool: RecallMemoryToolResolver
+    PlanModeRespondTool: PlanModeRespondToolResolver
 }
 
 
@@ -227,52 +225,6 @@ class AgenticAsk(BaseAgent):
         <recursive>true</recursive>
         </list_files>
 
-        ## record_memory (记录记忆)
-        描述：
-        - 记忆系统，用于存储改需求的最终交付文档
-        参数：
-        - content（必填）：你的记忆正文
-        用法说明：
-        <record_memory>
-        <content>Notebook Content</content>
-        </record_memory>
-        用法示例：
-        场景一：记录任务分析
-        目标：记录对任务需求的初步分析。
-        思维过程：这是一个内部记忆操作，不会影响外部系统，直接将分析内容作为 content 记录。
-        <record_memory>
-        <content>
-        任务分析：
-        需求：在 src/utils.js 文件中添加一个 formatDate 函数。
-        待办：1.检查文件是否存在。2.编写函数实现。3.添加测试用例。
-        </content>
-        </record_memory>
-        场景二：记录执行经验
-        目标：记录在执行某个任务时学到的经验或遇到的问题。
-        思维过程：这是一个内部记忆操作，将解决特定问题的经验作为 content 记录，以便将来参考。
-        <record_memory>
-        <content>
-        经验总结：在处理文件权限问题时，优先使用 chmod 命令而不是 chown，因为前者更易于管理单一文件的权限，而后者可能影响整个目录。
-        </content>
-        </record_memory>
-
-        ## recall_memory (检索记忆)
-        描述：
-        - 检索记忆系统中的信息
-        参数：
-        - query（必填）：你检索记忆的提问，检索记忆时可以使用多个关键词（关键词可以根据任务需求自由发散），且必须使用空格分割关键词
-        用法说明：
-        <recall_memory>
-        <query>Recall Notebook Query</query>
-        </recall_memory>
-        用法示例：
-        场景一：检索之前的任务分析
-        目标：回忆历史上关于 formatDate 函数的所有任务分析记录。
-        思维过程：这是一个内部记忆操作，使用与之前记录相关的关键词进行检索，如 任务分析 和 待办。
-        <recall_memory>
-        <query>任务分析 待办 formatDate</query>
-        </recall_memory>
-
         ## ask_followup_question（提出后续问题）
         描述：
         - 向用户提问获取任务所需信息。
@@ -345,13 +297,10 @@ class AgenticAsk(BaseAgent):
         - 自动标注行业惯例方案供用户确认
 
         # 工具优先级矩阵
-        1. (高) ask_followup_question: 当任务需求不明确或缺少关键信息时，优先使用此工具向用户提问以进行澄清。
-        2. list_files / search_files / read_file: 在生成最终交付方案前，对项目目录结构或文件内容进行探索和信息收集，确保对当前项目有充分了解。
+        1. (高) ask_followup_question 工具: 当任务需求不明确或缺少关键信息时，优先使用此工具向用户提问以进行澄清。
+        2. list_files / search_files / read_file 工具: 在生成最终交付方案前，对项目目录结构或文件内容进行探索和信息收集，确保对当前项目有充分了解。
             - 用户如果提供了明确代码文件名或函数名时，使用 search_files 工具，获取代码位置，相反则使用 list_files 工具进行探索
-        3. record_memory / recall_memory: 用于交付方案的检索与记忆。
-            - 在任务开始执行前，使用 record_memory 检索分析历史交付方案。
-            - 在任务执行完毕后，使用 recall_memory 保存最终交付方案。
-        4. (低) attempt_completion: 仅在确认所有任务步骤已成功完成且已取得预期结果后使用，用于向用户展示最终成果。
+        3. (低) attempt_completion 工具: 仅在确认所有任务步骤已成功完成且已取得预期结果后使用，用于向用户展示最终成果。
         """
         return {
             "current_project": os.path.abspath(self.args.source_dir)
@@ -619,7 +568,7 @@ class AgenticAsk(BaseAgent):
 
         1. 输出格式：你的最终输出交付文档，清晰地包含以下三个部分：需求澄清文档，系统设计文档，任务拆解文档。
         2. 用户控制：每一个关键点都需要用户确认OK
-        3. 保存方式：最终交付文档通过 record_memory 工具记录，整个任务仅记录交付文档即可
+        3. 保存方式：最终交付文档通过 attempt_completion 工具输出
         2. 内容完整性： 在“任务分解文档”中，每个子任务都必须具备以下要素：
             * 任务名称：简短而清晰。
             * 输入契约：包含前置依赖，输入数据，环境依赖。
