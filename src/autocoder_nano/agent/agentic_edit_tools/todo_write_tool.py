@@ -186,7 +186,7 @@ class TodoWriteToolResolver(BaseToolResolver):
             return f"操作完成: {action_performed}"
 
         # Show the latest todos
-        recent_todos = todos[-3:] if len(todos) > 3 else todos
+        recent_todos = todos[-10:] if len(todos) > 10 else todos
 
         output = [f"✅ 操作完成: {action_performed}\n"]
 

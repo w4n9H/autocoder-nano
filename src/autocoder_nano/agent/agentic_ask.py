@@ -13,9 +13,8 @@ from autocoder_nano.agent.agent_base import BaseAgent
 from autocoder_nano.agent.agentic_edit_tools import (  # Import specific resolvers
     BaseToolResolver, ReadFileToolResolver,
     SearchFilesToolResolver, ListFilesToolResolver,
-    ListCodeDefinitionNamesToolResolver, AskFollowupQuestionToolResolver,
-    AttemptCompletionToolResolver, PlanModeRespondToolResolver,
-    RecordMemoryToolResolver, RecallMemoryToolResolver
+    AskFollowupQuestionToolResolver,
+    AttemptCompletionToolResolver
 )
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.context import get_context_manager, ConversationsPruner
@@ -34,10 +33,8 @@ ASK_TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     ReadFileTool: ReadFileToolResolver,
     SearchFilesTool: SearchFilesToolResolver,
     ListFilesTool: ListFilesToolResolver,
-    ListCodeDefinitionNamesTool: ListCodeDefinitionNamesToolResolver,
     AskFollowupQuestionTool: AskFollowupQuestionToolResolver,
-    AttemptCompletionTool: AttemptCompletionToolResolver,  # Will stop the loop anyway
-    PlanModeRespondTool: PlanModeRespondToolResolver
+    AttemptCompletionTool: AttemptCompletionToolResolver
 }
 
 
