@@ -65,6 +65,7 @@ class AutoCoderArgs(BaseModel):
     # Web search 相关参数
     search_bocha_key: Optional[str] = None
     search_metaso_key: Optional[str] = None
+    search_size: Optional[int] = 10
 
     # Git 相关参数
     skip_commit: Optional[bool] = False

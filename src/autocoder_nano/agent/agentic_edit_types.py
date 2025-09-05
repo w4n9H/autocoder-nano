@@ -62,6 +62,26 @@ class WebSearchTool(BaseTool):
     query: str
 
 
+class TodoReadTool(BaseTool):
+    """
+    Tool for reading the current todolist.
+    Takes no parameters.
+    """
+    pass  # No parameters needed
+
+
+class TodoWriteTool(BaseTool):
+    """
+    Tool for creating and managing a structured task list.
+    """
+    action: str  # 'create', 'update', 'mark_progress', 'mark_completed', 'add_task'
+    task_id: Optional[str] = None  # Task ID for update/mark operations
+    content: Optional[str] = None  # Task content for create/add operations
+    priority: Optional[str] = None  # 'high', 'medium', 'low'
+    status: Optional[str] = None  # 'pending', 'in_progress', 'completed'
+    notes: Optional[str] = None  # Additional notes for the task
+
+
 class ListCodeDefinitionNamesTool(BaseTool):
     path: str
 
@@ -162,13 +182,13 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "replace_in_file": ReplaceInFileTool,
     "search_files": SearchFilesTool,
     "list_files": ListFilesTool,
-    "list_code_definition_names": ListCodeDefinitionNamesTool,
     "ask_followup_question": AskFollowupQuestionTool,
     "attempt_completion": AttemptCompletionTool,
     "plan_mode_respond": PlanModeRespondTool,
     "use_rag_tool": UseRAGTool,
-    "list_package_info": ListPackageInfoTool,
     "record_memory": RecordMemoryTool,
     "recall_memory": RecallMemoryTool,
-    "web_search": WebSearchTool
+    "web_search": WebSearchTool,
+    "todo_read": TodoReadTool,
+    "todo_write": TodoWriteTool,
 }

@@ -40,14 +40,14 @@ class WebSearchToolResolver(BaseToolResolver):
         self.tool: WebSearchTool = tool
         self.args = args
 
-    def request_search_api(self, query: str, size: str = "10"):
+    def request_search_api(self, query: str):
         # 从多个渠道获取摘要及 url list
         url_list = []
         if self.args.search_metaso_key and self.args.search_metaso_key.startswith("mk-"):
             url_list.extend(
                 metaso_search_api(
                     query=query,
-                    size=size,
+                    size=str(self.args.search_size),
                     include_summary=True,
                     include_raw_content=True,
                     metaso_key=self.args.search_metaso_key
@@ -59,7 +59,7 @@ class WebSearchToolResolver(BaseToolResolver):
                 bocha_search_api(
                     query=query,
                     summary=True,
-                    count=int(size),
+                    count=self.args.search_size,
                     bocha_key=self.args.search_bocha_key
                 )
             )
