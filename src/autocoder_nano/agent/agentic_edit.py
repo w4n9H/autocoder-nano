@@ -5,14 +5,12 @@ import re
 import time
 import xml.sax.saxutils
 from copy import deepcopy
-# from importlib import resources
 from typing import Generator, Union, Tuple
 
 from autocoder_nano.agent.agent_base import BaseAgent
 from autocoder_nano.context import get_context_manager, ConversationsPruner
 from autocoder_nano.rag.token_counter import count_tokens
 from rich.markdown import Markdown
-# from tokenizers import Tokenizer
 
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.utils.config_utils import prepare_chat_yaml, get_last_yaml_file, convert_yaml_config_to_str
@@ -27,9 +25,8 @@ from autocoder_nano.agent.agentic_edit_tools import (  # Import specific resolve
     BaseToolResolver,
     ExecuteCommandToolResolver, ReadFileToolResolver, WriteToFileToolResolver,
     ReplaceInFileToolResolver, SearchFilesToolResolver, ListFilesToolResolver,
-    ListCodeDefinitionNamesToolResolver, AskFollowupQuestionToolResolver,
-    AttemptCompletionToolResolver, PlanModeRespondToolResolver, ListPackageInfoToolResolver,
-    RecordMemoryToolResolver, RecallMemoryToolResolver
+    AskFollowupQuestionToolResolver, TodoReadToolResolver, TodoWriteToolResolver,
+    AttemptCompletionToolResolver, PlanModeRespondToolResolver,
 )
 
 printer = Printer()
@@ -43,13 +40,11 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     ReplaceInFileTool: ReplaceInFileToolResolver,
     SearchFilesTool: SearchFilesToolResolver,
     ListFilesTool: ListFilesToolResolver,
-    ListCodeDefinitionNamesTool: ListCodeDefinitionNamesToolResolver,
-    ListPackageInfoTool: ListPackageInfoToolResolver,
     AskFollowupQuestionTool: AskFollowupQuestionToolResolver,
     AttemptCompletionTool: AttemptCompletionToolResolver,  # Will stop the loop anyway
     PlanModeRespondTool: PlanModeRespondToolResolver,
-    RecordMemoryTool: RecordMemoryToolResolver,
-    RecallMemoryTool: RecallMemoryToolResolver
+    TodoReadTool: TodoReadToolResolver,
+    TodoWriteTool: TodoWriteToolResolver
 }
 
 
@@ -367,51 +362,74 @@ class AgenticEdit(BaseAgent):
             * 移动代码：使用两个 SEARCH/REPLACE 块（一个从原始位置删除，一个插入到新位置）。
             * 删除代码：使用空的 REPLACE 部分。
 
-        ## record_memory (记录记忆)
+        ## todo_read（读取待办事项）
         描述：
-        - 记忆系统，用于存储改需求的最终交付文档
+        - 请求读取当前会话的待办事项列表。该工具有助于跟踪进度，组织复杂任务并了解当前工作状态。
+        - 请主动使用此工具以掌握任务进度，展现细致周全的工作态度。
         参数：
-        - content（必填）：你的记忆正文
+        - 无需参数
         用法说明：
-        <record_memory>
-        <content>Notebook Content</content>
-        </record_memory>
+        <todo_read>
+        </todo_read>
         用法示例：
-        场景一：记录任务分析
-        目标：记录对任务需求的初步分析。
-        思维过程：这是一个内部记忆操作，不会影响外部系统，直接将分析内容作为 content 记录。
-        <record_memory>
-        <content>
-        任务分析：
-        需求：在 src/utils.js 文件中添加一个 formatDate 函数。
-        待办：1.检查文件是否存在。2.编写函数实现。3.添加测试用例。
-        </content>
-        </record_memory>
-        场景二：记录执行经验
-        目标：记录在执行某个任务时学到的经验或遇到的问题。
-        思维过程：这是一个内部记忆操作，将解决特定问题的经验作为 content 记录，以便将来参考。
-        <record_memory>
-        <content>
-        经验总结：在处理文件权限问题时，优先使用 chmod 命令而不是 chown，因为前者更易于管理单一文件的权限，而后者可能影响整个目录。
-        </content>
-        </record_memory>
+        场景一：读取当前的会话的待办事项
+        目标：读取当前的会话的待办事项
+        <todo_read>
+        </todo_read>
 
-        ## recall_memory (检索记忆)
+        ## todo_write（写入/更新待办事项）
         描述：
-        - 检索记忆系统中的信息
+        - 请求为当前编码会话创建和管理结构化的任务列表。
+        - 这有助于您跟踪进度，组织复杂任务，并向用户展现工作的细致程度。
+        - 同时也能帮助用户了解任务进展及其需求的整体完成情况。
+        - 请在处理复杂多步骤任务，用户明确要求时，或需要组织多项操作时主动使用此工具。
         参数：
-        - query（必填）：你检索记忆的提问，检索记忆时可以使用多个关键词（关键词可以根据任务需求自由发散），且必须使用空格分割关键词
+        - action：（必填）要执行的操作：
+            - create：创建新的待办事项列表
+            - add_task：添加单个任务
+            - update：更新现有任务
+            - mark_progress：将任务标记为进行中
+            - mark_completed：将任务标记为已完成
+        - task_id：（可选）要更新的任务ID（update，mark_progress，mark_completed 操作时需要）
+        - content：（可选）任务内容或描述（create、add_task 操作时需要）
+        - priority：（可选）任务优先级：'high'（高）、'medium'（中）、'low'（低）（默认：'medium'）
+        - status：（可选）任务状态：'pending'（待处理）、'in_progress'（进行中）、'completed'（已完成）（默认：'pending'）
+        - notes：（可选）关于任务的附加说明或详细信息
         用法说明：
-        <recall_memory>
-        <query>Recall Notebook Query</query>
-        </recall_memory>
+        <todo_write>
+        <action>create</action>
+        <content>
+        <task>读取配置文件</task>
+        <task>更新数据库设置</task>
+        <task>测试连接</task>
+        <task>部署更改</task>
+        </content>
+        <priority>high</priority>
+        </todo_write>
         用法示例：
-        场景一：检索之前的任务分析
-        目标：回忆历史上关于 formatDate 函数的所有任务分析记录。
-        思维过程：这是一个内部记忆操作，使用与之前记录相关的关键词进行检索，如 任务分析 和 待办。
-        <recall_memory>
-        <query>任务分析 待办 formatDate</query>
-        </recall_memory>
+        场景一：为一个新的复杂任务创建待办事项列表
+        目标：为复杂任务创建新的待办事项列表
+        思维过程：用户提出了一个复杂的开发任务，这涉及到多个步骤和组件。我需要创建一个结构化的待办事项列表来跟踪这个多步骤任务的进度
+        <todo_write>
+        <action>create</action>
+        <content>
+        <task>分析现有代码库结构</task>
+        <task>设计新功能架构</task>
+        <task>实现核心功能</task>
+        <task>添加全面测试</task>
+        <task>更新文档</task>
+        <task>审查和重构代码</task>
+        </content>
+        <priority>high</priority>
+        </todo_write>
+        场景二：标记任务为已完成
+        目标：将特定任务标记为已完成
+        思维过程：用户指示要标记一个特定任务为已完成。我需要使用mark_completed操作，这需要提供任务的ID。
+        <todo_write>
+        <action>mark_completed</action>
+        <task_id>task_123</task_id>
+        <notes>成功实现，测试覆盖率达到95%</notes>
+        </todo_write>
 
         ## ask_followup_question（提出后续问题）
         描述：
@@ -524,17 +542,6 @@ class AgenticEdit(BaseAgent):
         - 定位关键目录：src/, lib/, components/, utils/
         - 查找配置文件：package.json, tsconfig.json, Makefile
 
-        ### 检索记忆
-
-        <recall_memory>
-        <query>package.json main.py coder.py 与需求有关联的词语</query>
-        </recall_memory>
-
-        - 了解项目结构后，结合任务需求，思考检索关键词，如代码文件名称，文档名称，以及与需求相关的关键词
-        - 关键词之间必须使用空格分割
-        - 最多尝试检索2次，无结果则默认无长期记忆
-        - 注意：如果同时检索出多个相近内容，以最新日期为准
-
         ### 技术栈识别
 
         <execute_command>
@@ -571,15 +578,6 @@ class AgenticEdit(BaseAgent):
         <command>grep -Rn "import.*targetModule" . | grep -v test</command>
         <requires_approval>false</requires_approval>
         </execute_command>
-
-        ### 记录 AC Module
-
-        <record_memory>
-        <content>AC Module 内容</content>
-        </record_memory>
-
-        - 在完成代码上下文探查后，务必使用 AC Module 的记录记忆
-        - 尽量以目录为模块进行记录，也可以对少量关键代码文件进行记录
 
         ## 阶段3：实施规划
 
@@ -660,16 +658,6 @@ class AgenticEdit(BaseAgent):
         - 查找潜在的安全漏洞。
         - 验证输入验证和清理。
         - 检查错误/异常处理完备性。
-
-        ### 记录工作总结
-
-        <record_memory>
-        <content>任务完成工作总结</content>
-        </record_memory>
-
-        - 工作总结内容包括：
-            * 任务需求分析过程及结果（任务待办列表）
-            * 本次任务的经验总结
         """
 
     @prompt()
@@ -851,6 +839,115 @@ class AgenticEdit(BaseAgent):
         """
 
     @prompt()
+    def _system_prompt_todolist(self):
+        """
+        TODOLIST TOOLS （待办事项工具）
+
+        待办事项工具可帮助您在复杂的编码会话期间管理和跟踪任务进度。它们提供结构化的任务管理功能，可提高工作效率并向用户展示您的细致程度。
+
+        # todo_read（读取待办事项）
+
+        ## 目的
+        - 读取并显示当前会话的待办事项列表，以了解任务进度
+        - 获取所有待处理，进行中和已完成任务的概览
+        - 跟踪复杂多步骤操作的状态
+
+        ## 使用时机
+        请主动且频繁使用此工具以确保了解当前任务状态：
+
+        - 在对话开始时查看待处理事项
+        - 在开始新任务之前以适当确定工作优先级
+        - 当用户询问先前任务或计划时
+        - 当您不确定下一步该做什么时
+        - 完成任务后更新对剩余工作的理解
+        - 每几条消息后确保自己保持在正确的轨道上
+        - 在长时间会话期间定期审查进度并保持组织有序
+
+        ## 重要注意事项
+
+        - 此工具不需要参数，将输入完全留空
+        - 请勿包含虚拟对象、占位符字符串或"input"，"empty"等键
+        - 保持空白，工具将自动读取当前会话的待办事项列表
+        - 返回按状态分组（进行中，待处理，已完成）的格式化输出
+        - 提供有关任务完成率的摘要统计信息
+
+        ## 优势
+
+        - 帮助在复杂任务之间保持上下文和连续性
+        - 清晰展示已完成和剩余的工作内容
+        - 展示有条理的问题解决方法
+        - 根据当前任务状态帮助确定下一步优先级
+
+        # todo_write（写入或更新待办事项）
+
+        ## 目的
+
+        - 为复杂编码会话创建和管理结构化任务列表
+        - 通过状态更新跟踪多步骤操作的进度
+        - 将工作组织成可管理的优先级任务
+        - 向用户提供清晰的进度可见性
+
+        ## 使用时机
+        在这些场景中主动使用此工具：
+
+        - 复杂多步骤任务：当任务需要3个或更多不同的步骤或操作时
+        - 重要且复杂的任务：需要仔细规划或多个操作的任务
+        - 用户明确要求待办事项列表：当用户直接要求您使用待办事项列表时
+        - 用户提供多个任务：当用户提供要完成的事项列表（编号或逗号分隔）时
+        - 收到新指令后：立即将用户需求捕获为待办事项
+        - 当您开始处理任务时：在开始工作之前将其标记为进行中（理想情况下，一次只应有一个任务处于进行中状态）
+        - 完成任务后：将其标记为已完成，并添加在实施过程中发现的任何新的后续任务
+
+        ## 不应使用的情况
+        在以下情况下请跳过使用此工具：
+
+        - 只有单个简单任务
+        - 任务微不足道，跟踪它没有组织上的好处
+        - 任务可以在少于3个简单步骤内完成
+        - 任务纯粹是对话性或信息性的
+
+        注意：如果只有一个简单任务要做，请不要使用此工具。在这种情况下，您最好直接执行任务。
+
+        ## 重要注意事项
+
+        - 每个任务都会获得一个唯一ID，可用于将来的更新
+        - 对于"create"操作，任务内容应格式化为多个任务的编号列表
+        - 系统自动跟踪任务创建和修改时间戳
+        - 待办事项列表在同一会话中的工具调用之间保持持久性
+        - 使用描述性任务名称，清楚指示需要完成的内容
+
+        ## 示例使用场景
+
+        ```
+        用户：我想在应用程序设置中添加暗模式切换。完成后请确保运行测试和构建！
+        助手：我将帮助您在应用程序设置中添加暗模式切换。让我创建一个待办事项列表来跟踪此实施。
+
+        创建包含以下项目的待办事项列表：
+        1. 在设置页面创建暗模式切换组件
+        2. 添加暗模式状态管理（上下文/存储）
+        3. 为暗主题实现CSS-in-JS样式
+        4. 更新现有组件以支持主题切换
+        5. 运行测试和构建过程，解决出现的任何失败或错误
+
+        思考：助手使用待办事项列表的原因是：
+        1. 添加暗模式是一个多步骤功能，需要UI，状态管理和样式更改
+        2. 用户明确要求之后运行测试和构建
+        3. 助手通过将"确保测试和构建成功"作为最终任务来推断需要通过的测试和构建
+        ```
+
+        ## 工作流程提示
+
+        - 从创建开始：使用"create"操作为复杂项目建立初始任务列表
+        - 逐步添加任务：在实施过程中出现新需求时使用"add_task"
+        - 主动跟踪进度：开始处理任务时使用"mark_progress"
+        - 及时完成任务：任务完成后使用"mark_completed"
+        - 添加上下文：使用"notes"参数记录重要决策或挑战
+        - 定期审查：使用todo_read保持对整体进度的了解
+
+        通过有效使用这些待办事项工具，您可以保持更好的组织性，提供清晰的进度可见性，并展示处理复杂编码任务的系统化方法。
+        """
+
+    @prompt()
     def _system_prompt_objective(self):
         """
         # 目标
@@ -902,12 +999,6 @@ class AgenticEdit(BaseAgent):
         - 识别代码模式与依赖关系
         - 确保可靠变更的必经流程
 
-        ## 长期记忆与知识复用
-
-        - 通过笔记系统，你可以记录和检索历史任务的经验和代码分析结果，避免重复工作。
-        - 在任务开始时，通过检索笔记，可以快速获取相关任务的解决方案和注意事项。
-        - 在代码分析过程中，记录AC模块可以帮助你构建项目的知识库，便于后续任务使用。
-
         ## 多工具协同体系
 
         支持通过工具链完成全周期任务：
@@ -933,10 +1024,6 @@ class AgenticEdit(BaseAgent):
         - 上下文搜索：
             * execute_command（grep） 输出富含上下文的结果
             * 适用场景：理解代码模式，查找特定实现，识别需要重构的区域
-        - 定义拓扑分析：
-            * list_code_definition_names 提取目录顶层源码定义
-            * 关键价值：理清代码模块间关系
-            * 需多次调用构建完整认知图谱
 
         ## 标准工作流示例
 
@@ -972,17 +1059,8 @@ class AgenticEdit(BaseAgent):
 
         ## 强制搜索规范
 
-        - 编辑前必须搜索：任何文件编辑前必须通过 list_files / execute_command（grep） 探查上下文依赖，使用模式，关联引用
+        - 编辑前必须搜索：任何文件编辑前必须通过 list_files 工具 / execute_command（grep）工具 探查上下文依赖，使用模式，关联引用
         - 修改后必验证：变更后必须通过搜索工具验证确认代码有无残留引用，新代码是否与现有模式正确集成
-
-        ## 强制笔记规则
-
-        - 任务开始时，必须使用 recall_memory 检索是否有相关任务的需求分析过程，AC模块信息，以及任务经验总结。
-            * 检索笔记时可以使用多个关键词（关键词可以根据任务需求自由发散），且必须使用空格分割关键词
-            * 注意：如果同一个代码文件出现多个AC模块，或者类似的需求出现了多次总结，以最新日期为准
-        - 在阅读代码文件后，必须使用 record_memory 记录生成的AC模块（代码自描述文档）。
-        - 任务完成后，必须使用 record_memory 记录任务完成情况和工作总结。
-        - 如果未按上述规则使用笔记系统，将导致任务消耗更多的 tokens。
 
         ## CLI命令执行铁律
 
@@ -993,7 +1071,7 @@ class AgenticEdit(BaseAgent):
             * cd 目标路径 && 执行命令
         - 输出处理：
             * 未见到预期输出时默认执行成功
-            * 需原始输出时用 ask_followup_question 申请
+            * 需原始输出时用 ask_followup_question 工具申请
 
         ## 文件操作准则
 
@@ -1002,7 +1080,7 @@ class AgenticEdit(BaseAgent):
             * 自动生成必要父目录
             * 默认构建可直接运行的HTML/CSS/JS应用
         - 修改文件：
-            * 直接使用 replace_in_file/write_to_file
+            * 直接使用 replace_in_file 工具 / write_to_file 工具
             * 无需前置展示变更
         - 替换规范：
             * [!]SEARCH块必须包含整行内容
@@ -1012,10 +1090,10 @@ class AgenticEdit(BaseAgent):
 
         - 问题最小化：
             * 优先用工具替代提问
-            * 必须提问时使用 ask_followup_question
+            * 必须提问时使用 ask_followup_question 工具
             * 问题需精准简洁
         - 完成标识：
-            * 任务完成必须调用attempt_completion
+            * 任务完成必须调用 attempt_completion 工具
             * 结果展示禁止包含问题或继续对话请求
         - 表达禁令：
             * 禁止"Great/Certainly"等闲聊开头
@@ -1073,7 +1151,7 @@ class AgenticEdit(BaseAgent):
         conversations = [
             {"role": "system", "content": self._system_prompt_role.prompt()},
             {"role": "system", "content": self._system_prompt_tools.prompt()},
-            {"role": "system", "content": self._system_prompt_acmodule.prompt()},
+            {"role": "system", "content": self._system_prompt_todolist.prompt()},
             {"role": "system", "content": self._system_prompt_workflow.prompt()},
             {"role": "system", "content": self._system_prompt_sysinfo.prompt()},
             {"role": "system", "content": self._system_prompt_rules.prompt()},

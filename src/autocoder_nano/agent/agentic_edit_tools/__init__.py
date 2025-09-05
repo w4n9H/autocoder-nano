@@ -6,14 +6,14 @@ from .write_to_file_tool import WriteToFileToolResolver
 from .replace_in_file_tool import ReplaceInFileToolResolver
 from .search_files_tool import SearchFilesToolResolver
 from .list_files_tool import ListFilesToolResolver
-from .list_code_definition_names_tool import ListCodeDefinitionNamesToolResolver
 from .ask_followup_question_tool import AskFollowupQuestionToolResolver
 from .attempt_completion_tool import AttemptCompletionToolResolver
 from .plan_mode_respond_tool import PlanModeRespondToolResolver
-from .list_package_info_tool import ListPackageInfoToolResolver
 from .record_memory_tool import RecordMemoryToolResolver
 from .recall_memory_tool import RecallMemoryToolResolver
 from .web_search_tool import WebSearchToolResolver
+from .todo_read_tool import TodoReadToolResolver
+from .todo_write_tool import TodoWriteToolResolver
 
 __all__ = [
     "BaseToolResolver",
@@ -23,12 +23,12 @@ __all__ = [
     "ReplaceInFileToolResolver",
     "SearchFilesToolResolver",
     "ListFilesToolResolver",
-    "ListCodeDefinitionNamesToolResolver",
     "AskFollowupQuestionToolResolver",
     "AttemptCompletionToolResolver",
     "PlanModeRespondToolResolver",
-    "ListPackageInfoToolResolver",
     "RecordMemoryToolResolver",
     "RecallMemoryToolResolver",
-    "WebSearchToolResolver"
+    "WebSearchToolResolver",
+    "TodoReadToolResolver",
+    "TodoWriteToolResolver"
 ]
