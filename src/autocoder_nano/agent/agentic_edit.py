@@ -531,6 +531,13 @@ class AgenticEdit(BaseAgent):
 
         ## 阶段1：项目探索与分析
 
+        ### 了解当前工作状态
+
+        <todo_read>
+        </todo_read>
+
+        - 使用 todo_read 工具查看现有任务列表，了解当前工作状态
+
         ### 项目结构概述
 
         <execute_command>
@@ -581,6 +588,13 @@ class AgenticEdit(BaseAgent):
 
         ## 阶段3：实施规划
 
+        ### 待办列表管理
+
+        - 对于复杂多步骤任务，使用 todo_write 创建结构化任务列表
+        - 将大型任务分解为可管理的子任务，设置适当优先级
+        - 在开始每个任务前使用 todo_read 确认当前状态
+        - 完成任务后及时使用 mark_completed 更新状态
+
         ### 影响评估
 
         - 识别所有需要修改的文件。
@@ -599,7 +613,18 @@ class AgenticEdit(BaseAgent):
 
         ## 阶段4：代码实现
 
-        使用 write_to_file 工具 和 replace_in_file 工具 进行代码的实现
+        ### 任务执行跟踪
+
+        - 使用 write_to_file 工具 和 replace_in_file 工具 进行代码的实现
+        - 开始每个编码任务前使用 todo_write 工具 将任务标记为进行中 mark_progress
+        - 完成每个子任务后使用 todo_write 工具将任务标记为已完成 mark_completed
+        - 遇到新需求或发现额外工作时，使用 todo_write 工具添加新任务到待办列表 add_task
+
+        ### 进度同步
+
+        - 定期使用 todo_read 工具查看整体进度
+        - 向用户展示已完成和剩余的工作内容
+        - 根据实际情况调整任务优先级和分配
 
         ## 阶段 5：全面验证
 
@@ -658,6 +683,19 @@ class AgenticEdit(BaseAgent):
         - 查找潜在的安全漏洞。
         - 验证输入验证和清理。
         - 检查错误/异常处理完备性。
+
+        ### 最终审查
+
+        - 使用 todo_read 工具进行最终任务完成状态检查
+        - 确认所有任务都已正确标记状态
+        - 使用 attempt_completion 工具向用户展示完整的工作成果和任务完成情况
+
+        ### 待办列表最佳实践
+
+        - 复杂任务（3+步骤）必须使用待办列表进行管理
+        - 简单任务可直接执行，无需创建待办列表
+        - 定期审查待办列表，保持任务状态最新
+        - 通过待办列表向用户提供清晰的进度可见性
         """
 
     @prompt()

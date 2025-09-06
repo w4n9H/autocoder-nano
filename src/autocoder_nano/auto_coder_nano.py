@@ -758,10 +758,10 @@ def auto_command(query: str, llm: AutoLLM):
     cost_dict = json.loads(cost)
     if cost_dict and isinstance(cost_dict, dict):
         printer.print_key_value(items=cost_dict)
-        if cost_dict["need_research"]:
-            run_report_agentic(llm=llm, args=args, conversation_config=conversation_config)
         if cost_dict["need_ask"]:
             run_ask_agentic(llm=llm, args=args, conversation_config=conversation_config)
+        if cost_dict["need_research"]:
+            run_report_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
         run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
     else:
