@@ -278,9 +278,8 @@ class AgenticCost(BaseAgent):
             {"role": "system", "content": self._system_prompt_tools.prompt()}
         ]
 
-        printer.print_key_value(
-            {"长度(tokens)": f"{count_tokens(json.dumps(conversations, ensure_ascii=False))}"}, title="系统提示词"
-        )
+        printer.print_text(f"📝 系统提示词长度(token): {count_tokens(json.dumps(conversations, ensure_ascii=False))}",
+                           style="green")
 
         if self.conversation_config.action == "resume":
             current_conversation = self.conversation_manager.get_current_conversation()
@@ -293,7 +292,7 @@ class AgenticCost(BaseAgent):
                             "role": message['role'],
                             "content": message['content']
                         })
-                printer.print_text(f"恢复对话，已有 {len(current_conversation['messages'])} 条现有消息", style="green")
+                printer.print_text(f"📂 恢复对话，已有 {len(current_conversation['messages'])} 条现有消息", style="green")
         if self.conversation_manager.get_current_conversation_id() is None:
             conv_id = self.conversation_manager.create_conversation(name=self.conversation_config.query,
                                                                     description=self.conversation_config.query)
@@ -326,9 +325,8 @@ class AgenticCost(BaseAgent):
             iteration_count += 1
             tool_executed = False
             last_message = conversations[-1]
-            printer.print_key_value(
-                {"当前": f"第 {iteration_count} 轮", "历史会话长度": f"{len(conversations)}"}, title="LLM 交互循环"
-            )
+            printer.print_text(f"🔄 当前为第 {iteration_count} 轮对话, 历史会话长度(Context):{len(conversations)}",
+                               style="green")
 
             if last_message["role"] == "assistant":
                 if should_yield_completion_event:
@@ -499,21 +497,17 @@ class AgenticCost(BaseAgent):
                     yield WindowLengthChangeEvent(tokens_used=total_tokens)
 
                 # 添加系统提示，要求LLM必须使用工具或明确结束，而不是直接退出
-                printer.print_text("正在添加系统提示: 请使用工具或尝试直接生成结果", style="green")
+                printer.print_text("💡 正在添加系统提示: 请使用工具或尝试直接生成结果", style="green")
 
                 conversations.append({
                     "role": "user",
-                    "content": "NOTE: You must use an appropriate tool (such as read_file, write_to_file, "
-                               "execute_command, etc.) or explicitly complete the task (using attempt_completion). Do "
-                               "not provide text responses without taking concrete actions. Please select a suitable "
-                               "tool to continue based on the user's task."
+                    "content": "注意：您必须使用适当的工具或明确完成任务（使用 attempt_completion）。"
+                               "不要在不采取具体行动的情况下提供文本回复。请根据用户的任务选择合适的工具继续操作。"
                 })
                 self.conversation_manager.append_message_to_current(
                     role="user",
-                    content="NOTE: You must use an appropriate tool (such as read_file, write_to_file, "
-                            "execute_command, etc.) or explicitly complete the task (using attempt_completion). Do "
-                            "not provide text responses without taking concrete actions. Please select a suitable "
-                            "tool to continue based on the user's task.",
+                    content="注意：您必须使用适当的工具或明确完成任务（使用 attempt_completion）。"
+                            "不要在不采取具体行动的情况下提供文本回复。请根据用户的任务选择合适的工具继续操作。",
                     metadata={})
 
                 # 计算当前对话的总 token 数量并触发事件
@@ -521,10 +515,10 @@ class AgenticCost(BaseAgent):
                 total_tokens = count_tokens(current_conversation_str)
                 yield WindowLengthChangeEvent(tokens_used=total_tokens)
                 # 继续循环，让 LLM 再思考，而不是 break
-                printer.print_text("持续运行 LLM 交互循环（保持不中断）", style="green")
+                printer.print_text("🔄 持续运行 LLM 交互循环（保持不中断）", style="green")
                 continue
 
-        printer.print_text(f"Agentic Cost 分析循环已完成，共执行 {iteration_count} 次迭代.")
+        printer.print_text(f"✅ AgenticEdit 分析循环已完成，共执行 {iteration_count} 次迭代.")
         save_formatted_log(self.args.source_dir, json.dumps(conversations, ensure_ascii=False),
                            "agentic_cost_conversation")
 
@@ -536,9 +530,7 @@ class AgenticCost(BaseAgent):
     def run_in_terminal(self, request: AgenticEditRequest) -> str:
         project_name = os.path.basename(os.path.abspath(self.args.source_dir))
 
-        printer.print_key_value(
-            items={"项目名": f"{project_name}", "用户目标": f"{request.user_input}"}, title="Agentic Cost 开始运行"
-        )
+        printer.print_text(f"🚀 Agentic Cost 开始运行, 项目名: {project_name}, 用户目标: {request.user_input}")
 
         # 用于累计TokenUsageEvent数据
         accumulated_token_usage = {
@@ -550,7 +542,7 @@ class AgenticCost(BaseAgent):
         cost_result = "{}"
 
         try:
-            self.apply_pre_changes()  # 在开始 Agentic Ask 之前先判断是否有未提交变更,有变更则直接退出
+            self.apply_pre_changes()  # 在开始 Agentic Cost 之前先判断是否有未提交变更,有变更则直接退出
             event_stream = self.analyze(request)
             for event in event_stream:
                 if isinstance(event, TokenUsageEvent):
@@ -561,23 +553,21 @@ class AgenticCost(BaseAgent):
                     accumulated_token_usage["input_tokens"] += last_meta.input_tokens_count
                     accumulated_token_usage["output_tokens"] += last_meta.generated_tokens_count
 
-                    printer.print_key_value(accumulated_token_usage)
+                    printer.print_text(f"📝 Token 使用: "
+                                       f"Input({last_meta.input_tokens_count})/"
+                                       f"Output({last_meta.generated_tokens_count})",
+                                       style="green")
 
                 elif isinstance(event, WindowLengthChangeEvent):
-                    # 显示当前会话的token数量
-                    printer.print_panel(
-                        content=f"当前会话总 tokens: {event.tokens_used}", title="Window Length Change", center=True
-                    )
+                    printer.print_text(f"📝 当前 Token 总用量: {event.tokens_used}", style="green")
 
                 elif isinstance(event, LLMThinkingEvent):
-                    # Render thinking within a less prominent style, maybe grey?
-                    printer.print_panel(content=f"{event.text}", title="LLM Thinking", center=True)
+                    # 以不太显眼的样式（比如灰色）呈现思考内容
+                    think_text = f"[grey]{event.text}[/grey]"
+                    printer.print_panel(content=think_text, title="💭 LLM Thinking", center=True)
 
                 elif isinstance(event, LLMOutputEvent):
-                    # Print regular LLM output, potentially as markdown if needed later
-                    printer.print_panel(
-                        content=f"{event.text}", title="LLM Output", center=True
-                    )
+                    printer.print_panel(content=f"{event.text}", title="💬 LLM Output", center=True)
 
                 elif isinstance(event, ToolCallEvent):
                     # 不显示 AttemptCompletionTool 结果
@@ -604,7 +594,7 @@ class AgenticCost(BaseAgent):
 
                     def _format_content(_content):
                         if len(_content) > 500:
-                            return f"{_content[:200]}\n......\n{_content[-200:]}"
+                            return f"{_content[:200]}\n\n\n......\n\n\n{_content[-200:]}"
                         else:
                             return _content
 

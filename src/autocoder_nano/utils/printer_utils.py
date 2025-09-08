@@ -141,13 +141,26 @@ class Printer:
         self.console.print(panel)
 
     def print_text(
-        self, *texts: Union[str, Text], style: Optional[str] = None, justify: Optional[str] = "left"
+        self, *texts: Union[str, Text], style: Optional[str] = None, justify: Optional[str] = "left",
+        prefix: Optional[str] = "> "  # 新增前缀参数
     ) -> None:
         """灵活文本打印，支持样式和混合内容"""
-        rich_text = Group(*[
-            Text(str(t), style=style) if isinstance(t, str) else t
-            for t in texts
-        ])
+        if prefix:
+            processed_texts = []
+            for t in texts:
+                if isinstance(t, str):
+                    processed_texts.append(Text(f"{prefix}{t}", style=style))
+                else:
+                    # 对于Text对象，创建新的Text并添加前缀
+                    prefixed_text = Text(prefix)
+                    prefixed_text.append(t)
+                    processed_texts.append(prefixed_text)
+            rich_text = Group(*processed_texts)
+        else:
+            rich_text = Group(*[
+                Text(str(t), style=style) if isinstance(t, str) else t
+                for t in texts
+            ])
         self.console.print(rich_text, justify=justify)
 
     @contextmanager
