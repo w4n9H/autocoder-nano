@@ -10,22 +10,24 @@ import math
 from typing import List, Dict, Any, Optional, Tuple, Set
 from collections import Counter, defaultdict
 
+from autocoder_nano.rag.token_counter import cut_tokens
+
 
 class TextSearcher:
-    """Text searcher for conversations and messages with relevance ranking."""
+    """用于对话和消息的文本搜索器，带有相关性排序功能。"""
 
     def __init__(self, case_sensitive: bool = False, stemming: bool = False):
         """
-        Initialize text searcher.
+        初始化文本搜索器。
 
         Args:
-            case_sensitive: Whether search should be case sensitive
-            stemming: Whether to apply basic stemming (simplified)
+            case_sensitive: 搜索是否区分大小写
+            stemming: 是否应用基本（简化）的词干提取
         """
         self.case_sensitive = case_sensitive
         self.stemming = stemming
 
-        # Common English stop words for filtering
+        # 用于过滤的常见中英文停用词
         self.stop_words = {
             'a', 'an', 'and', 'are', 'as', 'at', 'be', 'been', 'by', 'for',
             'from', 'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that',
@@ -34,36 +36,38 @@ class TextSearcher:
         }
 
     def _normalize_text(self, text: str) -> str:
-        """Normalize text for searching."""
+        """规范化文本以用于搜索."""
         if not self.case_sensitive:
             text = text.lower()
         return text
 
     def _tokenize(self, text: str) -> List[str]:
-        """Tokenize text into words."""
-        # Simple tokenization - split on word boundaries
-        tokens = re.findall(r'\b\w+\b', text)
+        """将文本分词为单词."""
+        # 简单分词 - 根据单词边界分割
+        # tokens = re.findall(r'\b\w+\b', text)
+        tokens = cut_tokens(text)
 
-        # Normalize tokens
+        # 规范化词元（token）
         tokens = [self._normalize_text(token) for token in tokens]
 
-        # Remove stop words if not case sensitive
+        # 如果不区分大小写，则移除停用词
         if not self.case_sensitive:
             tokens = [token for token in tokens if token not in self.stop_words]
 
-        # Apply basic stemming if enabled
+        # 如果启用，应用基本词干提取
         if self.stemming:
             tokens = [self._basic_stem(token) for token in tokens]
 
         return tokens
 
-    def _basic_stem(self, word: str) -> str:
-        """Apply very basic stemming rules."""
-        # Simple English stemming rules
+    @staticmethod
+    def _basic_stem(word: str) -> str:
+        """应用非常基础的词干提取规则."""
+        # 简单的英文词干提取规则
         if len(word) <= 3:
             return word
 
-        # Remove common suffixes
+        # 移除常见后缀
         suffixes = ['ing', 'ed', 'er', 'est', 'ly', 's']
         for suffix in suffixes:
             if word.endswith(suffix) and len(word) > len(suffix) + 2:
@@ -71,28 +75,24 @@ class TextSearcher:
 
         return word
 
-    def _calculate_tf_idf(
-            self,
-            query_terms: List[str],
-            documents: List[Dict[str, Any]]
-    ) -> Dict[str, Dict[str, float]]:
-        """Calculate TF-IDF scores for documents."""
-        # Count documents containing each term
+    def _calculate_tf_idf(self, query_terms: List[str], documents: List[Dict[str, Any]]) -> Dict[int, Dict[str, float]]:
+        """计算文档的 TF-IDF 分数."""
+        # 统计包含每个词的文档数量
         doc_count = defaultdict(int)
         doc_terms = {}
 
         for i, doc in enumerate(documents):
-            # Combine searchable text from document
+            # 从文档中组合可搜索文本
             searchable_text = self._get_searchable_text(doc)
             terms = self._tokenize(searchable_text)
             doc_terms[i] = Counter(terms)
 
-            # Count unique terms in this document
+            # 统计此文档中的唯一词
             unique_terms = set(terms)
             for term in unique_terms:
                 doc_count[term] += 1
 
-        # Calculate TF-IDF scores
+        # 计算 TF-IDF 分数
         total_docs = len(documents)
         tf_idf_scores = {}
 
@@ -103,13 +103,13 @@ class TextSearcher:
 
             for term in query_terms:
                 if term in doc_term_counts and doc_length > 0:
-                    # Term frequency
+                    # 词频 (Term Frequency)
                     tf = doc_term_counts[term] / doc_length
 
-                    # Inverse document frequency
+                    # 逆文档频率 (Inverse Document Frequency)
                     idf = math.log(total_docs / max(1, doc_count[term]))
 
-                    # TF-IDF score
+                    # TF-IDF 分数
                     tf_idf_scores[i][term] = tf * idf
                 else:
                     tf_idf_scores[i][term] = 0.0
@@ -117,29 +117,29 @@ class TextSearcher:
         return tf_idf_scores
 
     def _get_searchable_text(self, item: Dict[str, Any]) -> str:
-        """Extract searchable text from conversation or message."""
+        """从对话或消息中提取可搜索文本."""
         if isinstance(item, dict):
-            # Handle different item types
+            # 处理不同的item类型
             text_parts = []
 
-            # Add name and description for conversations
+            # 为对话添加名称和描述
             if 'name' in item:
                 text_parts.append(item['name'])
             if 'description' in item:
                 text_parts.append(item.get('description', ''))
 
-            # Add content for messages
+            # 为消息添加内容
             if 'content' in item:
                 content = item['content']
                 if isinstance(content, str):
                     text_parts.append(content)
                 elif isinstance(content, dict):
-                    # Extract text from dict content
+                    # 从字典内容中提取文本
                     for value in content.values():
                         if isinstance(value, str):
                             text_parts.append(value)
                 elif isinstance(content, list):
-                    # Extract text from list content
+                    # 从列表内容中提取文本
                     for value in content:
                         if isinstance(value, str):
                             text_parts.append(value)
@@ -148,7 +148,7 @@ class TextSearcher:
                                 if isinstance(nested_value, str):
                                     text_parts.append(nested_value)
 
-            # Add messages content for conversations
+            # 为对话添加消息内容
             if 'messages' in item:
                 for message in item.get('messages', []):
                     text_parts.append(self._get_searchable_text(message))
@@ -165,55 +165,55 @@ class TextSearcher:
             min_score: float = 0.0
     ) -> List[Tuple[Dict[str, Any], float]]:
         """
-        Search conversations with relevance scoring.
+        使用相关性评分搜索对话。
 
         Args:
-            query: Search query string
-            conversations: List of conversation dictionaries
-            max_results: Maximum number of results to return
-            min_score: Minimum relevance score threshold
+            query: 搜索查询字符串
+            conversations: 对话字典列表
+            max_results: 要返回的最大结果数量
+            min_score: 最小相关性分数阈值
 
         Returns:
-            List of (conversation, score) tuples sorted by relevance
+            按相关性排序的 (对话, 分数) 元组列表
         """
         if not query.strip() or not conversations:
             return [(conv, 0.0) for conv in conversations[:max_results]]
 
-        # Tokenize query
+        # 对查询进行分词
         query_terms = self._tokenize(query)
         if not query_terms:
             return [(conv, 0.0) for conv in conversations[:max_results]]
 
-        # Calculate TF-IDF scores
+        # 计算 TF-IDF 分数
         tf_idf_scores = self._calculate_tf_idf(query_terms, conversations)
 
-        # Calculate relevance scores
+        # 计算相关性分数
         results = []
         for i, conversation in enumerate(conversations):
-            # Sum TF-IDF scores for all query terms
+            # 对所有查询词求和 TF-IDF 分数
             total_score = sum(tf_idf_scores[i].values())
 
-            # Apply boost for exact phrase matches
+            # 为完全短语匹配应用提升
             searchable_text = self._get_searchable_text(conversation)
             normalized_text = self._normalize_text(searchable_text)
             normalized_query = self._normalize_text(query)
 
             if normalized_query in normalized_text:
-                total_score *= 1.5  # Boost for exact phrase match
+                total_score *= 1.5  # 为完全短语匹配提升
 
-            # Apply boost for title matches
+            # 为标题匹配应用提升
             if 'name' in conversation:
                 title_text = self._normalize_text(conversation['name'])
                 if any(term in title_text for term in query_terms):
-                    total_score *= 1.2  # Boost for title matches
+                    total_score *= 1.2  # 为标题匹配提升
 
             if total_score >= min_score:
                 results.append((conversation, total_score))
 
-        # Sort by relevance score (descending)
+        # 按相关性分数排序（降序）
         results.sort(key=lambda x: x[1], reverse=True)
 
-        # Apply result limit
+        # 应用结果数量限制
         if max_results:
             results = results[:max_results]
 
@@ -227,35 +227,35 @@ class TextSearcher:
             min_score: float = 0.0
     ) -> List[Tuple[Dict[str, Any], float]]:
         """
-        Search messages with relevance scoring.
+        使用相关性评分搜索消息。
 
         Args:
-            query: Search query string
-            messages: List of message dictionaries
-            max_results: Maximum number of results to return
-            min_score: Minimum relevance score threshold
+            query: 搜索查询字符串
+            messages: 消息字典列表
+            max_results: 要返回的最大结果数量
+            min_score: 最小相关性分数阈值
 
         Returns:
-            List of (message, score) tuples sorted by relevance
+            按相关性排序的 (消息, 分数) 元组列表
         """
         if not query.strip() or not messages:
             return [(msg, 0.0) for msg in messages[:max_results]]
 
-        # Tokenize query
+        # 对查询进行分词
         query_terms = self._tokenize(query)
         if not query_terms:
             return [(msg, 0.0) for msg in messages[:max_results]]
 
-        # Calculate TF-IDF scores
+        # 计算 TF-IDF 分数
         tf_idf_scores = self._calculate_tf_idf(query_terms, messages)
 
-        # Calculate relevance scores
+        # 计算相关性分数
         results = []
         for i, message in enumerate(messages):
-            # Sum TF-IDF scores for all query terms
+            # 对所有查询词求和 TF-IDF 分数
             total_score = sum(tf_idf_scores[i].values())
 
-            # Apply boost for exact phrase matches
+            # 为完全短语匹配应用提升
             searchable_text = self._get_searchable_text(message)
             normalized_text = self._normalize_text(searchable_text)
             normalized_query = self._normalize_text(query)
@@ -294,15 +294,15 @@ class TextSearcher:
             highlight_format: str = "**{}**"
     ) -> str:
         """
-        Highlight query matches in text.
+        在文本中高亮显示查询匹配项。
 
         Args:
-            text: Text to highlight matches in
-            query: Search query
-            highlight_format: Format string for highlighting (e.g., "**{}**" for bold)
+            text: 需要高亮匹配项的文本
+            query: 搜索查询
+            highlight_format: 高亮显示的格式字符串（例如，使用 "**{}**" 表示加粗）
 
         Returns:
-            Text with highlighted matches
+            带有高亮匹配项的文本
         """
         if not query.strip():
             return text
@@ -330,15 +330,15 @@ class TextSearcher:
             max_suggestions: int = 5
     ) -> List[str]:
         """
-        Get search suggestions based on partial query.
+        基于部分查询获取搜索建议。
 
         Args:
-            partial_query: Partial search query
-            conversations: List of conversations to analyze
-            max_suggestions: Maximum number of suggestions
+            partial_query: 部分搜索查询
+            conversations: 要分析的对话列表
+            max_suggestions: 最大建议数量
 
         Returns:
-            List of suggested search terms
+            建议的搜索词列表
         """
         if len(partial_query) < 2:
             return []

@@ -41,6 +41,14 @@ def count_tokens(text: str) -> int:
         return -1
 
 
+def cut_tokens(text: str):
+    try:
+        # return VariableHolder.TOKENIZER_CUTTER.cutword(text)
+        return VariableHolder.TOKENIZER_MODEL.encode(text).tokens
+    except Exception as e:
+        return []
+
+
 def count_tokens_worker(text: str) -> int:
     try:
         encoded = tokenizer_model.encode('{"role":"user","content":"' + text + '"}')
