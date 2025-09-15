@@ -437,6 +437,30 @@ class ContextManager:
             min_score: Minimum relevance score
         Returns:
             List of matching messages with scores
+        filters 示例:
+        filters = {
+            "filters": [
+                {
+                    "field": "role",
+                    "operator": "in",
+                    "value": ["assistant"]  # 角色在指定列表中
+                },
+                {
+                    "field": "timestamp",
+                    "operator": "gte",  # 大于等于
+                    "value": 1717000000  # 时间戳（Unix时间，秒级）
+                }
+            ],
+            "operator": "and"  # 逻辑运算符："and"（与）或 "or"（或）
+        }
+        支持的运算符（operator）:
+        eq 等于(适用所有类型)
+        ne 不等于(适用所有类型)
+        gt/gte 大于/大于等于(适用数字、时间戳)
+        lt/lte 小于/小于等于(数字、时间戳)
+        contains 包含子串(字符串)
+        in 在列表中(所有类型)
+        regex 正则匹配(字符串)
         """
         try:
             # Get conversation messages
