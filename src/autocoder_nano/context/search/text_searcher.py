@@ -224,7 +224,8 @@ class TextSearcher:
             query: str,
             messages: List[Dict[str, Any]],
             max_results: Optional[int] = None,
-            min_score: float = 0.0
+            min_score: float = 0.0,
+            by_sort: bool = False
     ) -> List[Tuple[Dict[str, Any], float]]:
         """
         使用相关性评分搜索消息。
@@ -234,6 +235,7 @@ class TextSearcher:
             messages: 消息字典列表
             max_results: 要返回的最大结果数量
             min_score: 最小相关性分数阈值
+            by_sort: 是否排序
 
         Returns:
             按相关性排序的 (消息, 分数) 元组列表
@@ -279,7 +281,8 @@ class TextSearcher:
                 results.append((message, total_score))
 
         # Sort by relevance score (descending)
-        results.sort(key=lambda x: x[1], reverse=True)
+        if by_sort:
+            results.sort(key=lambda x: x[1], reverse=True)
 
         # Apply result limit
         if max_results:
