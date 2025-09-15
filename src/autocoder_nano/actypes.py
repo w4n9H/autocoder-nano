@@ -93,7 +93,7 @@ class AutoCoderArgs(BaseModel):
     vl_model: Optional[str] = ""  # 多模态模型
 
     # 上下文管理相关参数
-    conversation_prune_safe_zone_tokens: int = 50000
+    conversation_prune_safe_zone_tokens: int = 76800  # 按照常见的 128k 窗口 60% 计算,最佳安全窗口为 76800
 
     context_prune_strategy: Optional[str] = "extract"
     context_prune: Optional[bool] = True
