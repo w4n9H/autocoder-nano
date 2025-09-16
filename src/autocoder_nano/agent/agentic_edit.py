@@ -1241,8 +1241,8 @@ class AgenticEdit(BaseAgent):
 
         while True:
             iteration_count += 1
-            if iteration_count % 5 == 0:
-                conversations.append({"role": "system", "content": self._system_prompt_rules.prompt()})  # 强化规则记忆
+            if iteration_count % 20 == 0:
+                conversations.append({"role": "user", "content": self._system_prompt_rules.prompt()})  # 强化规则记忆
             tool_executed = False
             last_message = conversations[-1]
             printer.print_text(f"🔄 当前为第 {iteration_count} 轮对话, 历史会话长度(Context):{len(conversations)}",
