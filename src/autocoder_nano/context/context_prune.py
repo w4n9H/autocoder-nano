@@ -552,15 +552,43 @@ class ConversationsPruner:
     def __init__(self, args: AutoCoderArgs, llm: AutoLLM):
         self.args = args
         self.llm = llm
+        self.llm.setup_default_model_name(self.args.chat_model)
         self.replacement_message = ("This message has been cleared. If you still want to get this information, "
                                     "you can call the tool again to retrieve it.")
         self.strategies = {
             "tool_output_cleanup": PruneStrategy(
                 name="tool_output_cleanup",
-                description="通过用占位消息替换内容来清理工具输出结果",
+                description="占位裁剪策略, 通过用占位消息替换内容来清理工具输出结果",
                 config={"safe_zone_tokens": self.args.conversation_prune_safe_zone_tokens}
+            ),
+            "summarize": PruneStrategy(
+                name="summarize",
+                description="摘要裁剪策略, 对早期对话进行分组摘要, 保留关键信息",
+                config={"safe_zone_tokens": self.args.conversation_prune_safe_zone_tokens,
+                        "group_size": self.args.conversation_prune_group_size}
+            ),
+            "truncate": PruneStrategy(
+                name="truncate",
+                description="截断裁剪策略, 分组截断最早的部分对话",
+                config={"safe_zone_tokens": self.args.conversation_prune_safe_zone_tokens,
+                        "group_size": self.args.conversation_prune_group_size}
+            ),
+            "hybrid": PruneStrategy(
+                name="hybrid",
+                description="混合裁剪策略, 根据对话列表情况, 组合使用不同策略",
+                config={"safe_zone_tokens": self.args.conversation_prune_safe_zone_tokens,
+                        "group_size": self.args.conversation_prune_group_size}
             )
         }
+
+    @staticmethod
+    def _split_system_messages(history_conversation):
+        """ 快速将 conversation 列表切分为 system 和 user+assistant 两个列表 """
+        split_index = next(
+            (i for i, msg in enumerate(history_conversation) if msg["role"] != "system"),
+            len(history_conversation)  # 如果全是system消息，则返回整个长度
+        )
+        return history_conversation[:split_index], history_conversation[split_index:]
 
     def get_available_strategies(self) -> List[Dict[str, Any]]:
         """ 获取所有可用策略 """
@@ -583,13 +611,150 @@ class ConversationsPruner:
         if current_tokens <= safe_zone_tokens:
             return conversations
 
-        strategy = self.strategies.get(strategy_name, self.strategies["tool_output_cleanup"])
+        strategy = self.strategies.get(self.args.conversation_prune_strategy, self.strategies["tool_output_cleanup"])
 
         if strategy.name == "tool_output_cleanup":
             return self._tool_output_cleanup_prune(conversations, strategy.config)
+        elif strategy.name == "summarize":
+            return self._summarize_prune(conversations, strategy.config)
+        elif strategy.name == "truncate":
+            return self._truncate_prune(conversations, strategy.config)
+        elif strategy.name == "hybrid":
+            return self._hybrid_prune(conversations, strategy.config)
         else:
-            printer.print_text(f"未知策略：{strategy_name}，已改为使用 tool_output_cleanup", style="yellow")
+            printer.print_text(f"未知策略：{strategy_name}，已默认使用占位策略", style="yellow")
             return self._tool_output_cleanup_prune(conversations, strategy.config)
+
+    def _hybrid_prune(self, conversations: List[Dict[str, Any]], config: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """ 混合裁剪策略 """
+        safe_zone_tokens = config.get("safe_zone_tokens", 50 * 1024)
+        group_size = config.get("group_size", 4)
+        current_tokens = count_tokens(json.dumps(conversations, ensure_ascii=False))
+
+        # 混合裁剪策略
+        # 1. 如果会话长度<10,还超过safe_zone_tokens,说明单个会话超大,此时如果使用占位和截断将导致重要信息丢失,故采用摘要策略
+        # 2. 如果会话长度处于 11 - 50 之间,说明这是一个刚运行不久的agent,以考虑直接使用占位策略
+        # 3. 如果会话长度处于 51 - 100 之间,说明这个agent已经运行了比较久或者是跑了多轮的agent,通过使用占位和摘要结合使用
+        # 4. 如果会话长度 >100,说明这是一个运行了超长时间的agent,通过使用占位,摘要和截断结合使用
+
+        if len(conversations) <= 10:  # 摘要
+            return self._summarize_prune(conversations,
+                                         config={
+                                             "safe_zone_tokens": self.args.conversation_prune_safe_zone_tokens,
+                                             "group_size": 2  # 使用独立的config
+                                         })
+        elif 11 <= len(conversations) <= 50:  # 占位
+            return self._tool_output_cleanup_prune(conversations, config=config)
+        elif 51 <= len(conversations) <= 100:  # 摘要+占位
+            summarized = self._summarize_prune(conversations,
+                                               config={
+                                                   "safe_zone_tokens": int(current_tokens * 0.8),
+                                                   "group_size": self.args.conversation_prune_group_size
+                                               })
+            summarized_tokens = count_tokens(json.dumps(summarized, ensure_ascii=False))
+            if summarized_tokens > self.args.conversation_prune_safe_zone_tokens:
+                return self._tool_output_cleanup_prune(summarized, config=config)
+            return summarized
+        else:  # 截断+摘要+占位
+            truncated = self._truncate_prune(conversations,
+                                             config={
+                                                 "safe_zone_tokens": int(current_tokens * 0.8),
+                                                 "group_size": self.args.conversation_prune_group_size
+                                             })
+            truncated_tokens = count_tokens(json.dumps(truncated, ensure_ascii=False))
+            if truncated_tokens > self.args.conversation_prune_safe_zone_tokens:
+                summarized = self._summarize_prune(truncated,
+                                                   config={
+                                                       "safe_zone_tokens": int(truncated_tokens * 0.8),
+                                                       "group_size": self.args.conversation_prune_group_size
+                                                   })
+                summarized_tokens = count_tokens(json.dumps(summarized, ensure_ascii=False))
+                if summarized_tokens > self.args.conversation_prune_safe_zone_tokens:
+                    return self._tool_output_cleanup_prune(summarized, config=config)
+                return summarized
+            return truncated
+
+    def _truncate_prune(self, conversations: List[Dict[str, Any]], config: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """截断式剪枝"""
+        safe_zone_tokens = config.get("safe_zone_tokens", 50 * 1024)
+        group_size = config.get("group_size", 4)
+        processed_conversations = conversations.copy()
+
+        system_conversations, other_conversations = self._split_system_messages(processed_conversations)
+
+        init_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
+        printer.print_text(f"[截断裁剪策略]对话: {len(system_conversations + other_conversations)} 条, "
+                           f"Token计数: {init_tokens}",
+                           style="green")
+        while True:
+            current_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
+            if current_tokens <= safe_zone_tokens:
+                printer.print_text(f"Token计数（{current_tokens}）已在安全区（{safe_zone_tokens}）内，停止裁剪",
+                                   style="green")
+                break
+
+            # 如果剩余对话不足一组，直接返回系统提示词列表
+            if len(other_conversations) <= group_size:
+                return system_conversations
+
+            # 移除最早的一组对话
+            other_conversations = other_conversations[group_size:]
+
+        final_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
+        printer.print_text(f"[截断裁剪策略]清理完成, Token计数：{init_tokens} → {final_tokens}", style="green")
+
+        return system_conversations + other_conversations
+
+    def _summarize_prune(self, conversations: List[Dict[str, Any]], config: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """ 摘要式剪枝 """
+        safe_zone_tokens = config.get("safe_zone_tokens", 50 * 1024)
+        group_size = config.get("group_size", 4)
+        processed_conversations = conversations.copy()
+
+        system_conversations, other_conversations = self._split_system_messages(processed_conversations)
+
+        init_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
+        printer.print_text(f"[摘要裁剪策略]对话: {len(system_conversations + other_conversations)} 条, "
+                           f"Token计数: {init_tokens}",
+                           style="green")
+        while True:
+            current_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
+            if current_tokens <= safe_zone_tokens:
+                printer.print_text(f"Token计数（{current_tokens}）已在安全区（{safe_zone_tokens}）内，停止裁剪",
+                                   style="green")
+                break
+
+            # 找到要处理的对话组
+            early_conversations = other_conversations[:group_size]
+            recent_conversations = other_conversations[group_size:]
+
+            if not early_conversations:
+                break
+
+            # 生成当前组的摘要
+            group_summary = self._generate_summary.with_llm(self.llm).run(
+                conversations=early_conversations[-group_size:]
+            )
+
+            # 更新对话历史
+            other_conversations = [
+                                       {"role": "user", "content": f"历史对话摘要：\n{group_summary.output}"},
+                                       {"role": "assistant", "content": f"收到"}
+                                   ] + recent_conversations
+
+        final_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
+        printer.print_text(f"[摘要裁剪策略]清理完成, Token计数：{init_tokens} → {final_tokens}", style="green")
+        return system_conversations + other_conversations
+
+    @prompt()
+    def _generate_summary(self, conversations: List[Dict[str, Any]]) -> str:
+        """
+        请用中文将以下对话浓缩为要点, 保留关键决策和技术细节, 浓缩要点字数要求为原文的 30% 左右：
+
+        <history_conversations>
+        {{conversations}}
+        </history_conversations>
+        """
 
     def _tool_output_cleanup_prune(self, conversations: List[Dict[str, Any]], config: Dict[str, Any]
                                    ) -> List[Dict[str, Any]]:
@@ -609,7 +774,7 @@ class ConversationsPruner:
             if conv.get("role") == "user" and isinstance(conv.get("content"), str) and self._is_tool_result_message(conv.get("content", "")):
                 tool_result_indices.append(i)
 
-        printer.print_text(f"发现 {len(tool_result_indices)} 条可能需要清理的工具结果消息", style="green")
+        printer.print_text(f"[占位裁剪策略]发现 {len(tool_result_indices)} 条可能需要清理的工具结果消息", style="green")
 
         # 依次清理工具输出，从首个输出开始
         init_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
@@ -617,13 +782,13 @@ class ConversationsPruner:
             current_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
 
             if current_tokens <= safe_zone_tokens:
-                printer.print_text(f"Token计数（{current_tokens}）已在安全区（{safe_zone_tokens}）内，停止清理", style="green")
+                printer.print_text(f"Token计数（{current_tokens}）已在安全区（{safe_zone_tokens}）内，停止裁剪", style="green")
                 break
 
             # 提取工具名称以生成更具体的替换消息
             tool_name = self._extract_tool_name(processed_conversations[tool_index]["content"])
             if tool_name in ["RecordMemoryTool"]:
-                printer.print_text(f"已跳过清理索引[{tool_index}]的工具结果({tool_name})")
+                printer.print_text(f"[占位裁剪策略]已跳过清理索引[{tool_index}]的工具结果({tool_name})")
             else:
                 replacement_content = self._generate_replacement_message(tool_name)
 
@@ -632,12 +797,12 @@ class ConversationsPruner:
                 processed_conversations[tool_index]["content"] = replacement_content
 
                 printer.print_text(
-                    f"已清理索引[{tool_index}]的工具结果({tool_name}),字符数从 {len(original_content)} 减少到 {len(replacement_content)}",
+                    f"[占位裁剪策略]已清理索引[{tool_index}]的工具结果({tool_name}),字符数从 {len(original_content)} 减少到 {len(replacement_content)}",
                     style="green"
                 )
 
         final_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
-        printer.print_text(f"清理完成。Token计数：{init_tokens} → {final_tokens}", style="green")
+        printer.print_text(f"[占位裁剪策略]清理完成。Token计数：{init_tokens} → {final_tokens}", style="green")
 
         return processed_conversations
 
