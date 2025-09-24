@@ -83,7 +83,8 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     AskFollowupQuestionTool: AskFollowupQuestionToolResolver,
     AttemptCompletionTool: AttemptCompletionToolResolver,  # Will stop the loop anyway
     TodoReadTool: TodoReadToolResolver,
-    TodoWriteTool: TodoWriteToolResolver
+    TodoWriteTool: TodoWriteToolResolver,
+    WebSearchTool: WebSearchToolResolver
 }
 
 
