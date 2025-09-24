@@ -13,12 +13,12 @@ from autocoder_nano.utils.printer_utils import Printer
 printer = Printer()
 
 if typing.TYPE_CHECKING:
-    from autocoder_nano.agent.agentic_edit import AgenticEdit
+    from autocoder_nano.agent.agentic_runtime import AgenticRuntime
 
 
 class TodoWriteToolResolver(BaseToolResolver):
     def __init__(
-            self, agent: Optional[Union['AgenticEdit']],
+            self, agent: Optional[Union['AgenticRuntime']],
             tool: TodoWriteTool, args: AutoCoderArgs
     ):
         super().__init__(agent, tool, args)

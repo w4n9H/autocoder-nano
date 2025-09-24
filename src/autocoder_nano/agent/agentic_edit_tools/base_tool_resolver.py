@@ -6,15 +6,12 @@ from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.actypes import AutoCoderArgs
 
 if typing.TYPE_CHECKING:
-    from autocoder_nano.agent.agentic_edit import AgenticEdit
-    from autocoder_nano.agent.agentic_ask import AgenticAsk
-    from autocoder_nano.agent.agentic_cost import AgenticCost
-    from autocoder_nano.agent.agentic_report import AgenticReport
+    from autocoder_nano.agent.agentic_runtime import AgenticRuntime
 
 
 class BaseToolResolver(ABC):
     def __init__(
-            self, agent: Optional[Union['AgenticEdit', 'AgenticAsk', 'AgenticCost', 'AgenticReport']],
+            self, agent: Optional[Union['AgenticRuntime']],
             tool: BaseTool, args: AutoCoderArgs
     ):
         """

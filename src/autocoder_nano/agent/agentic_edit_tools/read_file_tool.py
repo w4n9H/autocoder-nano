@@ -10,14 +10,12 @@ from autocoder_nano.actypes import AutoCoderArgs, SourceCode
 from autocoder_nano.context import ContentPruner
 
 if typing.TYPE_CHECKING:
-    from autocoder_nano.agent.agentic_edit import AgenticEdit
-    from autocoder_nano.agent.agentic_ask import AgenticAsk
-    from autocoder_nano.agent.agentic_cost import AgenticCost
+    from autocoder_nano.agent.agentic_runtime import AgenticRuntime
 
 
 class ReadFileToolResolver(BaseToolResolver):
     def __init__(
-            self, agent: Optional[Union['AgenticEdit', 'AgenticAsk', 'AgenticCost']],
+            self, agent: Optional[Union['AgenticRuntime']],
             tool: ReadFileTool, args: AutoCoderArgs
     ):
         super().__init__(agent, tool, args)

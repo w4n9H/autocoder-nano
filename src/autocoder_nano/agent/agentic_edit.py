@@ -26,7 +26,7 @@ from autocoder_nano.agent.agentic_edit_tools import (  # Import specific resolve
     ExecuteCommandToolResolver, ReadFileToolResolver, WriteToFileToolResolver,
     ReplaceInFileToolResolver, SearchFilesToolResolver, ListFilesToolResolver,
     AskFollowupQuestionToolResolver, TodoReadToolResolver, TodoWriteToolResolver,
-    AttemptCompletionToolResolver, PlanModeRespondToolResolver,
+    AttemptCompletionToolResolver,
 )
 
 printer = Printer()
@@ -42,7 +42,6 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     ListFilesTool: ListFilesToolResolver,
     AskFollowupQuestionTool: AskFollowupQuestionToolResolver,
     AttemptCompletionTool: AttemptCompletionToolResolver,  # Will stop the loop anyway
-    PlanModeRespondTool: PlanModeRespondToolResolver,
     TodoReadTool: TodoReadToolResolver,
     TodoWriteTool: TodoWriteToolResolver
 }

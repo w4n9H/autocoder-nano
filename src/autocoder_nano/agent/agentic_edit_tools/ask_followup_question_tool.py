@@ -9,15 +9,13 @@ from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.utils.printer_utils import Printer
 
 if typing.TYPE_CHECKING:
-    from autocoder_nano.agent.agentic_edit import AgenticEdit
-    from autocoder_nano.agent.agentic_ask import AgenticAsk
-    from autocoder_nano.agent.agentic_report import AgenticReport
+    from autocoder_nano.agent.agentic_runtime import AgenticRuntime
 
 printer = Printer()
 
 
 class AskFollowupQuestionToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional[Union['AgenticEdit', 'AgenticAsk', 'AgenticReport']],
+    def __init__(self, agent: Optional[Union['AgenticRuntime']],
                  tool: AskFollowupQuestionTool,
                  args: AutoCoderArgs):
         super().__init__(agent, tool, args)

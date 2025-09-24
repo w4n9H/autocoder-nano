@@ -12,7 +12,7 @@ from autocoder_nano.utils.printer_utils import Printer
 printer = Printer()
 
 if typing.TYPE_CHECKING:
-    from autocoder_nano.agent.agentic_report import AgenticReport
+    from autocoder_nano.agent.agentic_runtime import AgenticRuntime
 
 
 # 定义Jinja2模板
@@ -33,7 +33,7 @@ Web搜索结果 (共{{ results|length }}条):
 
 class WebSearchToolResolver(BaseToolResolver):
     def __init__(
-            self, agent: Optional[Union['AgenticReport']],
+            self, agent: Optional[Union['AgenticRuntime']],
             tool: WebSearchTool, args: AutoCoderArgs
     ):
         super().__init__(agent, tool, args)
