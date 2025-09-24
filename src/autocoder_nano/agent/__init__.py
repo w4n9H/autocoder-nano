@@ -1,50 +1,56 @@
-from autocoder_nano.agent.agentic_ask import AgenticAsk
-from autocoder_nano.agent.agentic_edit import AgenticEdit
-from autocoder_nano.agent.agentic_cost import AgenticCost
-from autocoder_nano.agent.agentic_report import AgenticReport
+import json
+
+from autocoder_nano.agent.agentic_runtime import AgenticRuntime
 from autocoder_nano.agent.agentic_edit_types import AgenticEditRequest, AgenticEditConversationConfig
-from autocoder_nano.core import AutoLLM
+from autocoder_nano.core import AutoLLM, prompt, extract_code
 from autocoder_nano.actypes import SourceCodeList, AutoCoderArgs
 
 
-def run_edit_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig):
+@prompt()
+def _generate_agent_type(user_input: str):
+    """
+    收到用户需求后，你需要快速判断该需求的类型是编码需求还是深度研究需求
+
+    # 用户需求
+
+    {{ user_input }}
+
+    # 最终输出格式
+
+    ```json
+    {
+        "agent_type": "coding",
+        "decision_rationale": "需求中带上了明确的代码文件名，函数名，类名，以及改动点，属于编码需求。"
+    }
+    ```
+
+    - agent_type：根据用户需求快速判断 agent 任务类型
+        * coding: 编码需求, 有明确的文件变更需求的都属于此类。
+        * research: 深度研究需求，要求输出方案，报告的都属于研究需求。
+    - decision_rationale：判断原因说明，在20字以内
+
+    # 约束与核心规则
+
+    - 果断明确：你的决策必须是非黑即白的，不允许使用 “可能”，“也许” 等模糊词汇。
+    - 效率优先：你的分析应在最短时间内完成，进行初步判断，本身不应消耗过多Token成本。
+    - 严格输出 json 格式
+    """
+
+
+def run_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig):
+
+    llm.setup_default_model_name(args.code_model)
+    agent_router_raw = _generate_agent_type.with_llm(llm).run(user_input=args.query)
+    agent_router = json.loads(extract_code(agent_router_raw.output)[0][1])
+    agent_type = agent_router["agent_type"]
+
     sources = SourceCodeList([])
-    agentic_editor = AgenticEdit(
-        args=args, llm=llm, files=sources, history_conversation=[], conversation_config=conversation_config,
+    agentic_runner = AgenticRuntime(
+        args=args, llm=llm, agent_type=agent_type,
+        files=sources, history_conversation=[], conversation_config=conversation_config,
     )
     request = AgenticEditRequest(user_input=args.query)
-    agentic_editor.run_in_terminal(request)
+    agentic_runner.run_in_terminal(request)
 
 
-def run_ask_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig):
-    sources = SourceCodeList([])
-    agentic_asker = AgenticAsk(
-        args=args, llm=llm, files=sources, history_conversation=[], conversation_config=conversation_config,
-    )
-    request = AgenticEditRequest(user_input=args.query)
-    agentic_asker.run_in_terminal(request)
-
-
-def run_cost_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig) -> str:
-    sources = SourceCodeList([])
-    agentic_coster = AgenticCost(
-        args=args, llm=llm, files=sources, history_conversation=[], conversation_config=conversation_config,
-    )
-    request = AgenticEditRequest(user_input=args.query)
-    return agentic_coster.run_in_terminal(request)
-
-
-def run_report_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig):
-    sources = SourceCodeList([])
-    agentic_reporter = AgenticReport(
-        args=args, llm=llm, files=sources, history_conversation=[], conversation_config=conversation_config,
-    )
-    request = AgenticEditRequest(user_input=args.query)
-    agentic_reporter.run_in_terminal(request)
-
-
-__all__ = ["run_edit_agentic",
-           "AgenticEditConversationConfig",
-           "run_ask_agentic",
-           "run_cost_agentic",
-           "run_report_agentic"]
+__all__ = ["AgenticEditConversationConfig", "run_agentic"]

@@ -184,8 +184,6 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "list_files": ListFilesTool,
     "ask_followup_question": AskFollowupQuestionTool,
     "attempt_completion": AttemptCompletionTool,
-    "plan_mode_respond": PlanModeRespondTool,
-    "use_rag_tool": UseRAGTool,
     "record_memory": RecordMemoryTool,
     "recall_memory": RecallMemoryTool,
     "web_search": WebSearchTool,

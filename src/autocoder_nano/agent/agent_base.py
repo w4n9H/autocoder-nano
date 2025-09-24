@@ -1,12 +1,19 @@
+import hashlib
 import json
 import re
+import os
 import xml.sax.saxutils
+from importlib import resources
 
-from autocoder_nano.actypes import AutoCoderArgs
-from autocoder_nano.core import AutoLLM, format_str_jinja2
+from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
+from autocoder_nano.core import AutoLLM, format_str_jinja2, prompt
+from autocoder_nano.rag.token_counter import count_tokens
+from autocoder_nano.utils.config_utils import prepare_chat_yaml, get_last_yaml_file, convert_yaml_config_to_str
+from autocoder_nano.utils.git_utils import get_uncommitted_changes, commit_changes
 from autocoder_nano.utils.printer_utils import Printer
 from autocoder_nano.agent.agentic_edit_types import *
-
+from autocoder_nano.agent.agentic_edit_tools import *
+from autocoder_nano.utils.sys_utils import detect_env
 
 printer = Printer()
 
@@ -62,6 +69,46 @@ TOOL_DISPLAY_MESSAGES: Dict[Type[BaseTool], Dict[str, str]] = {
         "zh": (
             "AutoCoder Nano 正在联网搜索, 关键词：\n{{ query }}"
         )
+    }
+}
+
+
+TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
+    ExecuteCommandTool: ExecuteCommandToolResolver,
+    ReadFileTool: ReadFileToolResolver,
+    WriteToFileTool: WriteToFileToolResolver,
+    ReplaceInFileTool: ReplaceInFileToolResolver,
+    SearchFilesTool: SearchFilesToolResolver,
+    ListFilesTool: ListFilesToolResolver,
+    AskFollowupQuestionTool: AskFollowupQuestionToolResolver,
+    AttemptCompletionTool: AttemptCompletionToolResolver,  # Will stop the loop anyway
+    TodoReadTool: TodoReadToolResolver,
+    TodoWriteTool: TodoWriteToolResolver
+}
+
+
+AGENT_INIT = {
+    "coding": {
+        "tools": [
+            "execute_command",
+            "read_file",
+            "write_to_file",
+            "replace_in_file",
+            "search_files",
+            "list_files",
+            "ask_followup_question",
+            "attempt_completion",
+            "todo_read",
+            "todo_write"
+        ]
+    },
+    "research": {
+        "tools": [
+            "web_search",
+            "ask_followup_question",
+            "attempt_completion",
+            "write_to_file"
+        ]
     }
 }
 
@@ -369,5 +416,260 @@ class BaseAgent:
         # 这个要放在最后，防止其他关联的多个事件的信息中断
         yield TokenUsageEvent(usage=last_metadata)
 
-    # def run(self, request) -> Generator:
-    #     raise NotImplementedError
+    def _apply_pre_changes(self):
+        uncommitted_changes = get_uncommitted_changes(self.args.source_dir)
+        if uncommitted_changes != "No uncommitted changes found.":
+            raise Exception("代码中包含未提交的更新,请执行/commit")
+
+    def _apply_changes(self, request: AgenticEditRequest):
+        """ Apply all tracked file changes to the original project directory. """
+        changes = get_uncommitted_changes(self.args.source_dir)
+
+        if changes != "No uncommitted changes found.":
+            # if not self.args.skip_commit:
+            # 有变更才进行下一步操作
+            prepare_chat_yaml(self.args.source_dir)  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
+
+            latest_yaml_file = get_last_yaml_file(self.args.source_dir)
+
+            if latest_yaml_file:
+                yaml_config = {
+                    "include_file": ["./base/base.yml"],
+                    "skip_build_index": self.args.skip_build_index,
+                    "skip_confirm": self.args.skip_confirm,
+                    "chat_model": self.args.chat_model,
+                    "code_model": self.args.code_model,
+                    "auto_merge": self.args.auto_merge,
+                    "context": "",
+                    "query": request.user_input,
+                    "urls": [],
+                    "file": latest_yaml_file
+                }
+                yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
+                execute_file = os.path.join(self.args.source_dir, "actions", latest_yaml_file)
+                with open(os.path.join(execute_file), "w") as f:
+                    f.write(yaml_content)
+
+                md5 = hashlib.md5(yaml_content.encode("utf-8")).hexdigest()
+
+                try:
+                    commit_message = commit_changes(
+                        self.args.source_dir, f"auto_coder_{latest_yaml_file}_{md5}",
+                    )
+                    if commit_message:
+                        printer.print_text(f"Commit 成功", style="green")
+                except Exception as err:
+                    import traceback
+                    traceback.print_exc()
+                    printer.print_text(f"Commit 失败: {err}", style="red")
+        else:
+            printer.print_text(f"文件未进行任何更改, 无需 Commit", style="yellow")
+
+    @staticmethod
+    def _count_conversations_tokens(conversations: list):
+        return count_tokens(json.dumps(conversations, ensure_ascii=False))
+
+    def _handle_token_usage_event(self, event, accumulated_token_usage):
+        """处理token使用事件"""
+        last_meta: SingleOutputMeta = event.usage
+
+        # 累计token使用情况
+        accumulated_token_usage["model_name"] = self.args.chat_model
+        accumulated_token_usage["input_tokens"] += last_meta.input_tokens_count
+        accumulated_token_usage["output_tokens"] += last_meta.generated_tokens_count
+
+        printer.print_text(f"📝 Token 使用: "
+                           f"Input({last_meta.input_tokens_count})/"
+                           f"Output({last_meta.generated_tokens_count})",
+                           style="green")
+
+    def _handle_tool_call_event(self, event):
+        """处理工具调用事件"""
+        # 跳过显示AttemptCompletionTool的工具调用
+        if isinstance(event.tool, AttemptCompletionTool):
+            return
+
+        tool_name = type(event.tool).__name__
+        # 使用新的国际化显示功能
+        display_content = self.get_tool_display_message(event.tool)
+        printer.print_panel(content=display_content, title=f"🛠️ 工具调用: {tool_name}", center=True)
+
+    def _handle_tool_result_event(self, event):
+        """处理工具结果事件"""
+        if event.tool_name in ["AttemptCompletionTool", "PlanModeRespondTool"]:
+            return
+
+        result = event.result
+        title = f"✅ 工具返回: {event.tool_name}" if result.success else f"❌ 工具返回: {event.tool_name}"
+        border_style = "green" if result.success else "red"
+        base_content = f"状态: {'成功' if result.success else '失败'}\n"
+        base_content += f"信息: {result.message}\n"
+
+        # 准备面板内容
+        panel_content = [base_content]
+        content_str = self._format_tool_result_content(result.content)
+
+        # 确定语法高亮器
+        lexer = self._determine_content_lexer(event.tool_name, result.message)
+
+        # 打印基础信息面板
+        printer.print_panel(
+            content="\n".join(panel_content), title=title, border_style=border_style, center=True)
+
+        # 打印语法高亮内容
+        if content_str:
+            printer.print_code(
+                code=content_str, lexer=lexer, theme="monokai", line_numbers=True, panel=True)
+
+    @staticmethod
+    def _format_tool_result_content(result_content, max_len: int = 500):
+        """格式化工具返回的内容"""
+
+        def _format_content(_content):
+            if len(_content) > max_len:
+                return f"{_content[:200]}\n\n\n......\n\n\n{_content[-200:]}"
+            else:
+                return _content
+
+        content_str = ""
+        if result_content is not None:
+            try:
+                if isinstance(result_content, (dict, list)):
+                    content_str = _format_content(json.dumps(result_content, indent=2, ensure_ascii=False))
+                elif isinstance(result_content, str) and (
+                        '\n' in result_content or result_content.strip().startswith('<')):
+                    content_str = _format_content(str(result_content))
+                else:
+                    content_str = str(result_content)
+            except Exception as e:
+                printer.print_text(f"Error formatting tool result content: {e}", style="yellow")
+                content_str = _format_content(str(result_content))
+
+        return content_str
+
+    @staticmethod
+    def _determine_content_lexer(tool_name, result_message):
+        """根据工具类型和内容确定语法高亮器"""
+        lexer = "python"  # Default guess
+        if tool_name == "ReadFileTool" and isinstance(result_message, str):
+            # Try to guess lexer from file extension in message
+            if ".py" in result_message:
+                lexer = "python"
+            elif ".js" in result_message:
+                lexer = "javascript"
+            elif ".ts" in result_message:
+                lexer = "typescript"
+            elif ".html" in result_message:
+                lexer = "html"
+            elif ".css" in result_message:
+                lexer = "css"
+            elif ".json" in result_message:
+                lexer = "json"
+            elif ".xml" in result_message:
+                lexer = "xml"
+            elif ".md" in result_message:
+                lexer = "markdown"
+            else:
+                lexer = "text"  # Fallback lexer
+        elif tool_name == "ExecuteCommandTool":
+            lexer = "shell"
+        else:
+            lexer = "text"
+
+        return lexer
+
+
+class ToolResolverFactory:
+    """工具解析器工厂"""
+
+    def __init__(self):
+        self._resolvers: Dict[Type[BaseTool], Type[BaseToolResolver]] = {}
+
+    def register_resolver(self, tool_type: Type[BaseTool], resolver_class: Type[BaseToolResolver]) -> None:
+        """
+        注册工具解析器
+        Args:
+            tool_type: 工具类型
+            resolver_class: 解析器类
+        """
+        if not issubclass(resolver_class, BaseToolResolver):
+            raise ValueError(f"Resolver class {resolver_class} must be a subclass of BaseToolResolver")
+
+        self._resolvers[tool_type] = resolver_class
+        printer.print_text(f"✅ 注册工具解析器: {tool_type.__name__} -> {resolver_class.__name__}", style="green")
+
+    def register_dynamic_resolver(self, agent_type):
+        if agent_type not in AGENT_INIT:
+            raise Exception(f"未内置该[{agent_type}] Agent 类型")
+
+        tool_list = AGENT_INIT[agent_type]["tools"]
+
+        for tool in tool_list:
+            _tool_type = TOOL_MODEL_MAP[tool]
+            _resolver_class = TOOL_RESOLVER_MAP[_tool_type]
+
+            self.register_resolver(_tool_type, _resolver_class)
+
+    def get_resolvers(self):
+        return self._resolvers
+
+    def get_resolver(self, tool_type: Type[BaseTool]):
+        if not self.has_resolver(tool_type):
+            raise Exception(f"{tool_type} 工具类型不存在")
+        return self._resolvers[tool_type]
+
+    def has_resolver(self, tool_type: Type[BaseTool]) -> bool:
+        """检查是否有指定工具类型的解析器"""
+        return tool_type in self._resolvers
+
+    def get_registered_tools(self) -> list:
+        """获取所有已注册的工具类型"""
+        return list(self._resolvers.keys())
+
+    def clear_instances(self) -> None:
+        """清除所有解析器实例"""
+        self._resolvers.clear()
+        printer.print_text("🔄 已清除所有工具解析器实例", style="yellow")
+
+
+class PromptManager:
+    """ 提示词管理器 - 集中管理所有提示词模板 """
+
+    def __init__(self, args):
+        self.args = args
+        self.prompts_dirs = resources.files("autocoder_nano").joinpath("agent/prompt").__str__()
+
+        if not os.path.exists(self.prompts_dirs):
+            raise Exception(f"{self.prompts_dirs} 提示词目录不存在")
+
+    def load_prompt_file(self, agent_type, prompt_type) -> str:
+        _prompt_file_name = f"{agent_type}_{prompt_type}_prompt.md"
+        _prompt_file_path = os.path.join(self.prompts_dirs, _prompt_file_name)
+
+        if not os.path.exists(_prompt_file_path):
+            raise Exception(f"{_prompt_file_path} 提示词文件不存在")
+
+        with open(_prompt_file_path, 'r') as fp:
+            prompt_str = fp.read()
+        return prompt_str
+
+    @prompt()
+    def prompt_sysinfo(self):
+        """
+        # 系统信息
+
+        操作系统：{{os_distribution}}
+        默认 Shell：{{shell_type}}
+        主目录：{{home_dir}}
+        当前工作目录：{{current_project}}
+        """
+        env_info = detect_env()
+        shell_type = "bash"
+        if not env_info.has_bash:
+            shell_type = "cmd/powershell"
+        return {
+            "current_project": os.path.abspath(self.args.source_dir),
+            "home_dir": env_info.home_dir,
+            "os_distribution": env_info.os_name,
+            "shell_type": shell_type,
+        }
