@@ -17,8 +17,7 @@ from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
-from autocoder_nano.agent import (run_edit_agentic, AgenticEditConversationConfig, run_ask_agentic,
-                                  run_cost_agentic, run_report_agentic)
+from autocoder_nano.agent import AgenticEditConversationConfig, run_agentic
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.actypes import *
@@ -710,11 +709,7 @@ def auto_command(query: str, llm: AutoLLM):
                 conversation_config.action = "new"
                 conversation_config.query = query.strip()
                 conversation_config.conversation_id = None
-                printer.print_panel(
-                    Text("Agent 新会话已开始.", style="green"),
-                    title="Agent Session Status",
-                    center=True
-                )
+                printer.print_text(f"Agent 新会话已开始.", style="green")
         else:
             # 这里可能需要判断一下会话id是否真实存在
             conversation_config.action = "resume"
@@ -727,11 +722,7 @@ def auto_command(query: str, llm: AutoLLM):
         conversation_config.action = "new"
         conversation_config.query = query
         conversation_config.conversation_id = None
-        printer.print_panel(
-            Text("Agent 新会话已开始.", style="green"),
-            title="Agent Session Status",
-            center=True
-        )
+        printer.print_text(f"Agent 新会话已开始.", style="green")
     elif "/resume" in query:
         query = query.replace("/resume", "", 1).strip()
         convs = gcm.list_conversations(limit=10)
@@ -749,23 +740,8 @@ def auto_command(query: str, llm: AutoLLM):
         _resume_conversation(query)
 
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
-    cost = run_cost_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
-    # 使用历史对话
-    conversation_config.action = "resume"
-    conversation_config.conversation_id = gcm.get_current_conversation_id()
-
-    cost_dict = json.loads(cost)
-    if cost_dict and isinstance(cost_dict, dict):
-        printer.print_key_value(items=cost_dict)
-        if cost_dict["need_ask"]:
-            run_ask_agentic(llm=llm, args=args, conversation_config=conversation_config)
-        if cost_dict["need_research"]:
-            run_report_agentic(llm=llm, args=args, conversation_config=conversation_config)
-
-        run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
-    else:
-        run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    run_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def long_context_auto_command(llm: AutoLLM):
@@ -783,7 +759,7 @@ def long_context_auto_command(llm: AutoLLM):
         action="new",
         query=query.strip()
     )
-    run_edit_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    run_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def context_command(context_args):

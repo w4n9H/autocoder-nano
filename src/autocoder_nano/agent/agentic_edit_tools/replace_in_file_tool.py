@@ -1,17 +1,18 @@
 import os
 import typing
-from typing import Tuple
+from typing import Tuple, Union
 
 from autocoder_nano.agent.agentic_edit_tools.base_tool_resolver import BaseToolResolver
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.actypes import AutoCoderArgs
 
 if typing.TYPE_CHECKING:
-    from autocoder_nano.agent.agentic_edit import AgenticEdit
+    from autocoder_nano.agent.agentic_runtime import AgenticRuntime
 
 
 class ReplaceInFileToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit'], tool: ReplaceInFileTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticRuntime']],
+                 tool: ReplaceInFileTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: ReplaceInFileTool = tool  # For type hinting
         self.args = args

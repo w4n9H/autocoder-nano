@@ -44,7 +44,8 @@ setup(
         "autocoder_nano": [
             "data/**/*",
             'app/static/**/*',
-            'app/templates/**/*'
+            'app/templates/**/*',
+            'agent/prompt/**/*'
         ],
     },
     install_requires=install_requires,

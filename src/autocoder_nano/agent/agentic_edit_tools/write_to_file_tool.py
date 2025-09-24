@@ -1,17 +1,18 @@
 import os
 import typing
-from typing import Optional
+from typing import Optional, Union
 
 from autocoder_nano.agent.agentic_edit_tools.base_tool_resolver import BaseToolResolver
 from autocoder_nano.agent.agentic_edit_types import WriteToFileTool, ToolResult
 from autocoder_nano.actypes import AutoCoderArgs
 
 if typing.TYPE_CHECKING:
-    from autocoder_nano.agent.agentic_edit import AgenticEdit
+    from autocoder_nano.agent.agentic_runtime import AgenticRuntime
 
 
 class WriteToFileToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional['AgenticEdit'], tool: WriteToFileTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticRuntime']],
+                 tool: WriteToFileTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: WriteToFileTool = tool  # For type hinting
         self.args = args
