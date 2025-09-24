@@ -119,16 +119,6 @@ Array of options here (optional), e.g. ["Option 1", "Option 2", "Option 3"]
 Your final result description here
 </result>
 <command>Command to demonstrate result (optional)</command>
-</attempt_completion>
-用法示例：
-场景一：输出综合性研究报告内容
-目标：向用户展示综合性研究报告内容。
-思维过程：所有查询检索工作都已完成，通过验证，分析，现在向用户展示综合性研究报告内容。
-<attempt_completion>
-<result>
-综合性研究报告具体内容
-</result>
-</attempt_completion>
 
 # 错误处理
 - 如果工具调用失败，你需要分析错误信息，并重新尝试，或者向用户报告错误并请求帮助（使用 ask_followup_question 工具）

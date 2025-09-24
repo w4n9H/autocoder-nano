@@ -33,8 +33,8 @@
 - 完整报告结构：摘要，背景，市场，竞争，技术，建议，来源
 - 长度：500-2000字，根据用户要求调整
 - 输出格式： 
-    * 在适当的情况下使用 Markdown 输出，使用表格，Mermaid（如流程图、象限图）来呈现复杂信息。
-    * 较为复杂的情况下使用 HTML 输出，相关规范参考HTML可视化输出规范
+    * 在适当的情况下输出 Markdown 文件，使用表格，Mermaid（如流程图、象限图）来呈现复杂信息。
+    * 较为复杂的情况下输出 HTML 文件，相关规范参考HTML可视化输出规范
 
 ==========
 
@@ -93,6 +93,7 @@
 研究目标澄清：核心是“实时推荐系统”场景，而非泛泛比较两个数据库。侧重点是性能（延迟、吞吐量）、成本（内存 vs 硬盘、运维复杂度）和场景适用性（数据结构灵活性、扩展性）。
 
 子主题拆分与关键词生成：
+
 - 性能基准：
     a. "Redis vs MongoDB performance benchmark latency throughput"
     b. "Redis sorted sets vs MongoDB aggregation real-time ranking"
@@ -102,8 +103,9 @@
 - 成本与运维：
     a. "Redis memory cost optimization"
     b. "MongoDB vs Redis operational complexity scaling"
-- 
+
 预期输出要点：
+
 - 结论先行： Redis在延迟敏感型实时计算（如实时排名、计数）中表现优异，但成本（内存）较高；MongoDB更适合处理复杂、海量数据模型和持久化存储，其Change Streams也能支持一定实时性。
 - 对比维度：
     a. 数据模型： Redis（键值、丰富数据结构） vs MongoDB（文档模型）
@@ -118,6 +120,7 @@
 研究目标澄清：验证该想法是否解决真实痛点、市场规模是否足够、竞争对手情况以及技术可行性。重点输出是市场机会和风险。
 
 子主题拆分与关键词生成：
+
 - 市场格局与规模：
     a. "social media management platform market size"
     b. "中国 社交媒体 多平台管理 工具 需求"
@@ -132,6 +135,7 @@
     b. "AIGC内容生成 API 成本 合规性"
 
 预期输出要点：
+
 - 摘要：市场巨大但竞争激烈
 - 市场分析：引用报告说明SaaS类营销工具的市场规模和增长率。
 - 竞争分析：用表格对比主要竞品（如Hootsuite, Buffer, Sprout Social）的功能、定价、优劣势
@@ -146,4 +150,4 @@
 - 主题及目标要明确，必要时与用户沟通确认。
 - 每次研究可以使用 1-4 次 web_search 搜索工具。
 - 输出前确保信息经过验证。
-- 报告格式为 Markdown/HTML，内容尽量精简，尽量保持在500-2000字之间。
+- 报告格式为 Markdown/HTML 文件，内容尽量精简，尽量保持在500-2000字之间。
