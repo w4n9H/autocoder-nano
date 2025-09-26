@@ -5,6 +5,7 @@ from openai import OpenAI, Stream
 from openai.types.chat import ChatCompletionChunk, ChatCompletion
 
 from autocoder_nano.actypes import LLMRequest, LLMResponse, AutoCoderArgs, SingleOutputMeta
+from autocoder_nano.utils.color_utils import COLOR_LLM_CALL, COLOR_WARNING
 from autocoder_nano.utils.printer_utils import Printer
 
 
@@ -41,7 +42,7 @@ class AutoLLM:
             model = self.default_model_name
 
         model_name = self.sub_clients[model]["model_name"]
-        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai]")
+        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai]", style=COLOR_LLM_CALL)
         request = LLMRequest(
             model=model_name,
             messages=conversations
@@ -61,7 +62,7 @@ class AutoLLM:
         client: OpenAI = self.sub_clients[model]["client"]
         model_name = self.sub_clients[model]["model_name"]
 
-        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai_ex]")
+        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai_ex]", style=COLOR_LLM_CALL)
 
         request = LLMRequest(
             model=model_name,
@@ -183,7 +184,7 @@ class AutoLLM:
             conversations = [{"role": "user", "content": conversations}]
 
         model_name = self.sub_clients[model]["model_name"]
-        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[chat_ai]")
+        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[chat_ai]", style=COLOR_LLM_CALL)
         request = LLMRequest(
             model=model_name,
             messages=conversations
@@ -283,6 +284,6 @@ def stream_chat_with_continue(
         if current_metadata.finish_reason != "length" or count >= args.generate_max_rounds:
             if count >= args.generate_max_rounds:
                 printer.print_text(f"LLM生成达到的最大次数, 当前次数:{count}, 最大次数: {args.generate_max_rounds}, "
-                                   f"Tokens: {current_metadata.generated_tokens_count}", style="yellow")
+                                   f"Tokens: {current_metadata.generated_tokens_count}", style=COLOR_WARNING)
             break
         count += 1
