@@ -14,13 +14,14 @@ from autocoder_nano.utils.printer_utils import Printer
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.agent.agentic_edit_tools import *
 from autocoder_nano.utils.sys_utils import detect_env
+from autocoder_nano.utils.color_utils import *
 
 printer = Printer()
 
 
 TOOL_DISPLAY_MESSAGES: Dict[Type[BaseTool], Dict[str, str]] = {
     ReadFileTool: {
-        "zh": "AutoCoder Nano 想要读取此文件：\n {{ path }}"
+        "zh": "读取文件：{{ path }}"
     },
     WriteToFileTool: {
         "zh": (
@@ -127,54 +128,68 @@ class BaseAgent:
         """ 生成一个用户友好的, 国际化的工具调用字符串表示 """
         tool_type = type(tool)
 
-        if tool_type not in TOOL_DISPLAY_MESSAGES:  # Fallback for unknown tools
-            return f"Unknown tool type: {tool_type.__name__}\nData: {tool.model_dump_json(indent=2)}"
+        # if tool_type not in TOOL_DISPLAY_MESSAGES:  # Fallback for unknown tools
+        #     return f"Unknown tool type: {tool_type.__name__}\nData: {tool.model_dump_json(indent=2)}"
 
-        templates = TOOL_DISPLAY_MESSAGES[tool_type]
-        template = templates.get(lang, templates.get("en", "Tool display template not found"))  # Fallback to English
+        # templates = TOOL_DISPLAY_MESSAGES[tool_type]
+        # template = templates.get(lang, templates.get("en", "Tool display template not found"))  # Fallback to English
 
         if isinstance(tool, ReadFileTool):
-            context = {"path": tool.path}
+            # context = {"path": tool.path}
+            context = f"读取文件：{tool.path}"
         elif isinstance(tool, WriteToFileTool):
-            snippet = tool.content[:150]
-            context = {
-                "path": tool.path, "content_snippet": snippet, "ellipsis": '...' if len(tool.content) > 150 else ''
-            }
+            # snippet = tool.content[:150]
+            # context = {
+            #     "path": tool.path, "content_snippet": snippet, "ellipsis": '...' if len(tool.content) > 150 else ''
+            # }
+            context = f"写入文件: {tool.path}"
         elif isinstance(tool, ReplaceInFileTool):
-            snippet = tool.diff
-            context = {
-                "path": tool.path, "diff_snippet": snippet, "ellipsis": ''
-            }
+            # snippet = tool.diff
+            # context = {
+            #     "path": tool.path, "diff_snippet": snippet, "ellipsis": ''
+            # }
+            context = f"变更文件: {tool.path}"
         elif isinstance(tool, ExecuteCommandTool):
-            context = {"command": tool.command, "requires_approval": tool.requires_approval}
+            # context = {"command": tool.command, "requires_approval": tool.requires_approval}
+            context = f"执行命令: {tool.command}"
         elif isinstance(tool, ListFilesTool):
-            context = {"path": tool.path, "recursive_text": '（递归）' if tool.recursive else '（顶层）'}
+            # context = {"path": tool.path, "recursive_text": '（递归）' if tool.recursive else '（顶层）'}
+            context = f"列出目录: {tool.path} ({'递归' if tool.recursive else '顶层'})"
         elif isinstance(tool, SearchFilesTool):
-            context = {
-                "path": tool.path, "file_pattern": tool.file_pattern or '*', "regex": tool.regex
-            }
-        elif isinstance(tool, ListCodeDefinitionNamesTool):
-            context = {"path": tool.path}
+            # context = {
+            #     "path": tool.path, "file_pattern": tool.file_pattern or '*', "regex": tool.regex
+            # }
+            context = f"搜索文件: {tool.path}, 文件模式: {tool.file_pattern}, 正则表达式：{tool.regex}"
+        # elif isinstance(tool, ListCodeDefinitionNamesTool):
+        #     context = {"path": tool.path}
         elif isinstance(tool, AskFollowupQuestionTool):
             options_text_zh = ""
-            if tool.options:
-                options_list_zh = "\n".join(
+            if tool.options and isinstance(tool.options, list):
+                options_text_zh = "\n".join(
                     [f"- {opt}" for opt in tool.options])  # Assuming options are simple enough not to need translation
-                options_text_zh = f"选项：\n{options_list_zh}"
-            context = {
-                "question": tool.question, "options_text": options_text_zh
-            }
+                # options_text_zh = f"选项：\n{options_list_zh}"
+            # context = {
+            #     "question": tool.question, "options_text": options_text_zh
+            # }
+            context = f"模型提问: {tool.question}, 选项：{options_text_zh}"
+        elif isinstance(tool, WebSearchTool):
+            context = f"联网搜索: {tool.query}"
         elif isinstance(tool, RecordMemoryTool):
-            context = {"content": tool.content}
+            # context = {"content": tool.content}
+            context = f"记录记忆: {tool.content[:50]}"
         elif isinstance(tool, RecallMemoryTool):
-            context = {"query": tool.query}
+            # context = {"query": tool.query}
+            context = f"检索记忆: {tool.query}"
         else:
-            context = tool.model_dump()  # Generic context for tools not specifically handled above
+            # context = tool.model_dump()  # Generic context for tools not specifically handled above
+            context = ""
 
         try:
-            return format_str_jinja2(template, **context)
+            # return format_str_jinja2(template, **context)
+            return context
         except Exception as e:
-            return f"Error formatting display for {tool_type.__name__}: {e}\nTemplate: {template}\nContext: {context}"
+            # return f"Error formatting display for {tool_type.__name__}: {e}\nTemplate: {template}\nContext: {context}"
+            return f"Error formatting display for {tool_type.__name__}: {e}\nContext: {context}"
 
     @staticmethod
     def _parse_tool_xml(tool_xml: str, tool_tag: str) -> Optional[BaseTool]:
@@ -184,7 +199,7 @@ class BaseAgent:
             # 在<tool_tag>和</tool_tag>之间查找内容
             inner_xml_match = re.search(rf"<{tool_tag}>(.*?)</{tool_tag}>", tool_xml, re.DOTALL)
             if not inner_xml_match:
-                printer.print_text(f"无法在<{tool_tag}>...</{tool_tag}>标签内找到内容", style="red")
+                printer.print_text(f"无法在<{tool_tag}>...</{tool_tag}>标签内找到内容", style=COLOR_ERROR)
                 return None
             inner_xml = inner_xml_match.group(1).strip()
 
@@ -207,7 +222,7 @@ class BaseAgent:
                         params['options'] = json.loads(params['options'])
                     except json.JSONDecodeError:
                         printer.print_text(f"ask_followup_question_tool 参数JSON解码失败: {params['options']}",
-                                           style="red")
+                                           style=COLOR_ERROR)
                         # 保持为字符串还是处理错误？目前先保持为字符串
                         pass
                 if tool_tag == 'plan_mode_respond' and 'options' in params:
@@ -215,16 +230,16 @@ class BaseAgent:
                         params['options'] = json.loads(params['options'])
                     except json.JSONDecodeError:
                         printer.print_text(f"plan_mode_respond_tool 参数JSON解码失败: {params['options']}",
-                                           style="red")
+                                           style=COLOR_ERROR)
                 # 处理 list_files 工具的递归参数
                 if tool_tag == 'list_files' and 'recursive' in params:
                     params['recursive'] = params['recursive'].lower() == 'true'
                 return tool_cls(**params)
             else:
-                printer.print_text(f"未找到标签对应的工具类: {tool_tag}", style="red")
+                printer.print_text(f"未找到标签对应的工具类: {tool_tag}", style=COLOR_ERROR)
                 return None
         except Exception as e:
-            printer.print_text(f"解析工具XML <{tool_tag}> 失败: {e}\nXML内容:\n{tool_xml}", style="red")
+            printer.print_text(f"解析工具XML <{tool_tag}> 失败: {e}\nXML内容:\n{tool_xml}", style=COLOR_ERROR)
             return None
 
     @staticmethod
@@ -232,7 +247,7 @@ class BaseAgent:
         """ Reconstructs the XML representation of a tool call from its Pydantic model. """
         tool_tag = next((tag for tag, model in TOOL_MODEL_MAP.items() if isinstance(tool, model)), None)
         if not tool_tag:
-            printer.print_text(f"找不到工具类型 {type(tool).__name__} 对应的标签名", style="red")
+            printer.print_text(f"找不到工具类型 {type(tool).__name__} 对应的标签名", style=COLOR_ERROR)
             return f"<error>Could not find tag for tool {type(tool).__name__}</error>"
 
         xml_parts = [f"<{tool_tag}>"]
@@ -458,13 +473,13 @@ class BaseAgent:
                         self.args.source_dir, f"auto_coder_{latest_yaml_file}_{md5}",
                     )
                     if commit_message:
-                        printer.print_text(f"Commit 成功", style="green")
+                        printer.print_text(f"Commit 成功", style=COLOR_SUCCESS)
                 except Exception as err:
                     import traceback
                     traceback.print_exc()
-                    printer.print_text(f"Commit 失败: {err}", style="red")
+                    printer.print_text(f"Commit 失败: {err}", style=COLOR_ERROR)
         else:
-            printer.print_text(f"文件未进行任何更改, 无需 Commit", style="yellow")
+            printer.print_text(f"文件未进行任何更改, 无需 Commit", style=COLOR_WARNING)
 
     @staticmethod
     def _count_conversations_tokens(conversations: list):
@@ -482,7 +497,7 @@ class BaseAgent:
         printer.print_text(f"📝 Token 使用: "
                            f"Input({last_meta.input_tokens_count})/"
                            f"Output({last_meta.generated_tokens_count})",
-                           style="green")
+                           style=COLOR_TOKEN_USAGE)
 
     def _handle_tool_call_event(self, event):
         """处理工具调用事件"""
@@ -491,9 +506,14 @@ class BaseAgent:
             return
 
         tool_name = type(event.tool).__name__
-        # 使用新的国际化显示功能
         display_content = self.get_tool_display_message(event.tool)
-        printer.print_panel(content=display_content, title=f"🛠️ 工具调用: {tool_name}", center=True)
+        printer.print_text(f"️🛠️ 工具调用: {tool_name}, {display_content}", style=COLOR_TOOL_CALL)
+        # printer.print_panel(
+        #     content=display_content,
+        #     title=f"🛠️ 工具调用: {tool_name}",
+        #     border_style=get_tool_color(tool_name),
+        #     center=True
+        # )
 
     def _handle_tool_result_event(self, event):
         """处理工具结果事件"""
@@ -501,23 +521,26 @@ class BaseAgent:
             return
 
         result = event.result
-        title = f"✅ 工具返回: {event.tool_name}" if result.success else f"❌ 工具返回: {event.tool_name}"
-        border_style = "green" if result.success else "red"
-        base_content = f"状态: {'成功' if result.success else '失败'}\n"
-        base_content += f"信息: {result.message}\n"
+        if result.success:
+            title = f"✅ 工具返回: {event.tool_name}"
+            border_style = COLOR_PANEL_SUCCESS
+            icon = "✅"
+        else:
+            title = f"❌ 工具返回: {event.tool_name}"
+            border_style = COLOR_PANEL_ERROR
+            icon = "❌"
+        base_content = f"{icon} 状态: {'成功' if result.success else '失败'}, 信息: {result.message}"
 
         # 准备面板内容
-        panel_content = [base_content]
-        content_str = self._format_tool_result_content(result.content)
-
-        # 确定语法高亮器
-        lexer = self._determine_content_lexer(event.tool_name, result.message)
+        # panel_content = [base_content]
 
         # 打印基础信息面板
-        printer.print_panel(
-            content="\n".join(panel_content), title=title, border_style=border_style, center=True)
+        printer.print_text(f"{title}, {base_content}", style=COLOR_TOOL_CALL)
+        # printer.print_panel(
+        #     content="\n".join(panel_content), title=title, border_style=border_style, center=True)
 
-        # 打印语法高亮内容
+        content_str = self._format_tool_result_content(result.content)
+        lexer = self._determine_content_lexer(event.tool_name, result.message)
         if content_str:
             printer.print_code(
                 code=content_str, lexer=lexer, theme="monokai", line_numbers=True, panel=True)
@@ -543,7 +566,7 @@ class BaseAgent:
                 else:
                     content_str = str(result_content)
             except Exception as e:
-                printer.print_text(f"Error formatting tool result content: {e}", style="yellow")
+                printer.print_text(f"Error formatting tool result content: {e}", style=COLOR_WARNING)
                 content_str = _format_content(str(result_content))
 
         return content_str
@@ -597,7 +620,7 @@ class ToolResolverFactory:
             raise ValueError(f"Resolver class {resolver_class} must be a subclass of BaseToolResolver")
 
         self._resolvers[tool_type] = resolver_class
-        printer.print_text(f"✅ 注册工具解析器: {tool_type.__name__} -> {resolver_class.__name__}", style="green")
+        # printer.print_text(f"✅ 注册工具解析器: {tool_type.__name__} -> {resolver_class.__name__}", style="green")
 
     def register_dynamic_resolver(self, agent_type):
         if agent_type not in AGENT_INIT:
@@ -610,6 +633,7 @@ class ToolResolverFactory:
             _resolver_class = TOOL_RESOLVER_MAP[_tool_type]
 
             self.register_resolver(_tool_type, _resolver_class)
+        printer.print_text(f"已注册 Agent Tool Resolver {len(tool_list)} 个", style=COLOR_DEBUG)
 
     def get_resolvers(self):
         return self._resolvers
@@ -630,7 +654,7 @@ class ToolResolverFactory:
     def clear_instances(self) -> None:
         """清除所有解析器实例"""
         self._resolvers.clear()
-        printer.print_text("🔄 已清除所有工具解析器实例", style="yellow")
+        printer.print_text("🔄 已清除所有工具解析器实例", style=COLOR_WARNING)
 
 
 class PromptManager:
