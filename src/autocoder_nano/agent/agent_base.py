@@ -85,7 +85,9 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     AttemptCompletionTool: AttemptCompletionToolResolver,  # Will stop the loop anyway
     TodoReadTool: TodoReadToolResolver,
     TodoWriteTool: TodoWriteToolResolver,
-    WebSearchTool: WebSearchToolResolver
+    WebSearchTool: WebSearchToolResolver,
+    ACModWriteTool: ACModWriteToolResolver,
+    ACModSearchTool: ACModSearchToolResolver
 }
 
 
@@ -101,7 +103,9 @@ AGENT_INIT = {
             "ask_followup_question",
             "attempt_completion",
             "todo_read",
-            "todo_write"
+            "todo_write",
+            "ac_mod_write",
+            "ac_mod_search"
         ]
     },
     "research": {
@@ -180,6 +184,10 @@ class BaseAgent:
         elif isinstance(tool, RecallMemoryTool):
             # context = {"query": tool.query}
             context = f"检索记忆: {tool.query}"
+        elif isinstance(tool, ACModWriteTool):
+            context = f"ACMod 记录: {tool.content[:50]}"
+        elif isinstance(tool, ACModSearchTool):
+            context = f"ACMod 检索: {tool.query}"
         else:
             # context = tool.model_dump()  # Generic context for tools not specifically handled above
             context = ""

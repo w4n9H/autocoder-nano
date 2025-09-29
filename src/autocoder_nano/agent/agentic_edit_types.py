@@ -33,6 +33,14 @@ class RecallMemoryTool(BaseTool):
     query: str
 
 
+class ACModWriteTool(BaseTool):
+    content: str
+
+
+class ACModSearchTool(BaseTool):
+    query: str
+
+
 class ReadFileTool(BaseTool):
     path: str
 
@@ -184,9 +192,9 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "list_files": ListFilesTool,
     "ask_followup_question": AskFollowupQuestionTool,
     "attempt_completion": AttemptCompletionTool,
-    "record_memory": RecordMemoryTool,
-    "recall_memory": RecallMemoryTool,
     "web_search": WebSearchTool,
     "todo_read": TodoReadTool,
     "todo_write": TodoWriteTool,
+    "ac_mod_write": ACModWriteTool,
+    "ac_mod_search": ACModSearchTool
 }
