@@ -282,9 +282,12 @@ class AgenticRuntime(BaseAgent):
                     mark_event_should_finish = True
 
                 elif isinstance(event, ErrorEvent):
-                    yield event  # Pass through errors
-                    # Optionally stop the process on parsing errors
-                    # return
+                    if event.message.startswith("Stream ended with unterminated"):
+                        printer.print_text(f"流以未闭合的标签块结束, 即将强化记忆", style=COLOR_ERROR)
+                        conversations.append(
+                            {"role": "user", "content": "使用工具时需要包含 开始和结束标签, 缺失结束标签会导致工具调用失败"}
+                        )
+                    yield event
                 elif isinstance(event, TokenUsageEvent):
                     yield event
 
