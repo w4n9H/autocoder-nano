@@ -128,53 +128,25 @@ class BaseAgent:
         # self.tool_resolver_map = {}  # 子类填充具体工具实现
 
     @staticmethod
-    def get_tool_display_message(tool: BaseTool, lang="zh") -> str:
+    def get_tool_display_message(tool: BaseTool) -> str:
         """ 生成一个用户友好的, 国际化的工具调用字符串表示 """
-        tool_type = type(tool)
-
-        # if tool_type not in TOOL_DISPLAY_MESSAGES:  # Fallback for unknown tools
-        #     return f"Unknown tool type: {tool_type.__name__}\nData: {tool.model_dump_json(indent=2)}"
-
-        # templates = TOOL_DISPLAY_MESSAGES[tool_type]
-        # template = templates.get(lang, templates.get("en", "Tool display template not found"))  # Fallback to English
-
         if isinstance(tool, ReadFileTool):
-            # context = {"path": tool.path}
             context = f"读取文件：{tool.path}"
         elif isinstance(tool, WriteToFileTool):
-            # snippet = tool.content[:150]
-            # context = {
-            #     "path": tool.path, "content_snippet": snippet, "ellipsis": '...' if len(tool.content) > 150 else ''
-            # }
             context = f"写入文件: {tool.path}"
         elif isinstance(tool, ReplaceInFileTool):
-            # snippet = tool.diff
-            # context = {
-            #     "path": tool.path, "diff_snippet": snippet, "ellipsis": ''
-            # }
             context = f"变更文件: {tool.path}"
         elif isinstance(tool, ExecuteCommandTool):
-            # context = {"command": tool.command, "requires_approval": tool.requires_approval}
-            context = f"执行命令: {tool.command}"
+            context = f"执行命令: {tool.command} (是否审批: {tool.requires_approval})"
         elif isinstance(tool, ListFilesTool):
-            # context = {"path": tool.path, "recursive_text": '（递归）' if tool.recursive else '（顶层）'}
             context = f"列出目录: {tool.path} ({'递归' if tool.recursive else '顶层'})"
         elif isinstance(tool, SearchFilesTool):
-            # context = {
-            #     "path": tool.path, "file_pattern": tool.file_pattern or '*', "regex": tool.regex
-            # }
             context = f"搜索文件: {tool.path}, 文件模式: {tool.file_pattern}, 正则表达式：{tool.regex}"
-        # elif isinstance(tool, ListCodeDefinitionNamesTool):
-        #     context = {"path": tool.path}
         elif isinstance(tool, AskFollowupQuestionTool):
             options_text_zh = ""
             if tool.options and isinstance(tool.options, list):
                 options_text_zh = "\n".join(
                     [f"- {opt}" for opt in tool.options])  # Assuming options are simple enough not to need translation
-                # options_text_zh = f"选项：\n{options_list_zh}"
-            # context = {
-            #     "question": tool.question, "options_text": options_text_zh
-            # }
             context = f"模型提问: {tool.question}, 选项：{options_text_zh}"
         elif isinstance(tool, WebSearchTool):
             context = f"联网搜索: {tool.query}"
@@ -189,15 +161,9 @@ class BaseAgent:
         elif isinstance(tool, ACModSearchTool):
             context = f"ACMod 检索: {tool.query}"
         else:
-            # context = tool.model_dump()  # Generic context for tools not specifically handled above
             context = ""
 
-        try:
-            # return format_str_jinja2(template, **context)
-            return context
-        except Exception as e:
-            # return f"Error formatting display for {tool_type.__name__}: {e}\nTemplate: {template}\nContext: {context}"
-            return f"Error formatting display for {tool_type.__name__}: {e}\nContext: {context}"
+        return context
 
     @staticmethod
     def _parse_tool_xml(tool_xml: str, tool_tag: str) -> Optional[BaseTool]:
@@ -516,12 +482,6 @@ class BaseAgent:
         tool_name = type(event.tool).__name__
         display_content = self.get_tool_display_message(event.tool)
         printer.print_text(f"️🛠️ 工具调用: {tool_name}, {display_content}", style=COLOR_TOOL_CALL)
-        # printer.print_panel(
-        #     content=display_content,
-        #     title=f"🛠️ 工具调用: {tool_name}",
-        #     border_style=get_tool_color(tool_name),
-        #     center=True
-        # )
 
     def _handle_tool_result_event(self, event):
         """处理工具结果事件"""
@@ -531,21 +491,12 @@ class BaseAgent:
         result = event.result
         if result.success:
             title = f"✅ 工具返回: {event.tool_name}"
-            border_style = COLOR_PANEL_SUCCESS
-            icon = "✅"
         else:
             title = f"❌ 工具返回: {event.tool_name}"
-            border_style = COLOR_PANEL_ERROR
-            icon = "❌"
-        base_content = f"{icon} 状态: {'成功' if result.success else '失败'}, 信息: {result.message}"
-
-        # 准备面板内容
-        # panel_content = [base_content]
+        base_content = f"状态: {'成功' if result.success else '失败'}, 信息: {result.message}"
 
         # 打印基础信息面板
         printer.print_text(f"{title}, {base_content}", style=COLOR_TOOL_CALL)
-        # printer.print_panel(
-        #     content="\n".join(panel_content), title=title, border_style=border_style, center=True)
 
         content_str = self._format_tool_result_content(result.content)
         lexer = self._determine_content_lexer(event.tool_name, result.message)
@@ -582,7 +533,6 @@ class BaseAgent:
     @staticmethod
     def _determine_content_lexer(tool_name, result_message):
         """根据工具类型和内容确定语法高亮器"""
-        lexer = "python"  # Default guess
         if tool_name == "ReadFileTool" and isinstance(result_message, str):
             # Try to guess lexer from file extension in message
             if ".py" in result_message:
