@@ -118,6 +118,13 @@ class ListPackageInfoTool(BaseTool):
     path: str  # 源码包目录，相对路径或绝对路径
 
 
+class CallSubAgentTool(BaseTool):
+    """调用子代理处理专项任务"""
+    agent_type: str    # 子代理类型 (coding/research)
+    task: str    # 子代理处理的具体任务
+    context: Optional[str] = None    # 传递给子代理的上下文信息
+
+
 class LLMOutputEvent(BaseModel):
     """Represents plain text output from the LLM."""
     text: str
@@ -196,5 +203,6 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "todo_read": TodoReadTool,
     "todo_write": TodoWriteTool,
     "ac_mod_write": ACModWriteTool,
-    "ac_mod_search": ACModSearchTool
+    "ac_mod_search": ACModSearchTool,
+    "call_subagent": CallSubAgentTool
 }

@@ -17,7 +17,7 @@ from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
-from autocoder_nano.agent import AgenticEditConversationConfig, run_agentic
+from autocoder_nano.agent import AgenticEditConversationConfig, run_agentic, run_main_agentic
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.actypes import *
@@ -741,7 +741,7 @@ def auto_command(query: str, llm: AutoLLM):
 
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
 
-    run_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def long_context_auto_command(llm: AutoLLM):
@@ -759,7 +759,7 @@ def long_context_auto_command(llm: AutoLLM):
         action="new",
         query=query.strip()
     )
-    run_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def context_command(context_args):

@@ -53,4 +53,14 @@ def run_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticE
     agentic_runner.run_in_terminal(request)
 
 
-__all__ = ["AgenticEditConversationConfig", "run_agentic"]
+def run_main_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig):
+    sources = SourceCodeList([])
+    agentic_runner = AgenticRuntime(
+        args=args, llm=llm, agent_type="main",
+        files=sources, history_conversation=[], conversation_config=conversation_config,
+    )
+    request = AgenticEditRequest(user_input=args.query)
+    agentic_runner.run_in_terminal(request)
+
+
+__all__ = ["AgenticEditConversationConfig", "run_agentic", "run_main_agentic"]

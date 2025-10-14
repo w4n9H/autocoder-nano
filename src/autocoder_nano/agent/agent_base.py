@@ -87,11 +87,24 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     TodoWriteTool: TodoWriteToolResolver,
     WebSearchTool: WebSearchToolResolver,
     ACModWriteTool: ACModWriteToolResolver,
-    ACModSearchTool: ACModSearchToolResolver
+    ACModSearchTool: ACModSearchToolResolver,
+    CallSubAgentTool: CallSubAgentToolResolver,
 }
 
 
 AGENT_INIT = {
+    "main": {
+        "tools": [
+            "todo_read",
+            "todo_write",
+            "search_files",
+            "list_files",
+            "read_file",
+            "call_subagent",
+            "ask_followup_question",
+            "attempt_completion"
+        ]
+    },
     "coding": {
         "tools": [
             "execute_command",
@@ -102,8 +115,6 @@ AGENT_INIT = {
             "list_files",
             "ask_followup_question",
             "attempt_completion",
-            "todo_read",
-            "todo_write",
             "ac_mod_write",
             "ac_mod_search"
         ]
@@ -160,6 +171,8 @@ class BaseAgent:
             context = f"ACMod 记录: {tool.content[:50]}"
         elif isinstance(tool, ACModSearchTool):
             context = f"ACMod 检索: {tool.query}"
+        elif isinstance(tool, CallSubAgentTool):
+            context = f"子代理调用: {tool.agent_type}"
         else:
             context = ""
 
