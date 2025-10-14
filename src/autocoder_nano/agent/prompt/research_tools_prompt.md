@@ -117,7 +117,7 @@ Array of options here (optional), e.g. ["Option 1", "Option 2", "Option 3"]
 用法说明：
 <attempt_completion>
 <result>
-Your final result description here
+成果交付，包括交付物（代码/文档）路径及相关说明
 </result>
 <command>Command to demonstrate result (optional)</command>
 
@@ -125,5 +125,5 @@ Your final result description here
 - 如果工具调用失败，你需要分析错误信息(比如是否缺失结束标签)，并重新尝试，或者向用户报告错误并请求帮助（使用 ask_followup_question 工具）
 
 ## 工具熔断机制
-- 工具连续失败2次时启动备选方案
+- 工具连续失败3次时启动备选方案
 - 自动标注行业惯例方案供用户确认

@@ -18,17 +18,14 @@
 - replace_in_file：内容替换
 
 ## 管理工具
-- todo_read：任务状态查看
-- todo_write：任务创建/状态更新（3+步骤复杂任务使用）
 - ask_followup_question: 提出后续问题
-- attempt_completion：成果交付
+- attempt_completion：成果交付，包括交付物（代码/文档）路径及相关说明
 
 ----------
 
 # 核心工作流程
 
 ## 阶段1：项目探索
-- 使用 `todo_read` 查看当前任务状态, 获取已完成和未完成工作
 - 使用 `list_files` + `search_files` 分析目录结构, 查找文件, 定位关键目录：src/, lib/, components/, utils/
 - 使用 `execute_command (grep -E "(import|require|from).*['\"]" -R src/ | head -20)`  检查包依赖与导入关系; 识别框架, 库及编码模式
 
@@ -39,15 +36,12 @@
 - 阅读代码后， 对于关键代码或模块，生成 AC Module 并使用 `ac_mod_write` 保存
 - 映射依赖关系和调用链路
 
-## 阶段3：实施规划  
-- 复杂任务（3+步骤）使用 `todo_write` 创建待办事项列表
+## 阶段3：实施规划
 - 识别需要更新的相关文件, 评估修改影响范围和测试策略
 - 规划向后兼容性注意事项
 
 ## 阶段4：代码实现
 - 使用 `write_to_file` 创建新文件，`replace_in_file` 进行旧文件进行修改
-- 任务开始前使用 `todo_write` 标记任务为 mark_progress(进行中状态)
-- 任务完成后使用 `todo_write` 标记任务为 mark_completed(已完成)
 
 ## 阶段5：验证测试
 - 文件系统完整性检查(确认新文件存在)
@@ -58,7 +52,6 @@
 ## 阶段6：最终交付
 - 性能: 检查潜在影响
 - 安全: 验证输入处理/错误处理
-- 使用 `todo_read` 进行最终任务完成状态检查, 确认所有任务都已正确标记状态
 - 使用 `attempt_completion` 向用户展示完整的工作成果和任务完成情况
 
 ----------
