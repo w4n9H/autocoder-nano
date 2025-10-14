@@ -13,6 +13,7 @@ printer = Printer()
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_runtime import AgenticRuntime
+    from autocoder_nano.agent.agentic_sub import SubAgents
 
 
 # 定义Jinja2模板
@@ -33,7 +34,7 @@ Web搜索结果 (共{{ results|length }}条):
 
 class WebSearchToolResolver(BaseToolResolver):
     def __init__(
-            self, agent: Optional[Union['AgenticRuntime']],
+            self, agent: Optional[Union['AgenticRuntime', 'SubAgents']],
             tool: WebSearchTool, args: AutoCoderArgs
     ):
         super().__init__(agent, tool, args)

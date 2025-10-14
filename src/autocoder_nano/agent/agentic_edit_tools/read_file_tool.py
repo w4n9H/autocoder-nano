@@ -11,11 +11,12 @@ from autocoder_nano.context import ContentPruner
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_runtime import AgenticRuntime
+    from autocoder_nano.agent.agentic_sub import SubAgents
 
 
 class ReadFileToolResolver(BaseToolResolver):
     def __init__(
-            self, agent: Optional[Union['AgenticRuntime']],
+            self, agent: Optional[Union['AgenticRuntime', 'SubAgents']],
             tool: ReadFileTool, args: AutoCoderArgs
     ):
         super().__init__(agent, tool, args)

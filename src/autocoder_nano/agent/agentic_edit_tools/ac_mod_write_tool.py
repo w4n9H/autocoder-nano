@@ -8,10 +8,12 @@ from autocoder_nano.context import record_memory
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_runtime import AgenticRuntime
+    from autocoder_nano.agent.agentic_sub import SubAgents
 
 
 class ACModWriteToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional[Union['AgenticRuntime']], tool: ACModWriteTool, args: AutoCoderArgs):
+    def __init__(self, agent: Optional[Union['AgenticRuntime', 'SubAgents']],
+                 tool: ACModWriteTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: ACModWriteTool = tool
 

@@ -9,13 +9,14 @@ from autocoder_nano.utils.shell_utils import run_cmd_subprocess
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_runtime import AgenticRuntime
+    from autocoder_nano.agent.agentic_sub import SubAgents
 
 
 printer = Printer()
 
 
 class ExecuteCommandToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional[Union['AgenticRuntime']], tool: ExecuteCommandTool,
+    def __init__(self, agent: Optional[Union['AgenticRuntime', 'SubAgents']], tool: ExecuteCommandTool,
                  args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: ExecuteCommandTool = tool  # For type hinting

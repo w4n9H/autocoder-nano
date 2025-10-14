@@ -17,7 +17,7 @@ from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
-from autocoder_nano.agent import AgenticEditConversationConfig, run_agentic
+from autocoder_nano.agent import AgenticEditConversationConfig, run_agentic, run_main_agentic
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.actypes import *
@@ -741,7 +741,7 @@ def auto_command(query: str, llm: AutoLLM):
 
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
 
-    run_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def long_context_auto_command(llm: AutoLLM):
@@ -759,7 +759,7 @@ def long_context_auto_command(llm: AutoLLM):
         action="new",
         query=query.strip()
     )
-    run_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config)
 
 
 def context_command(context_args):
@@ -1368,6 +1368,9 @@ def configure_project_model():
         "11": {"name": "(BigModel)bigmodel/glm-4.5",
                "base_url": "https://open.bigmodel.cn/api/paas/v4",
                "model_name": "glm-4.5"},
+        "12": {"name": "(BigModel)bigmodel/coding-plan",
+               "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+               "model_name": "glm-4.6"},
     }
 
     # 内置模型
@@ -1386,15 +1389,16 @@ def configure_project_model():
     print_info(f"  9. (OpenRouter)moonshotai/kimi-k2")
     print_info(f"  10. (OpenRouter)openai/gpt-5")
     print_info(f"  11. (BigModel)bigmodel/glm-4.5")
-    print_info(f"  12. 其他模型")
-    model_num = input(f"  请选择您想使用的模型供应商编号(1-11): ").strip().lower()
+    print_info(f"  12. (BigModel)bigmodel/coding-plan")
+    print_info(f"  13. 其他模型")
+    model_num = input(f"  请选择您想使用的模型供应商编号(1-13): ").strip().lower()
 
-    if int(model_num) < 1 or int(model_num) > 12:
-        printer.print_text("请选择 1-12", style="red")
+    if int(model_num) < 1 or int(model_num) > 13:
+        printer.print_text("请选择 1-13", style="red")
         save_memory()
         exit(1)
 
-    if model_num == "12":  # 只有选择"其他模型"才需要手动输入所有信息
+    if model_num == "13":  # 只有选择"其他模型"才需要手动输入所有信息
         current_model = input(f"  设置你的首选模型别名(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
         current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
         current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()

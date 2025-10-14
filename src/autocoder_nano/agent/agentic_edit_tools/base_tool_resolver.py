@@ -7,11 +7,12 @@ from autocoder_nano.actypes import AutoCoderArgs
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_runtime import AgenticRuntime
+    from autocoder_nano.agent.agentic_sub import SubAgents
 
 
 class BaseToolResolver(ABC):
     def __init__(
-            self, agent: Optional[Union['AgenticRuntime']],
+            self, agent: Optional[Union['AgenticRuntime', 'SubAgents']],
             tool: BaseTool, args: AutoCoderArgs
     ):
         """

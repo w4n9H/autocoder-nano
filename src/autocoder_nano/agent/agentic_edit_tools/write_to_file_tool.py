@@ -8,10 +8,11 @@ from autocoder_nano.actypes import AutoCoderArgs
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_runtime import AgenticRuntime
+    from autocoder_nano.agent.agentic_sub import SubAgents
 
 
 class WriteToFileToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional[Union['AgenticRuntime']],
+    def __init__(self, agent: Optional[Union['AgenticRuntime', 'SubAgents']],
                  tool: WriteToFileTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: WriteToFileTool = tool  # For type hinting
@@ -23,9 +24,9 @@ class WriteToFileToolResolver(BaseToolResolver):
         try:
             os.makedirs(os.path.dirname(abs_file_path), exist_ok=True)
 
-            if self.agent:
-                rel_path = os.path.relpath(abs_file_path, abs_project_dir)
-                self.agent.record_file_change(rel_path, "added", diff=None, content=content)
+            # if self.agent:
+            #     rel_path = os.path.relpath(abs_file_path, abs_project_dir)
+            #     self.agent.record_file_change(rel_path, "added", diff=None, content=content)
 
             # todo: 应该是先备份,再写入, 参考 autocoder checkpoint_manager
 

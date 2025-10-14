@@ -8,10 +8,11 @@ from autocoder_nano.actypes import AutoCoderArgs
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_runtime import AgenticRuntime
+    from autocoder_nano.agent.agentic_sub import SubAgents
 
 
 class ReplaceInFileToolResolver(BaseToolResolver):
-    def __init__(self, agent: Optional[Union['AgenticRuntime']],
+    def __init__(self, agent: Optional[Union['AgenticRuntime', 'SubAgents']],
                  tool: ReplaceInFileTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: ReplaceInFileTool = tool  # For type hinting
@@ -120,10 +121,10 @@ class ReplaceInFileToolResolver(BaseToolResolver):
                 message = f"成功应用了 {applied_count}/{len(parsed_blocks)} 个更改到文件：{file_path}"
 
             # 变更跟踪，回调AgenticEdit
-            if self.agent:
-                rel_path = os.path.relpath(abs_file_path, abs_project_dir)
-                self.agent.record_file_change(
-                    rel_path, "modified", diff=diff_content, content=current_content)
+            # if self.agent:
+            #     rel_path = os.path.relpath(abs_file_path, abs_project_dir)
+            #     self.agent.record_file_change(
+            #         rel_path, "modified", diff=diff_content, content=current_content)
 
             result_content = {"content": current_content}
 
