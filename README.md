@@ -594,11 +594,45 @@ auto-coder.nano
 - 使用 `Ctrl+K` 快速切换正常模式和自然语言模式
 - 使用 `/mode` 命令手动切换模式
 
-#### 9.2 调试模式
+#### 9.2 调试模式与启动选项
 
 ```bash
 # 启用调试模式
 auto-coder.nano --debug
+
+# 跳过系统初始化（快速启动）
+auto-coder.nano --quick
+
+# 直接执行Agent指令
+auto-coder.nano --agent "你的任务描述"
+```
+
+**启动选项说明：**
+
+- `--debug`: 启用调试模式，在出现异常时会显示详细的错误堆栈信息，便于问题排查
+
+- `--quick`: 快速启动模式，跳过项目初始化检查。适用于：
+  - 已知项目已正确初始化
+  - 需要快速启动工具
+  - 在CI/CD等自动化场景中使用
+
+- `--agent`: 直接执行Agent模式，无需进入交互界面。适用于：
+  - 自动化脚本集成
+  - 批量任务处理
+  - 定时任务执行
+
+**使用示例：**
+
+```bash
+# 快速启动并进入交互模式
+auto-coder.nano --quick
+
+# 直接使用Agent完成代码重构
+auto-coder.nano --agent "重构用户认证模块，添加日志记录"
+
+# 在脚本中使用Agent
+#!/bin/bash
+auto-coder.nano --agent "更新API文档" --quick
 ```
 
 ### 10.总结
