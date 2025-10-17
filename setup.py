@@ -34,8 +34,6 @@ setup(
     entry_points={
         'console_scripts': [
             'auto-coder.nano = autocoder_nano.auto_coder_nano:main',
-            'auto-coder.nano.rag = autocoder_nano.auto_coder_nano_rag:main',
-            'auto-coder.nano.ui = autocoder_nano.auto_coder_nano_ui:main'
         ],
     },
     package_dir={"": "src"},
@@ -43,8 +41,6 @@ setup(
     package_data={
         "autocoder_nano": [
             "data/**/*",
-            'app/static/**/*',
-            'app/templates/**/*',
             'agent/prompt/**/*'
         ],
     },

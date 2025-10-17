@@ -9,13 +9,10 @@ pylint
 PyYAML
 pdfminer
 pypdf
-uvicorn
 pathspec
-fastapi
 tokenizers
 duckdb
 numpy
 psutil
 cutword
 pandas
-textual
