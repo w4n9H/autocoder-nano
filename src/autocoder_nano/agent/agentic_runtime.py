@@ -91,7 +91,7 @@ class AgenticRuntime(BaseAgent):
         if len(conversations) % interval == 0:
             printer.print_text(f"强化工具使用规则(间隔{interval})", style=COLOR_SYSTEM)
             conversations.append(
-                {"role": "user", "content": self.prompt_manager.load_prompt_file(self.agent_type, "tools")}
+                {"role": "user", "content": self._get_tools_prompt()}
             )
 
     def _get_tools_prompt(self) -> str:
