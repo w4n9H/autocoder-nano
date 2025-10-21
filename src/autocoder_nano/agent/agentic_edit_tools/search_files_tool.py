@@ -137,3 +137,38 @@ class SearchFilesToolResolver(BaseToolResolver):
                 return ToolResult(success=True, message=message, content=result)
         else:
             return result
+
+    def guide(self) -> str:
+        doc = """
+        ## search_files（搜索文件）
+        描述：
+        - 在指定目录的文件中执行正则表达式搜索，输出包含每个匹配项及其周围的上下文结果。
+        参数：
+        - path（必填）：要搜索的目录路径，相对于当前工作目录，该目录将被递归搜索。
+        - regex（必填）：要搜索的正则表达式模式，使用 Rust 正则表达式语法。
+        - file_pattern（可选）：用于过滤文件的 Glob 模式（例如，'.ts' 表示 TypeScript 文件），若未提供，则搜索所有文件（*）。
+        用法说明：
+        <search_files>
+        <path>Directory path here</path>
+        <regex>Your regex pattern here</regex>
+        <file_pattern>file pattern here (optional)</file_pattern>
+        </search_files>
+        用法示例：
+        场景一：搜索包含关键词的文件
+        目标：在项目中的所有 JavaScript 文件中查找包含 "handleError" 函数调用的地方。
+        思维过程：我们需要在当前目录（.）下，通过 "handleError(" 关键词搜索所有 JavaScript(.js) 文件，
+        <search_files>
+        <path>.</path>
+        <regex>handleError(</regex>
+        <file_pattern>.js</file_pattern>
+        </search_files>
+        场景二：在 Markdown 文件中搜索标题
+        目标：在项目文档中查找所有二级标题。
+        思维过程：这是一个只读操作。我们可以在 docs 目录下，使用正则表达式 ^##\s 搜索所有 .md 文件。
+        <search_files>
+        <path>docs/</path>
+        <regex>^##\s</regex>
+        <file_pattern>.md</file_pattern>
+        </search_files>
+        """
+        return doc

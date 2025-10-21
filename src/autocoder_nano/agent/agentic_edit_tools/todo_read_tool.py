@@ -123,3 +123,22 @@ class TodoReadToolResolver(BaseToolResolver):
                 message=f"读取TodoList时出错: {str(e)}",
                 content=None
             )
+
+    def guide(self) -> str:
+        doc = """
+        ## todo_read（读取待办事项）
+        描述：
+        - 请求读取当前会话的待办事项列表。该工具有助于跟踪进度，组织复杂任务并了解当前工作状态。
+        - 请主动使用此工具以掌握任务进度，展现细致周全的工作态度。
+        参数：
+        - 无需参数
+        用法说明：
+        <todo_read>
+        </todo_read>
+        用法示例：
+        场景一：读取当前的会话的待办事项
+        目标：读取当前的会话的待办事项
+        <todo_read>
+        </todo_read>
+        """
+        return doc

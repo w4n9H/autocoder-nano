@@ -34,3 +34,7 @@ class BaseToolResolver(ABC):
             A ToolResult object indicating success or failure and a message.
         """
         pass
+
+    @abstractmethod
+    def guide(self) -> str:
+        pass

@@ -148,3 +148,79 @@ class ReplaceInFileToolResolver(BaseToolResolver):
                 message=f"错误: 拒绝访问, 尝试修改项目目录之外的文件：{file_path}")
 
         return self.replace_in_file_normal(file_path, diff_content, source_dir, abs_project_dir, abs_file_path)
+
+    def guide(self) -> str:
+        doc = """
+        ## replace_in_file（替换文件内容）
+        描述：
+        - 请求使用定义对文件特定部分进行精确更改的 SEARCH/REPLACE 块来替换现有文件中的部分内容。
+        - 此工具应用于需要对文件特定部分进行有针对性更改的情况。
+        参数：
+        - path（必填）：要修改的文件路径，相对于当前工作目录。
+        - diff（必填）：一个或多个遵循以下精确格式的 SEARCH/REPLACE 块：
+        用法说明：
+        <replace_in_file>
+        <path>File path here</path>
+        <diff>
+        <<<<<<< SEARCH
+        [exact content to find]
+        =======
+        [new content to replace with]
+        >>>>>>> REPLACE
+        </diff>
+        </replace_in_file>
+        用法示例：
+        场景一：对一个代码文件进行部分更改
+        目标：对 src/components/App.tsx 文件进行特定部分的精确更改
+        思维过程：目标是对代码的指定位置进行更改，所以直接使用 replace_in_file，指定文件路径和 SEARCH/REPLACE 块。
+        <replace_in_file>
+        <path>src/components/App.tsx</path>
+        <diff>
+        <<<<<<< SEARCH
+        import React from 'react';
+        =======
+        import React, { useState } from 'react';
+        >>>>>>> REPLACE
+        
+        <<<<<<< SEARCH
+        function handleSubmit() {
+        saveData();
+        setLoading(false);
+        }
+        
+        =======
+        >>>>>>> REPLACE
+        
+        <<<<<<< SEARCH
+        return (
+        <div>
+        =======
+        function handleSubmit() {
+        saveData();
+        setLoading(false);
+        }
+        
+        return (
+        <div>
+        >>>>>>> REPLACE
+        </diff>
+        </replace_in_file>
+        
+        关键规则：
+        1. SEARCH 内容必须与关联的文件部分完全匹配：
+            * 逐字符匹配，包括空格、缩进、行尾符。
+            * 包含所有注释、文档字符串等。
+        2. SEARCH/REPLACE 块仅替换第一个匹配项：
+            * 如果需要进行多次更改，需包含多个唯一的 SEARCH/REPLACE 块。
+            * 每个块的 SEARCH 部分应包含足够的行，以唯一匹配需要更改的每组行。
+            * 使用多个 SEARCH/REPLACE 块时，按它们在文件中出现的顺序列出。
+        3. 保持 SEARCH/REPLACE 块简洁：
+            * 将大型 SEARCH/REPLACE 块分解为一系列较小的块，每个块更改文件的一小部分。
+            * 仅包含更改的行，必要时包含一些周围的行以确保唯一性。
+            * 不要在 SEARCH/REPLACE 块中包含长段未更改的行。
+            * 每行必须完整，切勿在中途截断行，否则可能导致匹配失败。
+        4. 特殊操作：
+            * 移动代码：使用两个 SEARCH/REPLACE 块（一个从原始位置删除，一个插入到新位置）。
+            * 删除代码：使用空的 REPLACE 部分。
+        """
+        return doc

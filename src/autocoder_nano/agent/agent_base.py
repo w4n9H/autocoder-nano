@@ -622,6 +622,10 @@ class ToolResolverFactory:
         """获取所有已注册的工具类型"""
         return list(self._resolvers.keys())
 
+    def get_registered_size(self) -> int:
+        """获取所有已注册的工具类型"""
+        return len(self._resolvers.keys())
+
     def clear_instances(self) -> None:
         """清除所有解析器实例"""
         self._resolvers.clear()

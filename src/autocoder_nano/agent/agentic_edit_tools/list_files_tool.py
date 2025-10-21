@@ -125,3 +125,33 @@ class ListFilesToolResolver(BaseToolResolver):
                 return ToolResult(success=True, message=message, content=result)
         else:
             return result
+
+    def guide(self) -> str:
+        doc = """
+        ## list_files（列出文件）
+        描述：
+        - 列出指定目录中的文件和目录，支持递归列出。
+        参数：
+        - path（必填）：要列出内容的目录路径，相对于当前工作目录。
+        - recursive（可选）：是否递归列出文件，true 表示递归列出，false 或省略表示仅列出顶级内容。
+        用法说明：
+        <list_files>
+        <path>Directory path here</path>
+        <recursive>true or false (optional)</recursive>
+        </list_files>
+        用法示例：
+        场景一：列出当前目录下的文件
+        目标：查看当前项目目录下的所有文件和子目录。
+        思维过程：这是一个只读操作，直接使用 . 作为路径。
+        <list_files>
+        <path>.</path>
+        </list_files>
+        场景二：递归列出指定目录下的所有文件
+        目标：查看 src 目录下所有文件和子目录的嵌套结构。
+        思维过程：这是一个只读操作，使用 src 作为路径，并设置 recursive 为 true。
+        <list_files>
+        <path>src/</path>
+        <recursive>true</recursive>
+        </list_files>
+        """
+        return doc

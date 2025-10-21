@@ -38,3 +38,26 @@ class ACModWriteToolResolver(BaseToolResolver):
             return ToolResult(success=True, message=f"ACMod 记录成功, ID: {note_id}", content="")
         except Exception as e:
             return ToolResult(success=False, message=f"ACMod 记录失败: {str(e)}", content="")
+
+    def guide(self) -> str:
+        doc = """
+        ## ac_mod_write（写入AC模块）
+        描述：
+        - 用于记录代码文件或模块的AC Module，
+        - AC Module 包含使用示例，核心组件，组件依赖关系，对其他AC模块的引用以及测试信息。
+        参数：
+        - content（必填）：你的 AC Module 正文
+        用法说明：
+        <ac_mod_write>
+        <content>AC Module 正文</content>
+        </ac_mod_write>
+        用法示例：
+        场景一：分析记录 src/autocoder_nano/agent 模块的 AC Module
+        思维过程：使用 read_file 顺序读取 src/autocoder_nano/agent 目录内的所有文件内容后，生成对应的 AC Module
+        <ac_mod_write>
+        <content>
+        AC Module 正文(包含使用示例，核心组件，组件依赖关系，对其他AC模块的引用以及测试信息)
+        </content>
+        </ac_mod_write>
+        """
+        return doc
