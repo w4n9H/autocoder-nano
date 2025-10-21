@@ -48,11 +48,73 @@ class SubAgents(BaseAgent):
                 {"role": "user", "content": self.prompt_manager.load_prompt_file(self.agent_type, "tools")}
             )
 
+    def _get_tools_prompt(self) -> str:
+        if self.tool_resolver_factory.get_registered_size() <= 0:
+            raise Exception(f"未注册任何工具")
+        guides = ""
+        resolvers = self.tool_resolver_factory.get_resolvers()
+        for t, resolver_cls in resolvers.items():
+            resolver = resolver_cls(agent=self, tool=t, args=self.args)
+            tool_guide: str = resolver.guide()
+            guides += f"{tool_guide}\n\n"
+        return f"""
+        # 工具使用说明
+
+        1. 你可使用一系列工具，部分工具需经用户批准才能执行。
+        2. 每条消息中仅能使用一个工具，用户回复中会包含该工具的执行结果。
+        3. 你要借助工具逐步完成给定任务，每个工具的使用都需依据前一个工具的使用结果。
+        4. 使用工具时需要包含 开始和结束标签, 缺失结束标签会导致工具调用失败
+        
+        # 工具使用格式
+        
+        工具使用采用 XML 风格标签进行格式化。工具名称包含在开始和结束标签内，每个参数同样包含在各自的标签中。其结构如下：
+        <tool_name>
+        <parameter1_name>value1</parameter1_name>
+        <parameter2_name>value2</parameter2_name>
+        ...
+        </tool_name>
+        例如：
+        <read_file>
+        <path>src/main.js</path>
+        </read_file>
+        
+        一定要严格遵循此工具使用格式，以确保正确解析和执行。
+        
+        # 工具列表
+        
+        {guides}
+        
+        # 错误处理
+        - 如果工具调用失败，你需要分析错误信息，并重新尝试，或者向用户报告错误并请求帮助
+        
+        ## 工具熔断机制
+        - 工具连续失败3次时启动备选方案或直接结束任务
+        - 自动标注行业惯例方案供用户确认
+        
+        # 工具使用指南
+        1. 开始任务前务必进行全面搜索和探索
+        2. 在 <thinking> 标签中评估已有和继续完成任务所需信息
+        3. 根据任务选择合适工具，思考是否需其他信息来推进，以及用哪个工具收集
+        4. 逐步执行，禁止预判：
+            * 单次仅使用一个工具
+            * 后续操作必须基于前次结果
+            * 严禁假设任何工具的执行结果
+        5. 按工具指定的 XML 格式使用
+        6. 重视用户反馈，某些时候，工具使用后，用户会回复为你提供继续任务或做出进一步决策所需的信息，可能包括：
+            * 工具是否成功的信息
+            * 触发的 Linter 错误（需修复）
+            * 相关终端输出
+            * 其他关键信息
+        """
+
+    def _get_system_prompt(self) -> str:
+        return self.prompt_manager.load_prompt_file(self.agent_type, "system")
+
     def _build_system_prompt(self) -> List[Dict[str, Any]]:
         """ 构建初始对话消息 """
         system_prompt = [
-            {"role": "system", "content": self.prompt_manager.load_prompt_file(self.agent_type, "system")},
-            {"role": "system", "content": self.prompt_manager.load_prompt_file(self.agent_type, "tools")},
+            {"role": "system", "content": self._get_system_prompt()},
+            {"role": "system", "content": self._get_tools_prompt()},
             {"role": "system", "content": self.prompt_manager.prompt_sysinfo.prompt()}
         ]
 

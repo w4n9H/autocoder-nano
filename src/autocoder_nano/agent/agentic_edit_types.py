@@ -125,6 +125,13 @@ class CallSubAgentTool(BaseTool):
     context: Optional[str] = None    # 传递给子代理的上下文信息
 
 
+class CallCusAgentTool(BaseTool):
+    """调用自定义代理处理专项任务"""
+    task: str  # 子代理处理的具体任务
+    prompt: str  # 系统提示词
+    tools: Optional[List[str]] = None
+
+
 class LLMOutputEvent(BaseModel):
     """Represents plain text output from the LLM."""
     text: str
@@ -204,5 +211,6 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "todo_write": TodoWriteTool,
     "ac_mod_write": ACModWriteTool,
     "ac_mod_search": ACModSearchTool,
-    "call_subagent": CallSubAgentTool
+    "call_subagent": CallSubAgentTool,
+    "call_cusagent": CallCusAgentTool
 }
