@@ -337,3 +337,61 @@ class TodoWriteToolResolver(BaseToolResolver):
                 message=f"执行待办事项操作失败: {str(e)}",
                 content=None
             )
+
+    def guide(self) -> str:
+        doc = """
+        ## todo_write（写入/更新待办事项）
+        描述：
+        - 请求为当前编码会话创建和管理结构化的任务列表。
+        - 这有助于您跟踪进度，组织复杂任务，并向用户展现工作的细致程度。
+        - 同时也能帮助用户了解任务进展及其需求的整体完成情况。
+        - 请在处理复杂多步骤任务，用户明确要求时，或需要组织多项操作时主动使用此工具。
+        参数：
+        - action：（必填）要执行的操作：
+            - create：创建新的待办事项列表
+            - add_task：添加单个任务
+            - update：更新现有任务
+            - mark_progress：将任务标记为进行中
+            - mark_completed：将任务标记为已完成
+        - task_id：（可选）要更新的任务ID（update，mark_progress，mark_completed 操作时需要）
+        - content：（可选）任务内容或描述（create、add_task 操作时需要）
+        - priority：（可选）任务优先级：'high'（高）、'medium'（中）、'low'（低）（默认：'medium'）
+        - status：（可选）任务状态：'pending'（待处理）、'in_progress'（进行中）、'completed'（已完成）（默认：'pending'）
+        - notes：（可选）关于任务的附加说明或详细信息
+        用法说明：
+        <todo_write>
+        <action>create</action>
+        <content>
+        <task>读取配置文件</task>
+        <task>更新数据库设置</task>
+        <task>测试连接</task>
+        <task>部署更改</task>
+        </content>
+        <priority>high</priority>
+        </todo_write>
+        用法示例：
+        场景一：为一个新的复杂任务创建待办事项列表
+        目标：为复杂任务创建新的待办事项列表
+        思维过程：用户提出了一个复杂的开发任务，这涉及到多个步骤和组件。我需要创建一个结构化的待办事项列表来跟踪这个多步骤任务的进度
+        <todo_write>
+        <action>create</action>
+        <content>
+        <task>分析现有代码库结构</task>
+        <task>设计新功能架构</task>
+        <task>实现核心功能</task>
+        <task>添加全面测试</task>
+        <task>更新文档</task>
+        <task>审查和重构代码</task>
+        </content>
+        <priority>high</priority>
+        </todo_write>
+        场景二：标记任务为已完成
+        目标：将特定任务标记为已完成
+        思维过程：用户指示要标记一个特定任务为已完成。我需要使用mark_completed操作，这需要提供任务的ID。
+        <todo_write>
+        <action>mark_completed</action>
+        <task_id>task_123</task_id>
+        <notes>成功实现，测试覆盖率达到95%</notes>
+        </todo_write>
+        """
+        return doc

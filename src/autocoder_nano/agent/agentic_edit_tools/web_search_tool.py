@@ -96,3 +96,30 @@ class WebSearchToolResolver(BaseToolResolver):
         except Exception as e:
             return ToolResult(success=False,
                               message=f"{str(e)}")
+
+    def guide(self) -> str:
+        doc = """
+        ## web_search（联网检索）
+        描述：
+        - 通过搜索引擎在互联网上检索相关信息，支持关键词搜索。
+        参数：
+        - query（必填）：要搜索的关键词或短语
+        用法说明：
+        <web_search>
+        <query>Search keywords here</query>
+        </web_search>
+        用法示例：
+        场景一：基础关键词搜索
+        目标：查找关于神经网络的研究进展。
+        思维过程：通过一些关键词，来获取有关于神经网络学术信息
+        <web_search>
+        <query>neural network research advances</query>
+        </web_search>
+        场景二：简单短语搜索
+        目标：查找关于量子计算的详细介绍。
+        思维过程：通过一个短语，来获取有关于量子计算的信息
+        <web_search>
+        <query>量子计算的详细介绍</query>
+        </web_search>
+        """
+        return doc

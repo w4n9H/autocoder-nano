@@ -21,7 +21,7 @@ class ReadFileToolResolver(BaseToolResolver):
     ):
         super().__init__(agent, tool, args)
         self.tool: ReadFileTool = tool  # For type hinting
-        self.shadow_manager = self.agent.shadow_manager if self.agent else None
+        self.shadow_manager = None
         self.context_pruner = ContentPruner(
             max_tokens=self.args.context_prune_safe_zone_tokens,
             args=self.args,
@@ -107,3 +107,31 @@ class ReadFileToolResolver(BaseToolResolver):
         abs_file_path = os.path.abspath(os.path.join(source_dir, file_path))
 
         return self.read_file_normal(file_path, source_dir, abs_project_dir, abs_file_path)
+
+    def guide(self) -> str:
+        doc = """
+        ## read_file（读取文件）
+        描述：
+        - 请求读取指定路径文件的内容。
+        - 当需要检查现有文件的内容（例如分析代码，查看文本文件或从配置文件中提取信息）且不知道文件内容时使用此工具。
+        - 仅能从 Markdown，TXT，以及代码文件中提取纯文本，不要读取其他格式文件。
+        参数：
+        - path（必填）：要读取的文件路径（相对于当前工作目录）。
+        用法说明：
+        <read_file>
+        <path>文件路径在此</path>
+        </read_file>
+        用法示例：
+        场景一：读取代码文件
+        目标：查看指定路径文件的具体内容。
+        <read_file>
+        <path>src/autocoder_nane/auto_coder_nano.py</path>
+        </read_file>
+        场景二：读取配置文件
+        目标：检查项目的配置文件，例如 package.json。
+        思维过程：这是一个非破坏性操作，使用 read_file 工具可以读取 package.json 文件内容，以了解项目依赖或脚本信息。
+        <read_file>
+        <path>package.json</path>
+        </read_file>
+        """
+        return doc

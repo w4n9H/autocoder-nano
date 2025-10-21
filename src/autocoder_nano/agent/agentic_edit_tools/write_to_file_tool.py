@@ -57,3 +57,30 @@ class WriteToFileToolResolver(BaseToolResolver):
                 message=f"错误: 拒绝访问, 尝试修改项目目录之外的文件：{file_path}")
 
         return self.write_file_normal(file_path, content, source_dir, abs_project_dir, abs_file_path)
+
+    def guide(self) -> str:
+        doc = """
+        ## write_to_file（写入文件）
+        描述：将内容写入指定路径文件，文件存在则覆盖，不存在则创建，会自动创建所需目录。
+        参数：
+        - path（必填）：要写入的文件路径（相对于当前工作目录）。
+        - content（必填）：要写入文件的内容。必须提供文件的完整预期内容，不得有任何截断或遗漏，必须包含文件的所有部分，即使它们未被修改。
+        用法说明：
+        <write_to_file>
+        <path>文件路径在此</path>
+        <content>
+            你的文件内容在此
+        </content>
+        </write_to_file>
+        用法示例：
+        场景一：创建一个新的代码文件
+        目标：在 src 目录下创建一个新的 Python 文件 main.py 并写入初始代码。
+        思维过程：目标是创建新文件并写入内容，所以直接使用 write_to_file，指定新文件路径和要写入的代码内容。
+        <write_to_file>
+        <path>src/main.py</path>
+        <content>
+        print("Hello, world!")
+        </content>
+        </write_to_file>
+        """
+        return doc

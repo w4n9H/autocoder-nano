@@ -38,3 +38,23 @@ class ACModSearchToolResolver(BaseToolResolver):
             return ToolResult(success=True, message=f"ACMod 检索成功, 查询问题: {query}", content=note_content)
         except Exception as e:
             return ToolResult(success=False, message=f"ACMod 检索失败: {str(e)}", content="")
+
+    def guide(self) -> str:
+        doc = """
+        ## ac_mod_search (检索AC模块)
+        描述：
+        - 从存储中检索已经生成的 AC Module
+        参数：
+        - query（必填）：检索 AC Module 的提问，可以使用多个关键词（关键词可以根据任务需求自由发散），且必须使用空格分割关键词
+        用法说明：
+        <ac_mod_search>
+        <query>Search AC Module Key Word</query>
+        </ac_mod_search>
+        用法示例：
+        场景一：修改 agentic_runtime.py 前，查询的相关用法
+        思维过程：检索 agentic_runtime.py 相关, 拆分为 agent agentic_runtime 两个关键词
+        <ac_mod_search>
+        <query>agent agentic_runtime</query>
+        </ac_mod_search>
+        """
+        return doc
