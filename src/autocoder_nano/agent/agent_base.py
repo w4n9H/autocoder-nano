@@ -6,72 +6,18 @@ import xml.sax.saxutils
 from importlib import resources
 
 from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
-from autocoder_nano.core import AutoLLM, format_str_jinja2, prompt
+from autocoder_nano.core import AutoLLM, prompt
 from autocoder_nano.rag.token_counter import count_tokens
 from autocoder_nano.utils.config_utils import prepare_chat_yaml, get_last_yaml_file, convert_yaml_config_to_str
 from autocoder_nano.utils.git_utils import get_uncommitted_changes, commit_changes
 from autocoder_nano.utils.printer_utils import Printer
+from autocoder_nano.agent.agent_define import get_subagent_define
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.agent.agentic_edit_tools import *
 from autocoder_nano.utils.sys_utils import detect_env
 from autocoder_nano.utils.color_utils import *
 
 printer = Printer()
-
-
-TOOL_DISPLAY_MESSAGES: Dict[Type[BaseTool], Dict[str, str]] = {
-    ReadFileTool: {
-        "zh": "读取文件：{{ path }}"
-    },
-    WriteToFileTool: {
-        "zh": (
-            "AutoCoder Nano 想要写入此文件：\n{{ path }} \n\n内容片段：\n{{ content_snippet }} {{ ellipsis }} "
-        )
-    },
-    ReplaceInFileTool: {
-        "zh": (
-            "AutoCoder Nano 想要替换此文件中的内容：\n{{ path }} \n\n差异片段：\n{{ diff_snippet }}{{ ellipsis }}"
-        )
-    },
-    ExecuteCommandTool: {
-        "zh": (
-            "AutoCoder Nano 想要执行此命令：\n{{ command }}\n(需要批准：{{ requires_approval }})"
-        )
-    },
-    ListFilesTool: {
-        "zh": (
-            "AutoCoder Nano 想要列出此目录中的文件：\n{{ path }} {{ recursive_text }}"
-        )
-    },
-    SearchFilesTool: {
-        "zh": (
-            "AutoCoder Nano 想要在此目录中搜索文件：\n{{ path }}\n文件模式: {{ file_pattern }}\n正则表达式：{{ regex }}"
-        )
-    },
-    ListCodeDefinitionNamesTool: {
-        "zh": "AutoCoder Nano 想要列出此路径中的定义：\n{{ path }}"
-    },
-    AskFollowupQuestionTool: {
-        "zh": (
-            "AutoCoder Nano 正在提问：\n{{ question }}\n{{ options_text }}"
-        )
-    },
-    RecordMemoryTool: {
-        "zh": (
-            "AutoCoder Nano 正在记录笔记：\n{{ content }}"
-        )
-    },
-    RecallMemoryTool: {
-        "zh": (
-            "AutoCoder Nano 正在检索笔记, 提问：\n{{ query }}"
-        )
-    },
-    WebSearchTool: {
-        "zh": (
-            "AutoCoder Nano 正在联网搜索, 关键词：\n{{ query }}"
-        )
-    }
-}
 
 
 TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
@@ -89,44 +35,6 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     ACModWriteTool: ACModWriteToolResolver,
     ACModSearchTool: ACModSearchToolResolver,
     CallSubAgentTool: CallSubAgentToolResolver,
-}
-
-
-AGENT_INIT = {
-    "main": {
-        "tools": [
-            "todo_read",
-            "todo_write",
-            "search_files",
-            "list_files",
-            "read_file",
-            "call_subagent",
-            "ask_followup_question",
-            "attempt_completion"
-        ]
-    },
-    "coding": {
-        "tools": [
-            "execute_command",
-            "read_file",
-            "write_to_file",
-            "replace_in_file",
-            "search_files",
-            "list_files",
-            "ask_followup_question",
-            "attempt_completion",
-            "ac_mod_write",
-            "ac_mod_search"
-        ]
-    },
-    "research": {
-        "tools": [
-            "web_search",
-            "ask_followup_question",
-            "attempt_completion",
-            "write_to_file"
-        ]
-    }
 }
 
 
@@ -162,10 +70,8 @@ class BaseAgent:
         elif isinstance(tool, WebSearchTool):
             context = f"联网搜索: {tool.query}"
         elif isinstance(tool, RecordMemoryTool):
-            # context = {"content": tool.content}
             context = f"记录记忆: {tool.content[:50]}"
         elif isinstance(tool, RecallMemoryTool):
-            # context = {"query": tool.query}
             context = f"检索记忆: {tool.query}"
         elif isinstance(tool, ACModWriteTool):
             context = f"ACMod 记录: {tool.content[:50]}"
@@ -594,10 +500,11 @@ class ToolResolverFactory:
         # printer.print_text(f"✅ 注册工具解析器: {tool_type.__name__} -> {resolver_class.__name__}", style="green")
 
     def register_dynamic_resolver(self, agent_type):
-        if agent_type not in AGENT_INIT:
+        subagent = get_subagent_define()
+        if agent_type not in subagent:
             raise Exception(f"未内置该[{agent_type}] Agent 类型")
 
-        tool_list = AGENT_INIT[agent_type]["tools"]
+        tool_list = subagent[agent_type]["tools"]
 
         for tool in tool_list:
             _tool_type = TOOL_MODEL_MAP[tool]
