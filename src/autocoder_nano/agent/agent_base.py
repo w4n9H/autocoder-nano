@@ -585,5 +585,5 @@ class PromptManager:
             "home_dir": env_info.home_dir,
             "os_distribution": env_info.os_name,
             "shell_type": shell_type,
-            "rules_context": get_rules_context(self.args.project_root)
+            "rules_context": get_rules_context(self.args.source_dir)
         }
