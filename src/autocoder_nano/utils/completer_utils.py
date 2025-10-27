@@ -28,7 +28,8 @@ COMMANDS = {
     "/exclude_dirs": {},
     "/auto": {"/new": "", "/resume": ""},
     "/editor": {},
-    "/rules": {"/list": "", "/show": "", "/remove": "", "/analyze": "", "/commit": ""},
+    # "/rules": {"/list": "", "/show": "", "/remove": "", "/analyze": "", "/commit": ""},
+    "/rules": {"/show": "", "/analyze": "", "/clear": ""},
     "/context": {"/list": "", "/remove": ""}
 }
 
