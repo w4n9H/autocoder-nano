@@ -8,6 +8,7 @@ from importlib import resources
 from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
 from autocoder_nano.core import AutoLLM, prompt
 from autocoder_nano.rag.token_counter import count_tokens
+from autocoder_nano.rules import get_rules_context
 from autocoder_nano.utils.config_utils import prepare_chat_yaml, get_last_yaml_file, convert_yaml_config_to_str
 from autocoder_nano.utils.git_utils import get_uncommitted_changes, commit_changes
 from autocoder_nano.utils.printer_utils import Printer
@@ -569,6 +570,11 @@ class PromptManager:
         默认 Shell：{{shell_type}}
         主目录：{{home_dir}}
         当前工作目录：{{current_project}}
+
+        {% if rules_context %}
+        # RULES
+        {{ rules_context }}
+        {% endif %}
         """
         env_info = detect_env()
         shell_type = "bash"
@@ -579,4 +585,5 @@ class PromptManager:
             "home_dir": env_info.home_dir,
             "os_distribution": env_info.os_name,
             "shell_type": shell_type,
+            "rules_context": get_rules_context(self.args.project_root)
         }

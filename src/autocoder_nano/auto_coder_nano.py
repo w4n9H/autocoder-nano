@@ -16,7 +16,7 @@ from autocoder_nano.helper import show_help
 from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
-from autocoder_nano.rules import rules_from_active_files, rules_from_commit_changes, get_rules_context
+from autocoder_nano.rules import rules_from_active_files, get_rules_context
 from autocoder_nano.agent import AgenticEditConversationConfig, run_agentic, run_main_agentic
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import prompt, extract_code, AutoLLM
@@ -1425,36 +1425,43 @@ def rules(query_args: List[str], llm: AutoLLM):
     /rules /commit <提交ID>  - 分析特定提交，必须提供提交ID和查询内容
     """
     args = get_final_config(project_root, memory, query="", delete_execute_file=True)
-    rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
-    if query_args[0] == "/list":
-        printer.print_table_compact(
-            data=[[rules_name] for rules_name in os.listdir(rules_dir_path)],
-            title="Rules 列表",
-            headers=["Rules 文件"],
-            center=True
-        )
-
-    if query_args[0] == "/remove":
-        remove_rules_name = query_args[1].strip()
-        remove_rules_path = os.path.join(rules_dir_path, remove_rules_name)
-        if os.path.exists(remove_rules_path):
-            os.remove(remove_rules_path)
-            printer.print_text(f"Rules 文件[{remove_rules_name}]移除成功", style="green")
-        else:
-            printer.print_text(f"Rules 文件[{remove_rules_name}]不存在", style="yellow")
+    # rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
+    rule_path = os.path.join(project_root, ".auto-coder", "RULES.md")
+    # if query_args[0] == "/list":
+    #     printer.print_table_compact(
+    #         data=[[rules_name] for rules_name in os.listdir(rules_dir_path)],
+    #         title="Rules 列表",
+    #         headers=["Rules 文件"],
+    #         center=True
+    #     )
+    #
+    # if query_args[0] == "/remove":
+    #     remove_rules_name = query_args[1].strip()
+    #     remove_rules_path = os.path.join(rules_dir_path, remove_rules_name)
+    #     if os.path.exists(remove_rules_path):
+    #         os.remove(remove_rules_path)
+    #         printer.print_text(f"Rules 文件[{remove_rules_name}]移除成功", style="green")
+    #     else:
+    #         printer.print_text(f"Rules 文件[{remove_rules_name}]不存在", style="yellow")
 
     if query_args[0] == "/show":  # /rules /show 参数检查
-        show_rules_name = query_args[1].strip()
-        show_rules_path = os.path.join(rules_dir_path, show_rules_name)
-        if os.path.exists(show_rules_path):
-            with open(show_rules_path, "r") as fp:
+        # show_rules_name = query_args[1].strip()
+        # show_rules_path = os.path.join(rules_dir_path, show_rules_name)
+        if os.path.exists(rule_path):
+            with open(rule_path, "r") as fp:
                 printer.print_markdown(text=fp.read(), panel=True)
         else:
-            printer.print_text(f"Rules 文件[{show_rules_name}]不存在", style="yellow")
+            printer.print_text(f"Rules 文件[{rule_path}]不存在", style="yellow")
 
-    if query_args[0] == "/commit":
-        commit_id = query_args[1].strip()
-        rules_from_commit_changes(commit_id=commit_id, llm=llm, args=args)
+    if query_args[0] == "/clear":
+        if os.path.exists(rule_path):
+            with open(rule_path, "w") as fp:
+                fp.write("")
+            printer.print_text(f"Rules 文件[{rule_path}]已重置", style="yellow")
+
+    # if query_args[0] == "/commit":
+    #     commit_id = query_args[1].strip()
+    #     rules_from_commit_changes(commit_id=commit_id, llm=llm, args=args)
 
     if query_args[0] == "/analyze":
         files = memory.get("current_files", {}).get("files", [])

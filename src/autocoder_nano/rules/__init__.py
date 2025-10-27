@@ -10,25 +10,31 @@ from autocoder_nano.utils.printer_utils import Printer
 printer = Printer()
 
 
-def rules_from_commit_changes(commit_id: str, llm: AutoLLM, args: AutoCoderArgs):
-    rules_dir_path = os.path.join(args.source_dir, ".auto-coder", "autocoderrules")
-    auto_learn = AutoRulesLearn(llm=llm, args=args)
-
-    try:
-        result = auto_learn.analyze_commit_changes(commit_id=commit_id, conversations=[])
-        rules_file = os.path.join(rules_dir_path, f"rules-commit-{uuid.uuid4()}.md")
-        with open(rules_file, "w", encoding="utf-8") as f:
-            f.write(result)
-        printer.print_text(f"代码变更[{commit_id}]生成 Rules 成功", style="green")
-    except Exception as e:
-        printer.print_text(f"代码变更[{commit_id}]生成 Rules 失败: {e}", style="red")
+# def rules_from_commit_changes(commit_id: str, llm: AutoLLM, args: AutoCoderArgs):
+#     rules_dir_path = os.path.join(args.source_dir, ".auto-coder", "autocoderrules")
+#     auto_learn = AutoRulesLearn(llm=llm, args=args)
+#
+#     try:
+#         result = auto_learn.analyze_commit_changes(commit_id=commit_id, conversations=[])
+#         rules_file = os.path.join(rules_dir_path, f"rules-commit-{uuid.uuid4()}.md")
+#         with open(rules_file, "w", encoding="utf-8") as f:
+#             f.write(result)
+#         printer.print_text(f"代码变更[{commit_id}]生成 Rules 成功", style="green")
+#     except Exception as e:
+#         printer.print_text(f"代码变更[{commit_id}]生成 Rules 失败: {e}", style="red")
 
 
 def rules_from_active_files(files: list[str], llm: AutoLLM, args: AutoCoderArgs):
-    rules_dir_path = os.path.join(args.source_dir, ".auto-coder", "autocoderrules")
+    rule_path = os.path.join(args.source_dir, ".auto-coder", "RULES.md")
     auto_learn = AutoRulesLearn(llm=llm, args=args)
 
     sources = SourceCodeList([])
+    # 写入已有内容
+    if os.path.exists(rule_path):
+        with open(rule_path, "r", encoding="utf-8") as old_rule_fp:
+            sources.sources.append(SourceCode(module_name="以下是历史Rules, 你需要与新Rules, 合并更新",
+                                              source_code=old_rule_fp.read()))
+    # 追加活跃文件
     for file in files:
         try:
             with open(file, "r", encoding="utf-8") as f:
@@ -40,8 +46,7 @@ def rules_from_active_files(files: list[str], llm: AutoLLM, args: AutoCoderArgs)
 
     try:
         result = auto_learn.analyze_modules(sources=sources, conversations=[])
-        rules_file = os.path.join(rules_dir_path, f"rules-modules-{uuid.uuid4()}.md")
-        with open(rules_file, "w", encoding="utf-8") as f:
+        with open(rule_path, "w", encoding="utf-8") as f:
             f.write(result)
         printer.print_text(f"活跃文件[Files:{len(files)}]生成 Rules 成功", style="green")
     except Exception as e:
@@ -49,19 +54,17 @@ def rules_from_active_files(files: list[str], llm: AutoLLM, args: AutoCoderArgs)
 
 
 def get_rules_context(project_root):
-    rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
+    rule_path = os.path.join(project_root, ".auto-coder", "RULES.md")
     printer.print_text("已开启 Rules 模式", style="green")
     context = ""
-    context += f"下面是我们对代码进行深入分析,提取具有通用价值的功能模式和设计模式,可在其他需求中复用的Rules\n"
-    context += "你在编写代码时可以参考以下Rules\n"
-    context += "<rules>\n"
-    for rules_name in os.listdir(rules_dir_path):
-        printer.print_text(f"正在加载 Rules:{rules_name}", style="green")
-        rules_file_path = os.path.join(rules_dir_path, rules_name)
-        with open(rules_file_path, "r") as fp:
+    if os.path.exists(rule_path):
+        context += f"下面是我们对部分代码进行深入分析,提取具有通用价值的功能模式和设计模式,可在其他需求中复用的Rules\n"
+        context += "你在编写代码时可以参考以下Rules\n"
+        context += "<rules>\n"
+        with open(rule_path, "r") as fp:
             context += f"{fp.read()}\n"
-    context += "</rules>\n"
+        context += "</rules>\n"
     return context
 
 
-__all__ = ["get_rules_context", "rules_from_commit_changes", "rules_from_active_files"]
+__all__ = ["get_rules_context", "rules_from_active_files"]
