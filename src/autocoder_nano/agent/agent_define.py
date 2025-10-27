@@ -1,5 +1,5 @@
 SubAgent = {
-    "manager": {
+    "main": {
         "description": "MainAgent:擅长分析需求,拆解任务,代理调度,结果整合",
         "prompt": "main_system_prompt.md",
         "tools": [
