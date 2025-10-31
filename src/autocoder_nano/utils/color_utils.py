@@ -8,41 +8,41 @@ COLOR_SYSTEM = "bold bright_blue"          # 系统信息 - 亮蓝色加粗
 COLOR_SUCCESS = "bold green"               # 成功状态 - 绿色加粗
 COLOR_ERROR = "bold red"                   # 错误信息 - 红色加粗
 COLOR_WARNING = "bold yellow"              # 警告信息 - 黄色加粗
-COLOR_INFO = "bright_cyan"                 # 一般信息 - 亮青色
+COLOR_INFO = "dim white"                   # 一般信息 - 暗白色（低调显示）
 
 # Agent交互类
-COLOR_AGENT_START = "bold bright_magenta"  # Agent启动 - 亮洋红色加粗
-COLOR_AGENT_END = "bold bright_green"      # Agent结束 - 亮绿色加粗
-COLOR_ITERATION = "bright_yellow"          # 迭代计数 - 亮黄色
-COLOR_TOKEN_USAGE = "bright_cyan"          # Token使用 - 亮青色
+COLOR_AGENT_START = COLOR_SYSTEM           # Agent启动 - 亮洋红色加粗
+COLOR_AGENT_END = COLOR_SUCCESS            # Agent结束 - 亮绿色加粗
+COLOR_ITERATION = COLOR_INFO               # 迭代计数 - 亮黄色
+COLOR_TOKEN_USAGE = COLOR_INFO             # Token使用 - 亮青色
 
 # 工具相关
-COLOR_TOOL_CALL = "bold bright_cyan"       # 工具调用 - 亮青色加粗
-COLOR_TOOL_SUCCESS = "bright_green"        # 工具成功 - 亮绿色
-COLOR_TOOL_FAILURE = "bright_red"          # 工具失败 - 亮红色
+COLOR_TOOL_CALL = COLOR_INFO               # 工具调用 - 亮青色加粗
+COLOR_TOOL_SUCCESS = COLOR_SUCCESS         # 工具成功 - 亮绿色
+COLOR_TOOL_FAILURE = COLOR_ERROR           # 工具失败 - 亮红色
 
 # LLM交互
-COLOR_LLM_THINKING = "dim white"           # LLM思考 - 暗白色（低调显示）
-COLOR_LLM_OUTPUT = "bright_white"          # LLM输出 - 亮白色（清晰显示）
-COLOR_LLM_STREAM = "cyan"                  # LLM流式输出 - 青色
-COLOR_LLM_CALL = "dim white"               # LLM请求 - 暗白色（低调显示）
+COLOR_LLM_THINKING = COLOR_INFO            # LLM思考 - 暗白色（低调显示）
+COLOR_LLM_OUTPUT = COLOR_INFO              # LLM输出 - 亮白色（清晰显示）
+COLOR_LLM_STREAM = COLOR_INFO              # LLM流式输出 - 青色
+COLOR_LLM_CALL = COLOR_INFO                # LLM请求 - 暗白色（低调显示）
 
 # 文件操作
-COLOR_FILE_READ = "bright_blue"            # 文件读取 - 亮蓝色
-COLOR_FILE_WRITE = "bright_green"          # 文件写入 - 亮绿色
-COLOR_FILE_CHANGE = "bright_yellow"        # 文件变更 - 亮黄色
+COLOR_FILE_READ = COLOR_INFO               # 文件读取 - 亮蓝色
+COLOR_FILE_WRITE = COLOR_INFO              # 文件写入 - 亮绿色
+COLOR_FILE_CHANGE = COLOR_WARNING          # 文件变更 - 亮黄色
 
 # 特殊状态
-COLOR_COMPLETION = "bold bright_green"     # 任务完成 - 亮绿色加粗
-COLOR_PROGRESS = "bright_blue"             # 进度信息 - 亮蓝色
-COLOR_DEBUG = "dim white"                  # 调试信息 - 暗白色
+COLOR_COMPLETION = COLOR_SUCCESS           # 任务完成 - 亮绿色加粗
+COLOR_PROGRESS = COLOR_INFO                # 进度信息 - 亮蓝色
+COLOR_DEBUG = COLOR_INFO                   # 调试信息 - 暗白色
 
 # 面板样式
-COLOR_PANEL_SUCCESS = "green"              # 成功面板边框 - 绿色
-COLOR_PANEL_ERROR = "red"                  # 错误面板边框 - 红色
-COLOR_PANEL_INFO = "blue"                  # 信息面板边框 - 蓝色
-COLOR_PANEL_WARNING = "yellow"             # 警告面板边框 - 黄色
-COLOR_PANEL_TOOL = "cyan"                  # 工具面板边框 - 青色
+COLOR_PANEL_SUCCESS = COLOR_SUCCESS        # 成功面板边框 - 绿色
+COLOR_PANEL_ERROR = COLOR_ERROR            # 错误面板边框 - 红色
+COLOR_PANEL_INFO = COLOR_INFO              # 信息面板边框 - 蓝色
+COLOR_PANEL_WARNING = COLOR_WARNING        # 警告面板边框 - 黄色
+COLOR_PANEL_TOOL = COLOR_INFO              # 工具面板边框 - 青色
 
 # 工具类型颜色映射
 TOOL_COLORS = {
