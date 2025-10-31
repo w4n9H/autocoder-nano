@@ -179,7 +179,8 @@ class SubAgents(BaseAgent):
                     tool_obj = event.tool
                     tool_name = type(tool_obj).__name__
                     tool_xml = event.tool_xml
-                    printer.print_text(f"🛠️ SubAgent 触发工具: {tool_name}", style=COLOR_TOOL_CALL)
+                    # 不在展示工具触发, 仅展示后面的调用部分
+                    # printer.print_text(f"🛠️ SubAgent 触发工具: {tool_name}", style=COLOR_TOOL_CALL)
 
                     # 记录当前对话的token数量
                     self.current_conversations.append({
@@ -339,7 +340,7 @@ class SubAgents(BaseAgent):
                     completion_text = event.completion.result
                     completion_status = True
                     printer.print_panel(
-                        content=Markdown(event.completion.result),
+                        content=Markdown(completion_text),
                         border_style=COLOR_PANEL_SUCCESS,
                         title="🏁 任务完成", center=True
                     )
