@@ -418,11 +418,12 @@ class BaseAgent:
         # 打印基础信息面板
         printer.print_text(f"{title}, {base_content}", style=COLOR_TOOL_CALL)
 
-        content_str = self._format_tool_result_content(result.content)
-        lexer = self._determine_content_lexer(event.tool_name, result.message)
-        if content_str:
-            printer.print_code(
-                code=content_str, lexer=lexer, theme="monokai", line_numbers=True, panel=True)
+        # 不在展示具体的代码，以展示 Agent 操作为主
+        # content_str = self._format_tool_result_content(result.content)
+        # lexer = self._determine_content_lexer(event.tool_name, result.message)
+        # if content_str:
+        #     printer.print_code(
+        #         code=content_str, lexer=lexer, theme="monokai", line_numbers=True, panel=True)
 
     @staticmethod
     def _format_tool_result_content(result_content, max_len: int = 500):

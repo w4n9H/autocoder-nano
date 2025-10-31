@@ -262,9 +262,10 @@ class AgenticRuntime(BaseAgent):
                     tool_name = type(tool_obj).__name__
                     tool_xml = event.tool_xml  # Already reconstructed by parser
 
+                    # 不在展示工具触发, 仅展示后面的调用部分
                     # printer.print_panel(content=f"tool_xml \n{tool_xml}", title=f"🛠️ 工具触发: {tool_name}",
                     #                     center=True)
-                    printer.print_text(f"🛠️ 工具触发: {tool_name}", style=COLOR_TOOL_CALL)
+                    # printer.print_text(f"🛠️ 工具触发: {tool_name}", style=COLOR_TOOL_CALL)
 
                     # 记录当前对话的token数量
                     conversations.append({
