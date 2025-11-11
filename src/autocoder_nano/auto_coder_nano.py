@@ -1371,6 +1371,9 @@ def configure_project_model():
         "12": {"name": "(BigModel)bigmodel/coding-plan",
                "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
                "model_name": "glm-4.6"},
+        "13": {"name": "(Volcengine)byte/doubao-seed-code-plan",
+               "base_url": "https://ark.cn-beijing.volces.com/api/coding",
+               "model_name": "doubao-seed-code-preview-latest"},
     }
 
     # 内置模型
@@ -1390,15 +1393,16 @@ def configure_project_model():
     print_info(f"  10. (OpenRouter)openai/gpt-5")
     print_info(f"  11. (BigModel)bigmodel/glm-4.5")
     print_info(f"  12. (BigModel)bigmodel/coding-plan")
-    print_info(f"  13. 其他模型")
-    model_num = input(f"  请选择您想使用的模型供应商编号(1-13): ").strip().lower()
+    print_info(f"  13. (Volcengine)byte/doubao-seed-code-plan - 新增！专为代码生成优化")
+    print_info(f"  14. 其他模型")
+    model_num = input(f"  请选择您想使用的模型供应商编号(1-14): ").strip().lower()
 
-    if int(model_num) < 1 or int(model_num) > 13:
-        printer.print_text("请选择 1-13", style="red")
+    if int(model_num) < 1 or int(model_num) > 14:
+        printer.print_text("请选择 1-14", style="red")
         save_memory()
         exit(1)
 
-    if model_num == "13":  # 只有选择"其他模型"才需要手动输入所有信息
+    if model_num == "14":  # 只有选择"其他模型"才需要手动输入所有信息
         current_model = input(f"  设置你的首选模型别名(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
         current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
         current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()
