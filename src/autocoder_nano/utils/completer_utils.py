@@ -12,7 +12,7 @@ COMMANDS = {
     },
     "/remove_files": {"/all": ""},
     "/coding": {"/apply": ""},
-    "/chat": {"/history": "", "/new": "", "/review": ""},
+    "/chat": {"/history": "", "/new": ""},
     "/models": {"/add_model": "", "/remove": "", "/list": "", "/check": "", "/add": ""},
     "/help": {
         "/add_files": "",

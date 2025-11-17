@@ -353,32 +353,33 @@ def chat_command(query: str, llm: AutoLLM):
     if is_new:
         query = query.replace("/new", "", 1).strip()
 
-    if "/review" in query and "/commit" in query:
-        pass  # 审核最近的一次commit代码，开发中
-    else:
-        #
-        is_review = query.strip().startswith("/review")
-        if is_review:
-            query = query.replace("/review", "", 1).strip()
-            query = code_review.prompt(query)
-
     memory_dir = os.path.join(args.source_dir, ".auto-coder", "memory")
     os.makedirs(memory_dir, exist_ok=True)
     memory_file = os.path.join(memory_dir, "chat_history.json")
 
     if is_new:
+        # if os.path.exists(memory_file):
+        #     with open(memory_file, "r") as f:
+        #         old_chat_history = json.load(f)
+        #     if "conversation_history" not in old_chat_history:
+        #         old_chat_history["conversation_history"] = []
+        #     old_chat_history["conversation_history"].append(old_chat_history.get("ask_conversation", []))
+        #     chat_history = {"ask_conversation": [], "conversation_history": old_chat_history["conversation_history"]}
+        # else:
+        #     chat_history = {"ask_conversation": [],
+        #                     "conversation_history": []}
+        new_conversation_history = []
         if os.path.exists(memory_file):
             with open(memory_file, "r") as f:
                 old_chat_history = json.load(f)
-            if "conversation_history" not in old_chat_history:
-                old_chat_history["conversation_history"] = []
-            old_chat_history["conversation_history"].append(old_chat_history.get("ask_conversation", []))
-            chat_history = {"ask_conversation": [], "conversation_history": old_chat_history["conversation_history"]}
-        else:
-            chat_history = {"ask_conversation": [],
-                            "conversation_history": []}
+            if "ask_conversation" in old_chat_history:
+                new_conversation_history.append(old_chat_history["ask_conversation"])
+        chat_history = {
+            "ask_conversation": [],
+            "conversation_history": new_conversation_history
+        }
         with open(memory_file, "w") as fp:
-            json_str = json.dumps(chat_history, ensure_ascii=False)
+            json_str = json.dumps(chat_history, indent=2, ensure_ascii=False)
             fp.write(json_str)
 
         printer.print_panel(
@@ -430,7 +431,7 @@ def chat_command(query: str, llm: AutoLLM):
     chat_history["ask_conversation"].append({"role": "assistant", "content": assistant_response})
 
     with open(memory_file, "w") as fp:
-        json_str = json.dumps(chat_history, ensure_ascii=False)
+        json_str = json.dumps(chat_history, indent=2, ensure_ascii=False)
         fp.write(json_str)
 
     return
@@ -1371,6 +1372,9 @@ def configure_project_model():
         "12": {"name": "(BigModel)bigmodel/coding-plan",
                "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
                "model_name": "glm-4.6"},
+        "13": {"name": "(Volcengine)byte/doubao-seed-code-plan",
+               "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
+               "model_name": "doubao-seed-code-preview-latest"},
     }
 
     # 内置模型
@@ -1390,15 +1394,16 @@ def configure_project_model():
     print_info(f"  10. (OpenRouter)openai/gpt-5")
     print_info(f"  11. (BigModel)bigmodel/glm-4.5")
     print_info(f"  12. (BigModel)bigmodel/coding-plan")
-    print_info(f"  13. 其他模型")
-    model_num = input(f"  请选择您想使用的模型供应商编号(1-13): ").strip().lower()
+    print_info(f"  13. (Volcengine)byte/doubao-seed-code-plan")
+    print_info(f"  14. 其他模型")
+    model_num = input(f"  请选择您想使用的模型供应商编号(1-14): ").strip().lower()
 
-    if int(model_num) < 1 or int(model_num) > 13:
-        printer.print_text("请选择 1-13", style="red")
+    if int(model_num) < 1 or int(model_num) > 14:
+        printer.print_text("请选择 1-14", style="red")
         save_memory()
         exit(1)
 
-    if model_num == "13":  # 只有选择"其他模型"才需要手动输入所有信息
+    if model_num == "14":  # 只有选择"其他模型"才需要手动输入所有信息
         current_model = input(f"  设置你的首选模型别名(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
         current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
         current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()
