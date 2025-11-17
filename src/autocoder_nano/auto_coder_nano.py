@@ -379,7 +379,7 @@ def chat_command(query: str, llm: AutoLLM):
             "conversation_history": new_conversation_history
         }
         with open(memory_file, "w") as fp:
-            json_str = json.dumps(chat_history, ensure_ascii=False)
+            json_str = json.dumps(chat_history, indent=2, ensure_ascii=False)
             fp.write(json_str)
 
         printer.print_panel(
@@ -431,7 +431,7 @@ def chat_command(query: str, llm: AutoLLM):
     chat_history["ask_conversation"].append({"role": "assistant", "content": assistant_response})
 
     with open(memory_file, "w") as fp:
-        json_str = json.dumps(chat_history, ensure_ascii=False)
+        json_str = json.dumps(chat_history, indent=2, ensure_ascii=False)
         fp.write(json_str)
 
     return
@@ -1373,7 +1373,7 @@ def configure_project_model():
                "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
                "model_name": "glm-4.6"},
         "13": {"name": "(Volcengine)byte/doubao-seed-code-plan",
-               "base_url": "https://ark.cn-beijing.volces.com/api/coding",
+               "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
                "model_name": "doubao-seed-code-preview-latest"},
     }
 
