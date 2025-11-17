@@ -353,30 +353,31 @@ def chat_command(query: str, llm: AutoLLM):
     if is_new:
         query = query.replace("/new", "", 1).strip()
 
-    if "/review" in query and "/commit" in query:
-        pass  # 审核最近的一次commit代码，开发中
-    else:
-        #
-        is_review = query.strip().startswith("/review")
-        if is_review:
-            query = query.replace("/review", "", 1).strip()
-            query = code_review.prompt(query)
-
     memory_dir = os.path.join(args.source_dir, ".auto-coder", "memory")
     os.makedirs(memory_dir, exist_ok=True)
     memory_file = os.path.join(memory_dir, "chat_history.json")
 
     if is_new:
+        # if os.path.exists(memory_file):
+        #     with open(memory_file, "r") as f:
+        #         old_chat_history = json.load(f)
+        #     if "conversation_history" not in old_chat_history:
+        #         old_chat_history["conversation_history"] = []
+        #     old_chat_history["conversation_history"].append(old_chat_history.get("ask_conversation", []))
+        #     chat_history = {"ask_conversation": [], "conversation_history": old_chat_history["conversation_history"]}
+        # else:
+        #     chat_history = {"ask_conversation": [],
+        #                     "conversation_history": []}
+        new_conversation_history = []
         if os.path.exists(memory_file):
             with open(memory_file, "r") as f:
                 old_chat_history = json.load(f)
-            if "conversation_history" not in old_chat_history:
-                old_chat_history["conversation_history"] = []
-            old_chat_history["conversation_history"].append(old_chat_history.get("ask_conversation", []))
-            chat_history = {"ask_conversation": [], "conversation_history": old_chat_history["conversation_history"]}
-        else:
-            chat_history = {"ask_conversation": [],
-                            "conversation_history": []}
+            if "ask_conversation" in old_chat_history:
+                new_conversation_history.append(old_chat_history["ask_conversation"])
+        chat_history = {
+            "ask_conversation": [],
+            "conversation_history": new_conversation_history
+        }
         with open(memory_file, "w") as fp:
             json_str = json.dumps(chat_history, ensure_ascii=False)
             fp.write(json_str)
@@ -1393,7 +1394,7 @@ def configure_project_model():
     print_info(f"  10. (OpenRouter)openai/gpt-5")
     print_info(f"  11. (BigModel)bigmodel/glm-4.5")
     print_info(f"  12. (BigModel)bigmodel/coding-plan")
-    print_info(f"  13. (Volcengine)byte/doubao-seed-code-plan - 新增！专为代码生成优化")
+    print_info(f"  13. (Volcengine)byte/doubao-seed-code-plan")
     print_info(f"  14. 其他模型")
     model_num = input(f"  请选择您想使用的模型供应商编号(1-14): ").strip().lower()
 
