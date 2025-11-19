@@ -37,30 +37,31 @@ def _generate_agent_type(user_input: str):
     """
 
 
-def run_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig):
+# def run_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig):
+#
+#     llm.setup_default_model_name(args.code_model)
+#     agent_router_raw = _generate_agent_type.with_llm(llm).run(user_input=args.query)
+#     agent_router = json.loads(extract_code(agent_router_raw.output)[0][1])
+#     agent_type = agent_router["agent_type"]
+#
+#     sources = SourceCodeList([])
+#     agentic_runner = AgenticRuntime(
+#         args=args, llm=llm, agent_type=agent_type,
+#         files=sources, history_conversation=[], conversation_config=conversation_config,
+#     )
+#     request = AgenticEditRequest(user_input=args.query)
+#     agentic_runner.run_in_terminal(request)
 
-    llm.setup_default_model_name(args.code_model)
-    agent_router_raw = _generate_agent_type.with_llm(llm).run(user_input=args.query)
-    agent_router = json.loads(extract_code(agent_router_raw.output)[0][1])
-    agent_type = agent_router["agent_type"]
 
+def run_main_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig,
+                     used_subagent: list[str]):
     sources = SourceCodeList([])
     agentic_runner = AgenticRuntime(
-        args=args, llm=llm, agent_type=agent_type,
+        args=args, llm=llm, agent_type="main", used_subagent=used_subagent,
         files=sources, history_conversation=[], conversation_config=conversation_config,
     )
     request = AgenticEditRequest(user_input=args.query)
     agentic_runner.run_in_terminal(request)
 
 
-def run_main_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig):
-    sources = SourceCodeList([])
-    agentic_runner = AgenticRuntime(
-        args=args, llm=llm, agent_type="main",
-        files=sources, history_conversation=[], conversation_config=conversation_config,
-    )
-    request = AgenticEditRequest(user_input=args.query)
-    agentic_runner.run_in_terminal(request)
-
-
-__all__ = ["AgenticEditConversationConfig", "run_agentic", "run_main_agentic"]
+__all__ = ["AgenticEditConversationConfig", "run_main_agentic"]

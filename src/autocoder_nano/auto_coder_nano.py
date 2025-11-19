@@ -17,7 +17,7 @@ from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, get_rules_context
-from autocoder_nano.agent import AgenticEditConversationConfig, run_agentic, run_main_agentic
+from autocoder_nano.agent import AgenticEditConversationConfig, run_main_agentic
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.actypes import *
@@ -686,6 +686,20 @@ def auto_command(query: str, llm: AutoLLM):
     cmc.storage_path = os.path.join(project_root, ".auto-coder", "context")
     gcm = get_context_manager(config=cmc)
 
+    used_subagent_list = []
+    if "/sub:coding" in query:
+        query = query.replace("/sub:coding", "", 1).strip()
+        used_subagent_list.append("coding")
+    if "/sub:research" in query:
+        query = query.replace("/sub:research", "", 1).strip()
+        used_subagent_list.append("research")
+    if "/sub:review" in query:
+        query = query.replace("/sub:review", "", 1).strip()
+        used_subagent_list.append("review")
+
+    if not used_subagent_list:
+        used_subagent_list.append("coding")    # 默认只带一个coding subagent
+
     def _printer_resume_conversation(_conversation_id):
         printer.print_panel(
             Text(f"Agent 恢复对话[{_conversation_id}]", style="green"),
@@ -742,7 +756,7 @@ def auto_command(query: str, llm: AutoLLM):
 
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
 
-    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config, used_subagent=used_subagent_list)
 
 
 def long_context_auto_command(llm: AutoLLM):
@@ -760,7 +774,7 @@ def long_context_auto_command(llm: AutoLLM):
         action="new",
         query=query.strip()
     )
-    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config, used_subagent=["coding"])
 
 
 def context_command(context_args):

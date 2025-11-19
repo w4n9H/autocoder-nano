@@ -55,7 +55,7 @@ class CallSubAgentToolResolver(BaseToolResolver):
         描述：
         - 调用子代理执行特定任务
         参数：
-        - agent_type: 子代理类型 (coding/research) 
+        - agent_type: 子代理类型 (coding/research/review等) 
         - task: 具体任务描述
         - context: 传递给子代理的上下文信息
         用法说明：

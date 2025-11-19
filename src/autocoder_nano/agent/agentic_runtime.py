@@ -23,12 +23,14 @@ printer = Printer()
 
 class AgenticRuntime(BaseAgent):
     def __init__(
-            self, args: AutoCoderArgs, llm: AutoLLM, agent_type: str, files: SourceCodeList,
+            self, args: AutoCoderArgs, llm: AutoLLM, agent_type: str, used_subagent: list[str],
+            files: SourceCodeList,
             history_conversation: List[Dict[str, Any]],
             conversation_config: Optional[AgenticEditConversationConfig] = None
     ):
         super().__init__(args, llm)
         self.agent_type = agent_type
+        self.used_subagent = used_subagent
         self.files = files
         self.history_conversation = history_conversation
         self.current_conversations = []
@@ -158,8 +160,9 @@ class AgenticRuntime(BaseAgent):
 
     def _build_system_prompt(self) -> List[Dict[str, Any]]:
         """ 构建初始对话消息 """
+        _system_prompt = f"{self._get_system_prompt()}\n{self.prompt_manager.subagent_info(self.used_subagent)}"
         system_prompt = [
-            {"role": "system", "content": self._get_system_prompt()},
+            {"role": "system", "content": _system_prompt},
             {"role": "system", "content": self._get_tools_prompt()},
             {"role": "system", "content": self.prompt_manager.prompt_sysinfo.prompt()}
         ]
