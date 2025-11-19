@@ -430,10 +430,10 @@ def chat_command(query: str, llm: AutoLLM):
 
     chat_history["ask_conversation"].append({"role": "assistant", "content": assistant_response})
 
-    with open(memory_file, "w") as fp:
-        json_str = json.dumps(chat_history, indent=2, ensure_ascii=False)
-        fp.write(json_str)
-
+    share_file_path = os.path.join(project_root, ".auto-coder", "SHARE.md")
+    with open(memory_file, "w") as fp, open(share_file_path, "w") as sfp:
+        fp.write(json.dumps(chat_history, indent=2, ensure_ascii=False))
+        sfp.write(assistant_response)
     return
 
 
@@ -788,9 +788,23 @@ def context_command(context_args):
                 printer.print_text(f"{e}", style="red")
 
 
-def editor_command(file_path: str):
-    abs_input_path = os.path.abspath(os.path.join(project_root, file_path)) if not os.path.isabs(file_path) else file_path
-    run_editor(abs_input_path)
+def editor_command(command_or_path):
+    if command_or_path[0] == "/share.md":
+        share_file_path = os.path.join(project_root, ".auto-coder", "SHARE.md")
+        if os.path.exists(share_file_path):
+            run_editor(share_file_path)
+    elif command_or_path[0] == "/rules.md":
+        rules_file_path = os.path.join(project_root, ".auto-coder", "RULES.md")
+        if os.path.exists(rules_file_path):
+            run_editor(rules_file_path)
+    elif command_or_path[0] == "/agents.md":
+        agents_file_path = os.path.join(project_root, ".auto-coder", "AGENTS.md")
+        if os.path.exists(agents_file_path):
+            run_editor(agents_file_path)
+    else:
+        file_path = command_or_path[0]
+        abs_input_path = os.path.abspath(os.path.join(project_root, file_path)) if not os.path.isabs(file_path) else file_path
+        run_editor(abs_input_path)
 
 
 @prompt()
@@ -1649,7 +1663,7 @@ def main():
                 file_names = user_input[len("/remove_files"):].strip().split(",")
                 remove_files(file_names)
             elif user_input.startswith("/editor"):
-                editor_files = user_input[len("/editor"):].strip()
+                editor_files = user_input[len("/editor"):].strip().split()
                 editor_command(editor_files)
             elif user_input.startswith("/index/build"):
                 index_command(llm=auto_llm)
