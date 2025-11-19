@@ -38,6 +38,19 @@ SubAgent = {
             "attempt_completion",
             "write_to_file"
         ]
+    },
+    "codereview": {
+        "description": "代码审查专家：精通多语言代码质量分析、安全漏洞检测和性能优化",
+        "prompt": "codereview_system_prompt.md",
+        "tools": [
+            "execute_command",
+            "read_file",
+            "write_to_file",
+            "search_files",
+            "list_files",
+            "ask_followup_question",
+            "attempt_completion"
+        ]
     }
 }
 
