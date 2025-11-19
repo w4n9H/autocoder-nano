@@ -5,6 +5,8 @@ import os
 import xml.sax.saxutils
 from importlib import resources
 
+from jinja2.filters import sync_do_unique
+
 from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
 from autocoder_nano.core import AutoLLM, prompt
 from autocoder_nano.rag.token_counter import count_tokens
@@ -588,3 +590,13 @@ class PromptManager:
             "shell_type": shell_type,
             "rules_context": get_rules_context(self.args.source_dir)
         }
+
+    @staticmethod
+    def subagent_info(used_subagent: list[str]) -> str:
+        subagent_use_info = "## SubAgent 类型\n"
+        subagent_define = get_subagent_define()
+        for sub in used_subagent:
+            if sub in subagent_define:
+                subagent = subagent_define[sub]
+                subagent_use_info += f"### {sub.title()}\n{subagent['description']}\n{subagent['call']}\n\n"
+        return subagent_use_info

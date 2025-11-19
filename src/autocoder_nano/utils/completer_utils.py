@@ -26,8 +26,8 @@ COMMANDS = {
     },
     "/exclude_files": {"/list": "", "/drop": ""},
     "/exclude_dirs": {},
-    "/auto": {"/new": "", "/resume": ""},
-    "/editor": {},
+    "/auto": {"/sub:coding": "", "/sub:research": "", "/sub:review": "", "/new": "", "/resume": ""},
+    "/editor": {"/rules.md": "", "/agents.md": "", "/share.md": ""},
     # "/rules": {"/list": "", "/show": "", "/remove": "", "/analyze": "", "/commit": ""},
     "/rules": {"/show": "", "/analyze": "", "/clear": ""},
     "/context": {"/list": "", "/remove": ""}
@@ -225,9 +225,12 @@ class CommandTextParser:
         return self.current_word()
 
     def get_sub_commands(self) -> list[str]:
-        if self.get_current_word() and not self.get_current_word().startswith("/"):
-            return []
-
+        # if self.get_current_word() and not self.get_current_word().startswith("/"):
+        #     return []
+        if self.command == "/auto":
+            all_sub_commands = COMMANDS["/auto"].keys()
+            used_sub_commands = self.sub_commands
+            return [cmd for cmd in all_sub_commands if cmd not in used_sub_commands]
         if isinstance(self.current_hiararchy, str):
             return []
 
@@ -340,8 +343,16 @@ class CommandCompleter(Completer):
                         for file_name in self.all_files:
                             if current_word and current_word in file_name:
                                 yield Completion(file_name, start_position=-len(current_word))
+            elif words[0] == "/auto":
+                new_text = text[len(words[0]):]
+                parser = CommandTextParser(new_text, words[0])
+                parser.coding()
+                current_word = parser.current_word()
 
-            elif words[0] in ["/chat", "/coding", "/auto"]:
+                for command in parser.get_sub_commands():
+                    if command.startswith(current_word):
+                        yield Completion(command, start_position=-len(current_word))
+            elif words[0] in ["/chat", "/coding"]:
                 image_extensions = (
                     ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".svg", ".ico",
                     ".heic", ".heif", ".raw", ".cr2", ".nef", ".arw", ".dng", ".orf", ".rw2", ".pef",

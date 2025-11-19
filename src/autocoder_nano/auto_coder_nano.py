@@ -17,7 +17,7 @@ from autocoder_nano.project import project_source
 from autocoder_nano.index import (index_export, index_import, index_build,
                                   index_build_and_filter, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, get_rules_context
-from autocoder_nano.agent import AgenticEditConversationConfig, run_agentic, run_main_agentic
+from autocoder_nano.agent import AgenticEditConversationConfig, run_main_agentic
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.actypes import *
@@ -430,10 +430,10 @@ def chat_command(query: str, llm: AutoLLM):
 
     chat_history["ask_conversation"].append({"role": "assistant", "content": assistant_response})
 
-    with open(memory_file, "w") as fp:
-        json_str = json.dumps(chat_history, indent=2, ensure_ascii=False)
-        fp.write(json_str)
-
+    share_file_path = os.path.join(project_root, ".auto-coder", "SHARE.md")
+    with open(memory_file, "w") as fp, open(share_file_path, "w") as sfp:
+        fp.write(json.dumps(chat_history, indent=2, ensure_ascii=False))
+        sfp.write(assistant_response)
     return
 
 
@@ -686,6 +686,20 @@ def auto_command(query: str, llm: AutoLLM):
     cmc.storage_path = os.path.join(project_root, ".auto-coder", "context")
     gcm = get_context_manager(config=cmc)
 
+    used_subagent_list = []
+    if "/sub:coding" in query:
+        query = query.replace("/sub:coding", "", 1).strip()
+        used_subagent_list.append("coding")
+    if "/sub:research" in query:
+        query = query.replace("/sub:research", "", 1).strip()
+        used_subagent_list.append("research")
+    if "/sub:review" in query:
+        query = query.replace("/sub:review", "", 1).strip()
+        used_subagent_list.append("review")
+
+    if not used_subagent_list:
+        used_subagent_list.append("coding")    # 默认只带一个coding subagent
+
     def _printer_resume_conversation(_conversation_id):
         printer.print_panel(
             Text(f"Agent 恢复对话[{_conversation_id}]", style="green"),
@@ -742,7 +756,7 @@ def auto_command(query: str, llm: AutoLLM):
 
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
 
-    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config, used_subagent=used_subagent_list)
 
 
 def long_context_auto_command(llm: AutoLLM):
@@ -760,7 +774,7 @@ def long_context_auto_command(llm: AutoLLM):
         action="new",
         query=query.strip()
     )
-    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config)
+    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config, used_subagent=["coding"])
 
 
 def context_command(context_args):
@@ -788,9 +802,23 @@ def context_command(context_args):
                 printer.print_text(f"{e}", style="red")
 
 
-def editor_command(file_path: str):
-    abs_input_path = os.path.abspath(os.path.join(project_root, file_path)) if not os.path.isabs(file_path) else file_path
-    run_editor(abs_input_path)
+def editor_command(command_or_path):
+    if command_or_path[0] == "/share.md":
+        share_file_path = os.path.join(project_root, ".auto-coder", "SHARE.md")
+        if os.path.exists(share_file_path):
+            run_editor(share_file_path)
+    elif command_or_path[0] == "/rules.md":
+        rules_file_path = os.path.join(project_root, ".auto-coder", "RULES.md")
+        if os.path.exists(rules_file_path):
+            run_editor(rules_file_path)
+    elif command_or_path[0] == "/agents.md":
+        agents_file_path = os.path.join(project_root, ".auto-coder", "AGENTS.md")
+        if os.path.exists(agents_file_path):
+            run_editor(agents_file_path)
+    else:
+        file_path = command_or_path[0]
+        abs_input_path = os.path.abspath(os.path.join(project_root, file_path)) if not os.path.isabs(file_path) else file_path
+        run_editor(abs_input_path)
 
 
 @prompt()
@@ -1649,7 +1677,7 @@ def main():
                 file_names = user_input[len("/remove_files"):].strip().split(",")
                 remove_files(file_names)
             elif user_input.startswith("/editor"):
-                editor_files = user_input[len("/editor"):].strip()
+                editor_files = user_input[len("/editor"):].strip().split()
                 editor_command(editor_files)
             elif user_input.startswith("/index/build"):
                 index_command(llm=auto_llm)
