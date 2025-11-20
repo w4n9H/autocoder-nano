@@ -1369,9 +1369,9 @@ def configure_project_model():
         "4": {"name": "(Volcengine)moonshotai/kimi-k2",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "kimi-k2-250905"},
-        "5": {"name": "(iFlow)ali/qwen3-coder-plus",
+        "5": {"name": "(iFlow)ali/qwen3-max",
               "base_url": "https://apis.iflow.cn/v1",
-              "model_name": "qwen3-coder-plus"},
+              "model_name": "qwen3-max"},
         "6": {"name": "(iFlow)bigmodel/glm-4.6",
               "base_url": "https://apis.iflow.cn/v1",
               "model_name": "glm-4.6"},
@@ -1408,7 +1408,7 @@ def configure_project_model():
     print_info(f"  2. (Volcengine)deepseek/deepseek-v3.1-terminus")
     print_info(f"  3. (Volcengine)byte/doubao-seed-1.6-251015")
     print_info(f"  4. (Volcengine)moonshotai/kimi-k2-250905")
-    print_info(f"  5. (iFlow)ali/qwen3-coder-plus[免费调用]")
+    print_info(f"  5. (iFlow)ali/qwen3-max[免费调用]")
     print_info(f"  6. (iFlow)bigmodel/glm-4.6[免费调用]")
     print_info(f"  7. (OpenRouter)anthropic/claude-opus-4")
     print_info(f"  8. (OpenRouter)anthropic/claude-sonnet-4.5")
