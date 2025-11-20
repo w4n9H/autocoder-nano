@@ -483,6 +483,12 @@ class BaseAgent:
 
         return lexer
 
+    def _delete_old_todo_file(self):
+        todo_file = os.path.join(self.args.source_dir, ".auto-coder", "todos", "current_session.json")
+        if os.path.exists(todo_file):
+            printer.print_text(f"TodoList 文件已清理", style=COLOR_INFO)
+            os.remove(todo_file)
+
 
 class ToolResolverFactory:
     """工具解析器工厂"""
