@@ -14,6 +14,7 @@ from .todo_write_tool import TodoWriteToolResolver
 from .ac_mod_write_tool import ACModWriteToolResolver
 from .ac_mod_search_tool import ACModSearchToolResolver
 from .call_subagent_tool import CallSubAgentToolResolver
+from .use_rag_tool import UseRAGToolResolver
 
 __all__ = [
     "BaseToolResolver",
@@ -30,5 +31,6 @@ __all__ = [
     "TodoWriteToolResolver",
     "ACModWriteToolResolver",
     "ACModSearchToolResolver",
-    "CallSubAgentToolResolver"
+    "CallSubAgentToolResolver",
+    "UseRAGToolResolver"
 ]

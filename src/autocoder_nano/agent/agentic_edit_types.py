@@ -110,7 +110,6 @@ class PlanModeRespondTool(BaseTool):
 
 
 class UseRAGTool(BaseTool):
-    server_name: str
     query: str
 
 
@@ -212,5 +211,5 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "ac_mod_write": ACModWriteTool,
     "ac_mod_search": ACModSearchTool,
     "call_subagent": CallSubAgentTool,
-    "call_cusagent": CallCusAgentTool
+    "use_rag_tool": UseRAGTool
 }

@@ -42,9 +42,9 @@ SubAgent = {
             "write_to_file"
         ]
     },
-    "review": {
+    "codereview": {
         "description": "代码审查专家：精通多语言代码质量分析、安全漏洞检测和性能优化",
-        "call": "调用时机:完成复杂的编码任务后，agent_type:review",
+        "call": "调用时机:完成复杂的编码任务后，agent_type:codereview",
         "prompt": "codereview_system_prompt.md",
         "tools": [
             "execute_command",
@@ -52,6 +52,17 @@ SubAgent = {
             "write_to_file",
             "search_files",
             "list_files",
+            "ask_followup_question",
+            "attempt_completion"
+        ]
+    },
+    "agentic_rag": {
+        "description": "智能检索增强生成代理：具备自主决策，多步骤推理和工具调用能力，通过动态规划和迭代检索，为用户提供准确，全面且有据可查的答案",
+        "call": "调用时机:需要通过自主分析，多步查询才能解决的复杂问题场景，agent_type:agentic_rag",
+        "prompt": "agentic_rag_system_prompt.md",
+        "tools": [
+            "write_to_file",
+            "use_rag_tool",
             "ask_followup_question",
             "attempt_completion"
         ]

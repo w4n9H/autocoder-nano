@@ -693,9 +693,12 @@ def auto_command(query: str, llm: AutoLLM):
     if "/sub:research" in query:
         query = query.replace("/sub:research", "", 1).strip()
         used_subagent_list.append("research")
-    if "/sub:review" in query:
-        query = query.replace("/sub:review", "", 1).strip()
-        used_subagent_list.append("review")
+    if "/sub:codereview" in query:
+        query = query.replace("/sub:codereview", "", 1).strip()
+        used_subagent_list.append("codereview")
+    if "/sub:agentic_rag" in query:
+        query = query.replace("/sub:agentic_rag", "", 1).strip()
+        used_subagent_list.append("agentic_rag")
 
     if not used_subagent_list:
         used_subagent_list.append("coding")    # 默认只带一个coding subagent

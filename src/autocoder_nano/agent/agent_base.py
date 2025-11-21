@@ -38,6 +38,7 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     ACModWriteTool: ACModWriteToolResolver,
     ACModSearchTool: ACModSearchToolResolver,
     CallSubAgentTool: CallSubAgentToolResolver,
+    UseRAGTool: UseRAGToolResolver
 }
 
 
@@ -82,6 +83,8 @@ class BaseAgent:
             context = f"ACMod 检索: {tool.query}"
         elif isinstance(tool, CallSubAgentTool):
             context = f"子代理调用: {tool.agent_type}"
+        elif isinstance(tool, UseRAGTool):
+            context = f"RAG检索: {tool.query}"
         else:
             context = ""
 
