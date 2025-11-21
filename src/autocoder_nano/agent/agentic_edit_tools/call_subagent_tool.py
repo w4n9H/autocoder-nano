@@ -55,29 +55,13 @@ class CallSubAgentToolResolver(BaseToolResolver):
         描述：
         - 调用子代理执行特定任务
         参数：
-        - agent_type: 子代理类型 (coding/research/review等) 
+        - agent_type: 子代理类型
         - task: 具体任务描述
         - context: 传递给子代理的上下文信息
         用法说明：
         <call_subagent>
-        <agent_type>coding</agent_type>
+        <agent_type>SubAgent类型</agent_type>
         <task>具体任务描述</task>
-        <context>传递给子代理的上下文信息(传递代码的相关信息,调研/研究的相关信息)</context>
-        </call_subagent>
-        用法示例：
-        场景一：使用subagent完成编码需求
-        目标：实现一个用户认证系统
-        <call_subagent>
-        <agent_type>coding</agent_type>
-        <task>实现一个用户认证系统</task>
-        <context>传递给子代理的上下文信息(传递代码的相关信息,调研/研究的相关信息)</context>
-        </call_subagent>
-        用法示例：
-        场景二：使用subagent完成深度研究需求
-        目标：研究微服务架构最佳实践
-        <call_subagent>
-        <agent_type>research</agent_type>
-        <task>研究微服务架构最佳实践</task>
         <context>传递给子代理的上下文信息(传递代码的相关信息,调研/研究的相关信息)</context>
         </call_subagent>
         """

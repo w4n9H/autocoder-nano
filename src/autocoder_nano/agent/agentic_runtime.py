@@ -468,4 +468,5 @@ class AgenticRuntime(BaseAgent):
                 center=True)
             raise err
         finally:
+            self._delete_old_todo_file()
             printer.print_text(f"Agentic {self.agent_type} 结束", style=COLOR_AGENT_END)

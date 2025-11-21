@@ -38,6 +38,7 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     ACModWriteTool: ACModWriteToolResolver,
     ACModSearchTool: ACModSearchToolResolver,
     CallSubAgentTool: CallSubAgentToolResolver,
+    UseRAGTool: UseRAGToolResolver
 }
 
 
@@ -82,6 +83,8 @@ class BaseAgent:
             context = f"ACMod 检索: {tool.query}"
         elif isinstance(tool, CallSubAgentTool):
             context = f"子代理调用: {tool.agent_type}"
+        elif isinstance(tool, UseRAGTool):
+            context = f"RAG检索: {tool.query}"
         else:
             context = ""
 
@@ -482,6 +485,12 @@ class BaseAgent:
             lexer = "text"
 
         return lexer
+
+    def _delete_old_todo_file(self):
+        todo_file = os.path.join(self.args.source_dir, ".auto-coder", "todos", "current_session.json")
+        if os.path.exists(todo_file):
+            printer.print_text(f"TodoList 文件已清理", style=COLOR_INFO)
+            os.remove(todo_file)
 
 
 class ToolResolverFactory:

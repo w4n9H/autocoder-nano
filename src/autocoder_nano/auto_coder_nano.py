@@ -693,9 +693,12 @@ def auto_command(query: str, llm: AutoLLM):
     if "/sub:research" in query:
         query = query.replace("/sub:research", "", 1).strip()
         used_subagent_list.append("research")
-    if "/sub:review" in query:
-        query = query.replace("/sub:review", "", 1).strip()
-        used_subagent_list.append("review")
+    if "/sub:codereview" in query:
+        query = query.replace("/sub:codereview", "", 1).strip()
+        used_subagent_list.append("codereview")
+    if "/sub:agentic_rag" in query:
+        query = query.replace("/sub:agentic_rag", "", 1).strip()
+        used_subagent_list.append("agentic_rag")
 
     if not used_subagent_list:
         used_subagent_list.append("coding")    # 默认只带一个coding subagent
@@ -1347,21 +1350,14 @@ def configure_project_model():
     from html import escape
 
     style = Style.from_dict(
-        {
-            "info": "#ansicyan",
-            "warning": "#ansiyellow",
-            "input-area": "#ansigreen",
-            "header": "#ansibrightyellow bold",
-        }
+        {"info": "#ansicyan", "warning": "#ansiyellow", "input-area": "#ansigreen", "header": "#ansibrightyellow bold"}
     )
 
     def print_info(text):
-        print_formatted_text(
-            HTML(f"<info>{escape(text)}</info>"), style=style)
+        print_formatted_text(HTML(f"<info>{escape(text)}</info>"), style=style)
 
     def print_header(text):
-        print_formatted_text(
-            HTML(f"<header>{escape(text)}</header>"), style=style)
+        print_formatted_text(HTML(f"<header>{escape(text)}</header>"), style=style)
 
     default_model = {
         "1": {"name": "(Volcengine)deepseek/deepseek-r1-0528",
@@ -1370,33 +1366,33 @@ def configure_project_model():
         "2": {"name": "(Volcengine)deepseek/deepseek-v3.1-terminus",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
               "model_name": "deepseek-v3-1-terminus"},
-        "3": {"name": "(Volcengine)byte/doubao-seed-1.6-250615",
+        "3": {"name": "(Volcengine)byte/doubao-seed-1.6-251015",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "doubao-seed-1-6-250615"},
+              "model_name": "doubao-seed-1-6-251015"},
         "4": {"name": "(Volcengine)moonshotai/kimi-k2",
               "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "kimi-k2-250711"},
-        "5": {"name": "(OpenRouter)google/gemini-2.5-pro",
-              "base_url": "https://openrouter.ai/api/v1",
-              "model_name": "google/gemini-2.5-pro"},
-        "6": {"name": "(OpenRouter)google/gemini-2.5-flash",
-              "base_url": "https://openrouter.ai/api/v1",
-              "model_name": "google/gemini-2.5-flash"},
+              "model_name": "kimi-k2-250905"},
+        "5": {"name": "(iFlow)ali/qwen3-max",
+              "base_url": "https://apis.iflow.cn/v1",
+              "model_name": "qwen3-max"},
+        "6": {"name": "(iFlow)bigmodel/glm-4.6",
+              "base_url": "https://apis.iflow.cn/v1",
+              "model_name": "glm-4.6"},
         "7": {"name": "(OpenRouter)anthropic/claude-opus-4",
               "base_url": "https://openrouter.ai/api/v1",
               "model_name": "anthropic/claude-opus-4"},
-        "8": {"name": "(OpenRouter)anthropic/claude-sonnet-4",
+        "8": {"name": "(OpenRouter)anthropic/claude-sonnet-4.5",
               "base_url": "https://openrouter.ai/api/v1",
-              "model_name": "anthropic/claude-sonnet-4"},
-        "9": {"name": "(OpenRouter)moonshotai/kimi-k2",
+              "model_name": "anthropic/claude-sonnet-4.5"},
+        "9": {"name": "(OpenRouter)google/gemini-3-pro-preview",
               "base_url": "https://openrouter.ai/api/v1",
-              "model_name": "moonshotai/kimi-k2"},
+              "model_name": "google/gemini-3-pro-preview"},
         "10": {"name": "(OpenRouter)openai/gpt-5",
                "base_url": "https://openrouter.ai/api/v1",
                "model_name": "openai/gpt-5"},
-        "11": {"name": "(BigModel)bigmodel/glm-4.5",
+        "11": {"name": "(BigModel)bigmodel/glm-4.6",
                "base_url": "https://open.bigmodel.cn/api/paas/v4",
-               "model_name": "glm-4.5"},
+               "model_name": "glm-4.6"},
         "12": {"name": "(BigModel)bigmodel/coding-plan",
                "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
                "model_name": "glm-4.6"},
@@ -1409,18 +1405,19 @@ def configure_project_model():
     print_header(f"\n=== 正在配置项目模型 ===\n")
     print_info("Volcengine: https://www.volcengine.com/")
     print_info("OpenRouter: https://openrouter.ai/")
+    print_info("iFlow: https://platform.iflow.cn/")
     print_info("")
     print_info(f"  1. (Volcengine)deepseek/deepseek-r1-0528")
-    print_info(f"  2. (Volcengine)deepseek/deepseek-v3.1-0821")
-    print_info(f"  3. (Volcengine)byte/doubao-seed-1.6-250615")
-    print_info(f"  4. (Volcengine)moonshotai/kimi-k2")
-    print_info(f"  5. (OpenRouter)google/gemini-2.5-pro")
-    print_info(f"  6. (OpenRouter)google/gemini-2.5-flash")
+    print_info(f"  2. (Volcengine)deepseek/deepseek-v3.1-terminus")
+    print_info(f"  3. (Volcengine)byte/doubao-seed-1.6-251015")
+    print_info(f"  4. (Volcengine)moonshotai/kimi-k2-250905")
+    print_info(f"  5. (iFlow)ali/qwen3-max[免费调用]")
+    print_info(f"  6. (iFlow)bigmodel/glm-4.6[免费调用]")
     print_info(f"  7. (OpenRouter)anthropic/claude-opus-4")
-    print_info(f"  8. (OpenRouter)anthropic/claude-sonnet-4")
-    print_info(f"  9. (OpenRouter)moonshotai/kimi-k2")
+    print_info(f"  8. (OpenRouter)anthropic/claude-sonnet-4.5")
+    print_info(f"  9. (OpenRouter)google/gemini-3-pro-preview")
     print_info(f"  10. (OpenRouter)openai/gpt-5")
-    print_info(f"  11. (BigModel)bigmodel/glm-4.5")
+    print_info(f"  11. (BigModel)bigmodel/glm-4.6")
     print_info(f"  12. (BigModel)bigmodel/coding-plan")
     print_info(f"  13. (Volcengine)byte/doubao-seed-code-plan")
     print_info(f"  14. 其他模型")
@@ -1458,28 +1455,9 @@ def rules(query_args: List[str], llm: AutoLLM):
     /rules /commit <提交ID>  - 分析特定提交，必须提供提交ID和查询内容
     """
     args = get_final_config(project_root, memory, query="", delete_execute_file=True)
-    # rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
     rule_path = os.path.join(project_root, ".auto-coder", "RULES.md")
-    # if query_args[0] == "/list":
-    #     printer.print_table_compact(
-    #         data=[[rules_name] for rules_name in os.listdir(rules_dir_path)],
-    #         title="Rules 列表",
-    #         headers=["Rules 文件"],
-    #         center=True
-    #     )
-    #
-    # if query_args[0] == "/remove":
-    #     remove_rules_name = query_args[1].strip()
-    #     remove_rules_path = os.path.join(rules_dir_path, remove_rules_name)
-    #     if os.path.exists(remove_rules_path):
-    #         os.remove(remove_rules_path)
-    #         printer.print_text(f"Rules 文件[{remove_rules_name}]移除成功", style="green")
-    #     else:
-    #         printer.print_text(f"Rules 文件[{remove_rules_name}]不存在", style="yellow")
 
     if query_args[0] == "/show":  # /rules /show 参数检查
-        # show_rules_name = query_args[1].strip()
-        # show_rules_path = os.path.join(rules_dir_path, show_rules_name)
         if os.path.exists(rule_path):
             with open(rule_path, "r") as fp:
                 printer.print_markdown(text=fp.read(), panel=True)
@@ -1491,10 +1469,6 @@ def rules(query_args: List[str], llm: AutoLLM):
             with open(rule_path, "w") as fp:
                 fp.write("")
             printer.print_text(f"Rules 文件[{rule_path}]已重置", style="yellow")
-
-    # if query_args[0] == "/commit":
-    #     commit_id = query_args[1].strip()
-    #     rules_from_commit_changes(commit_id=commit_id, llm=llm, args=args)
 
     if query_args[0] == "/analyze":
         files = memory.get("current_files", {}).get("files", [])
