@@ -14,6 +14,18 @@ SubAgent = {
             "attempt_completion"
         ]
     },
+    "reader": {
+        "description": "代码检索专家: 负责分析用户需求并从代码库中找出所有相关的文件,为后续的编码工作提供精准的上下文",
+        "call": "调用时机:通常在进行编码任务之前调用，agent_type:reader",
+        "prompt": "reader_system_prompt.md",
+        "tools": [
+            "read_file",
+            "search_files",
+            "list_files",
+            "ask_followup_question",
+            "attempt_completion",
+        ]
+    },
     "coding": {
         "description": "软件工程师: 在众多编程语言,框架,设计模式和最佳实践方面拥有渊博知识",
         "call": "调用时机:涉及具体代码变更的任务，agent_type:coding",
@@ -26,9 +38,7 @@ SubAgent = {
             "search_files",
             "list_files",
             "ask_followup_question",
-            "attempt_completion",
-            "ac_mod_write",
-            "ac_mod_search"
+            "attempt_completion"
         ]
     },
     "research": {
