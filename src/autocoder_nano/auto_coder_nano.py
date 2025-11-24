@@ -689,7 +689,7 @@ def auto_command(query: str, llm: AutoLLM):
     used_subagent_list = []
     if "/sub:coding" in query:
         query = query.replace("/sub:coding", "", 1).strip()
-        used_subagent_list.append("coding")
+        used_subagent_list.extend(["reader", "coding"])
     if "/sub:research" in query:
         query = query.replace("/sub:research", "", 1).strip()
         used_subagent_list.append("research")
@@ -701,7 +701,7 @@ def auto_command(query: str, llm: AutoLLM):
         used_subagent_list.append("agentic_rag")
 
     if not used_subagent_list:
-        used_subagent_list.append("coding")    # 默认只带一个coding subagent
+        used_subagent_list.extend(["reader", "coding"])    # 默认只带 reader + coding subagent
 
     def _printer_resume_conversation(_conversation_id):
         printer.print_panel(
