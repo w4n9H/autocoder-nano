@@ -31,13 +31,16 @@ from autocoder_nano.utils.sys_utils import default_exclude_dirs, detect_env
 from autocoder_nano.utils.printer_utils import Printer
 from autocoder_nano.utils.config_utils import (get_final_config, convert_yaml_config_to_str, convert_config_value,
                                                convert_yaml_to_config, get_last_yaml_file, prepare_chat_yaml)
+from autocoder_nano.utils.lexer_utils import SimpleAutoCoderLexer
+from autocoder_nano.utils.theme_utils import ThemeManager
 
 from prompt_toolkit import prompt as _toolkit_prompt, PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.shortcuts import confirm
+from prompt_toolkit.shortcuts import confirm, CompleteStyle
+from prompt_toolkit.cursor_shapes import CursorShape
 from prompt_toolkit.styles import Style
 from rich.live import Live
 from rich.panel import Panel
@@ -46,6 +49,7 @@ from rich.text import Text
 
 
 printer = Printer()
+theme = ThemeManager()
 console = printer.get_console()
 
 
@@ -56,7 +60,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 commands = [
     "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
     "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
-    "/rules", "/auto", "/rag/build", "/rag/query", "/editor", "/long_context_auto", "/context"
+    "/rules", "/auto", "/rag/build", "/rag/query", "/editor", "/context"
 ]
 
 memory = {
@@ -69,7 +73,8 @@ memory = {
     },
     "exclude_dirs": [],
     "mode": "normal",  # 新增mode字段,默认为normal模式
-    "models": {}
+    "models": {},
+    "theme": "cyberpunk"  # 新增theme字段，默认为cyberpunk
 }
 
 
@@ -760,24 +765,6 @@ def auto_command(query: str, llm: AutoLLM):
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
 
     run_main_agentic(llm=llm, args=args, conversation_config=conversation_config, used_subagent=used_subagent_list)
-
-
-def long_context_auto_command(llm: AutoLLM):
-    import tempfile
-    initial_content = f"请输入你的需求: \n"
-    # 创建临时文件
-    with tempfile.NamedTemporaryFile(mode='w+', delete=True, suffix='.txt') as tmpfile:
-        tmpfile.write(initial_content)
-        tmpfile.flush()
-        temp_path = tmpfile.name
-        query = run_editor(temp_path)
-
-    args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
-    conversation_config = AgenticEditConversationConfig(
-        action="new",
-        query=query.strip()
-    )
-    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config, used_subagent=["coding"])
 
 
 def context_command(context_args):
@@ -1495,6 +1482,9 @@ def is_old_version():
     if not os.path.exists(rules_dir_path):
         printer.print_text(f"0.1.31 .auto-coder 目录中新增 autocoderrules 目录, 正在进行配置兼容性处理", style="yellow")
         os.makedirs(rules_dir_path, exist_ok=True)
+    # "0.4.1" 在 memory.json 中新增了 "theme": "cyberpunk"  # 新增theme字段，默认为cyberpunk
+    if "theme" not in memory:
+        memory["theme"] = "cyberpunk"
 
 
 def main():
@@ -1584,36 +1574,60 @@ def main():
             memory["mode"] = "normal"
         event.app.invalidate()
 
+    @kb.add("c-t")  # 新增 Ctrl+T 切换主题
+    def _(event):
+        theme_list = list(theme.list_themes())
+        current_theme = memory.get("theme", "cyberpunk")
+        current_index = theme_list.index(current_theme) if current_theme in theme_list else 0
+        next_index = (current_index + 1) % len(theme_list)
+        next_theme = theme_list[next_index]
+
+        memory["theme"] = next_theme
+        save_memory()
+
+        theme_name = theme.get_theme_name(next_theme)
+        # 动态更新样式
+        event.app.style = theme.get_theme(next_theme)
+
+        printer.print_text(f"主题已切换至: {theme_name}", style="green")
+
     def get_bottom_toolbar():
         if "mode" not in memory:
             memory["mode"] = "normal"
+        if "theme" not in memory:
+            memory["theme"] = "cyberpunk"
         mode = memory["mode"]
-        return f" 当前模式: {MODES[mode]} (ctl+k 切换模式) | 当前项目: {project_root}"
+        theme_name = theme.get_theme_name(memory["theme"])
+        return f" 当前模式: {MODES[mode]} (ctl+k 切换模式) | 主题: {theme_name} (ctl+t 切换) | 当前项目: {project_root}"
 
+    current_theme_name = memory.get("theme", "cyberpunk")
+    current_style = theme.get_theme(current_theme_name)
     session = PromptSession(
+        # 输入行为
+        # multiline=True,
+        # prompt_continuation=lambda width, line_number, is_soft_wrap: " " * width,
+        # 历史记录
         history=InMemoryHistory(),
         auto_suggest=AutoSuggestFromHistory(),
         enable_history_search=False,
+        # 自动补全
         completer=completer,
         complete_while_typing=True,
-        key_bindings=kb,
+        complete_in_thread=True,    # 在后台线程中补全
+        complete_style=CompleteStyle.COLUMN,
+        # 样式与外观
+        cursor=CursorShape.BLINKING_BLOCK,
+        lexer=SimpleAutoCoderLexer(),    # 实时语法高亮
+        # 界面元素
         bottom_toolbar=get_bottom_toolbar,
+        # 行为控制
+        key_bindings=kb,
     )
     printer.print_key_value(
         {
             "AutoCoder Nano": f"v{__version__}",
             "Url": "https://github.com/w4n9H/autocoder-nano",
-            "Help": "输入 /help 可以查看可用的命令."
-        }
-    )
-
-    style = Style.from_dict(
-        {
-            "username": "#884444",
-            "at": "#00aa00",
-            "colon": "#0000aa",
-            "pound": "#00aa00",
-            "host": "#00ffff bg:#444400",
+            "Help": "输入 /help 可以查看可用的命令(Ctrl + t 切换主题)."
         }
     )
 
@@ -1631,9 +1645,9 @@ def main():
             ]
 
             if new_prompt:
-                user_input = session.prompt(FormattedText(prompt_message), default=new_prompt, style=style)
+                user_input = session.prompt(FormattedText(prompt_message), default=new_prompt, style=current_style)
             else:
-                user_input = session.prompt(FormattedText(prompt_message), style=style)
+                user_input = session.prompt(FormattedText(prompt_message), style=current_style)
             new_prompt = ""
 
             if "mode" not in memory:
@@ -1705,8 +1719,6 @@ def main():
                     print("\033[91mPlease enter your request.\033[0m")
                     continue
                 auto_command(query=query, llm=auto_llm)
-            elif user_input.startswith("/long_context_auto"):
-                long_context_auto_command(llm=auto_llm)
             elif user_input.startswith("/context"):
                 context_args = user_input[len("/context"):].strip().split()
                 if not context_args:

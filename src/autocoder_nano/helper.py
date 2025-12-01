@@ -17,7 +17,6 @@ def easy_help():
     print(f"  \033[94m/rules\033[0m - \033[92m基于当前活动文件或者Commit变更生成功能模式和设计模式\033[0m")
     print(f"  \033[94m/context\033[0m \033[93m<subcommand>\033[0m - \033[92m管理会话上下文(/context /list查看,/context /remove删除)\033[0m")
     print(f"  \033[94m/editor\033[0m \033[93m<file_path>\033[0m - \033[92m打开文件编辑器\033[0m")
-    print(f"  \033[94m/long_context_auto\033[0m - \033[92m处理长上下文输入的Agent模式\033[0m")
     print(f"  \033[94m/help\033[0m - \033[92m显示此帮助消息\033[0m")
     print(f"  \033[94m/exclude_dirs\033[0m \033[93m<dir1>,<dir2> ...\033[0m - \033[92m添加要从项目中排除的目录\033[0m")
     print(f"  \033[94m/exclude_files\033[0m \033[93m<pattern>/<subcommand>\033[0m - \033[92m排除文件(/exclude_files /list查看,/exclude_files /drop删除)\033[0m")

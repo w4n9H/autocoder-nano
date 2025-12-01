@@ -12,7 +12,7 @@ COMMANDS = {
     },
     "/remove_files": {"/all": ""},
     "/coding": {"/apply": ""},
-    "/chat": {"/history": "", "/new": ""},
+    "/chat": {"/new": "", "/history": ""},
     "/models": {"/add_model": "", "/remove": "", "/list": "", "/check": "", "/add": ""},
     "/help": {
         "/add_files": "",
@@ -38,6 +38,28 @@ COMMANDS = {
     "/rules": {"/show": "", "/analyze": "", "/clear": ""},
     "/context": {"/list": "", "/remove": ""}
 }
+
+
+def flatten_commands():
+    result = []
+
+    def _traverse(sub_commands):
+        # 添加当前层级的所有直接子命令
+        if isinstance(sub_commands, dict):
+            for cmd in sub_commands.keys():
+                result.append(cmd)
+
+                # 递归处理下一级子命令
+                if isinstance(sub_commands[cmd], dict) and sub_commands[cmd]:
+                    _traverse(sub_commands[cmd])
+
+    # 遍历顶级命令
+    for root_cmd in COMMANDS:
+        result.append(root_cmd)
+        if COMMANDS[root_cmd]:
+            _traverse(COMMANDS[root_cmd])
+
+    return result
 
 
 class CommandTextParser:
