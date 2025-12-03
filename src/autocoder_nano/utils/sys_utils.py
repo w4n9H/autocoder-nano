@@ -19,6 +19,13 @@ default_exclude_dirs = [
 ]
 
 
+default_exclude_files = [
+    ".DS_Store",  # 针对 osx 系统过滤
+    "output.txt",
+    ".gitignore"
+]
+
+
 def detect_env() -> EnvInfo:
     os_name = sys.platform
     os_version = ""

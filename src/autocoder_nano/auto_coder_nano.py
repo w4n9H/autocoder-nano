@@ -27,7 +27,7 @@ from autocoder_nano.version import __version__
 from autocoder_nano.templates import create_actions
 from autocoder_nano.utils.git_utils import (repo_init, commit_changes, revert_changes,
                                             get_uncommitted_changes, generate_commit_message)
-from autocoder_nano.utils.sys_utils import default_exclude_dirs, detect_env
+from autocoder_nano.utils.sys_utils import default_exclude_dirs, detect_env, default_exclude_files
 from autocoder_nano.utils.printer_utils import Printer
 from autocoder_nano.utils.config_utils import (get_final_config, convert_yaml_config_to_str, convert_config_value,
                                                convert_yaml_to_config, get_last_yaml_file, prepare_chat_yaml)
@@ -78,15 +78,14 @@ memory = {
 }
 
 
-# args: AutoCoderArgs = AutoCoderArgs()
-
-
 def get_all_file_names_in_project() -> List[str]:
     file_names = []
     final_exclude_dirs = default_exclude_dirs + memory.get("exclude_dirs", [])
     for root, dirs, files in os.walk(project_root, followlinks=True):
         dirs[:] = [d for d in dirs if d not in final_exclude_dirs]
-        file_names.extend(files)
+        for file in files:
+            if file not in default_exclude_files:
+                file_names.append(file)
     return file_names
 
 
@@ -96,7 +95,8 @@ def get_all_file_in_project() -> List[str]:
     for root, dirs, files in os.walk(project_root, followlinks=True):
         dirs[:] = [d for d in dirs if d not in final_exclude_dirs]
         for file in files:
-            file_names.append(os.path.join(root, file))
+            if file not in default_exclude_files:
+                file_names.append(os.path.join(root, file))
     return file_names
 
 
@@ -116,8 +116,8 @@ def get_all_file_in_project_with_dot() -> List[str]:
     for root, dirs, files in os.walk(project_root, followlinks=True):
         dirs[:] = [d for d in dirs if d not in final_exclude_dirs]
         for file in files:
-            file_names.append(os.path.join(
-                root, file).replace(project_root, "."))
+            if file not in default_exclude_files:
+                file_names.append(os.path.join(root, file).replace(project_root, "."))
     return file_names
 
 
@@ -166,7 +166,8 @@ def find_files_in_project(patterns: List[str]) -> List[str]:
             # add files belongs to project
             for root, dirs, files in os.walk(project_root, followlinks=True):
                 dirs[:] = [d for d in dirs if d not in final_exclude_dirs]
-                if pattern in files:
+                filtered_files = [f for f in files if f not in default_exclude_files]
+                if pattern in filtered_files:
                     matched_files.append(os.path.join(root, pattern))
                     is_added = True
                 else:
@@ -1435,11 +1436,9 @@ def configure_project_model():
 def rules(query_args: List[str], llm: AutoLLM):
     """
     /rules 命令帮助:
-    /rules /list            - 列出规则文件
     /rules /show            - 查看规则文件内容
     /rules /remove          - 删除规则文件
     /rules /analyze         - 分析当前文件，可选提供查询内容
-    /rules /commit <提交ID>  - 分析特定提交，必须提供提交ID和查询内容
     """
     args = get_final_config(project_root, memory, query="", delete_execute_file=True)
     rule_path = os.path.join(project_root, ".auto-coder", "RULES.md")
@@ -1499,11 +1498,11 @@ def main():
         load_memory()
         load_tokenizer()
         is_old_version()
+        completer.update_current_files(memory["current_files"]["files"])
+        completer.refresh_files()
     except Exception as e:
         print(f"\033[91m发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
         exit(1)
-
-    completer.update_current_files(memory["current_files"]["files"])
 
     if len(memory["models"]) == 0:
         _model_pass = input(f"  是否跳过模型配置(y/n): ").strip().lower()

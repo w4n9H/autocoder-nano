@@ -365,7 +365,7 @@ class CommandCompleter(Completer):
                             if file_name.startswith(current_word):
                                 yield Completion(file_name, start_position=-len(current_word))
                     else:
-                        for file_name in self.all_file_names:
+                        for file_name in self.all_files:
                             if file_name.startswith(current_word):
                                 yield Completion(file_name, start_position=-len(current_word))
                         for file_name in self.all_files:
