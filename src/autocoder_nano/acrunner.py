@@ -309,6 +309,9 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
     gcm = get_context_manager(config=cmc)
 
     used_subagent_list = []
+    if "/sub:reader" in query:
+        query = query.replace("/sub:reader", "", 1).strip()
+        used_subagent_list.append("reader")
     if "/sub:coding" in query:
         query = query.replace("/sub:coding", "", 1).strip()
         used_subagent_list.extend(["reader", "coding"])
@@ -381,7 +384,8 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
 
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
 
-    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config, used_subagent=used_subagent_list)
+    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config,
+                     used_subagent=list(set(used_subagent_list)))
 
 
 def context_command(project_root, context_args):

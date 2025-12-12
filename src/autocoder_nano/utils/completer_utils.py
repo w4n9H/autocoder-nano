@@ -27,6 +27,7 @@ COMMANDS = {
     "/exclude_files": {"/list": "", "/drop": ""},
     "/exclude_dirs": {},
     "/auto": {
+        "/sub:reader": "",
         "/sub:coding": "",
         "/sub:research": "",
         "/sub:codereview": "",
