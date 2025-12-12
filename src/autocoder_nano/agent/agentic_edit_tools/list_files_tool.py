@@ -107,7 +107,7 @@ class ListFilesToolResolver(BaseToolResolver):
         """Resolve the list files tool by calling the appropriate implementation"""
         list_path_str = self.tool.path
         recursive = self.tool.recursive or False
-        source_dir = self.args.source_dir or "."
+        source_dir = self.agent.args.source_dir or "."
         absolute_source_dir = os.path.abspath(source_dir)
         absolute_list_path = os.path.abspath(os.path.join(source_dir, list_path_str))
 

@@ -24,11 +24,10 @@ class TodoWriteToolResolver(BaseToolResolver):
     ):
         super().__init__(agent, tool, args)
         self.tool: TodoWriteTool = tool
-        self.args = args
+        # self.args = args
 
     def _get_todo_file_path(self) -> str:
-        """Get the path to the todo file for this session."""
-        source_dir = self.args.source_dir or "."
+        source_dir = self.agent.args.source_dir or "."
         todo_dir = os.path.join(source_dir, ".auto-coder", "todos")
         os.makedirs(todo_dir, exist_ok=True)
         return os.path.join(todo_dir, "current_session.json")

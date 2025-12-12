@@ -23,7 +23,7 @@ class CallCusAgentToolResolver(BaseToolResolver):
         try:
             from autocoder_nano.agent.agentic_sub import SubAgents
             subagent = SubAgents(
-                args=self.args,
+                args=self.agent.args,
                 llm=self.agent.llm,  # 复用父代理的LLM
                 agent_type=self.tool.agent_type,
                 files=self.agent.files,  # 共享文件列表

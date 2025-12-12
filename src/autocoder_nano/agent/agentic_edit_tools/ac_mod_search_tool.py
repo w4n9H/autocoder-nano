@@ -31,7 +31,7 @@ class ACModSearchToolResolver(BaseToolResolver):
 
         try:
             note_content = recall_memory(
-                project_root=self.args.source_dir,
+                project_root=self.agent.args.source_dir,
                 user_id="agentic_ac_mod",
                 query=query
             )

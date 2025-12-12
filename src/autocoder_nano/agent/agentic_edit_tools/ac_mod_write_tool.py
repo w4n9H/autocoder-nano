@@ -31,7 +31,7 @@ class ACModWriteToolResolver(BaseToolResolver):
 
         try:
             note_id = record_memory(
-                project_root=self.args.source_dir,
+                project_root=self.agent.args.source_dir,
                 user_id="agentic_ac_mod",
                 content=content
             )
