@@ -121,5 +121,5 @@ BUILTIN_MODELS = {
 
 def get_model_max_context(model_name: str) -> int:
     if model_name not in BUILTIN_MODELS:
-        return 128000
+        return 0
     return BUILTIN_MODELS[model_name]["context"]

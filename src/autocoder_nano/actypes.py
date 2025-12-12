@@ -94,6 +94,7 @@ class AutoCoderArgs(BaseModel):
 
     # 上下文管理相关参数
     conversation_prune_safe_zone_tokens: int = 76800  # 按照常见的 128k 窗口 60% 计算,最佳安全窗口为 76800
+    conversation_prune_ratio: float = 0.7
     conversation_prune_group_size: Optional[int] = 4
     conversation_prune_strategy: Optional[str] = "tool_output_cleanup"
 
