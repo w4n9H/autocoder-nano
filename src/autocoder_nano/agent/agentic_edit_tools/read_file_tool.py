@@ -23,8 +23,8 @@ class ReadFileToolResolver(BaseToolResolver):
         self.tool: ReadFileTool = tool  # For type hinting
         self.shadow_manager = None
         self.context_pruner = ContentPruner(
-            max_tokens=self.args.context_prune_safe_zone_tokens,
-            args=self.args,
+            max_tokens=self.agent.args.context_prune_safe_zone_tokens,
+            args=self.agent.args,
             llm=self.agent.llm
         )
 
@@ -41,7 +41,7 @@ class ReadFileToolResolver(BaseToolResolver):
 
         # 计算 token 数量
         tokens = count_tokens(content)
-        if tokens <= self.args.context_prune_safe_zone_tokens:
+        if tokens <= self.agent.args.context_prune_safe_zone_tokens:
             return content
 
         # 创建 SourceCode 对象
@@ -55,7 +55,7 @@ class ReadFileToolResolver(BaseToolResolver):
         pruned_sources = self.context_pruner.prune(
             file_sources=[source_code],
             conversations=self.agent.current_conversations if self.agent else [],
-            strategy=self.args.context_prune_strategy
+            strategy=self.agent.args.context_prune_strategy
         )
 
         if not pruned_sources:
@@ -102,7 +102,7 @@ class ReadFileToolResolver(BaseToolResolver):
     def resolve(self) -> ToolResult:
         """Resolve the read file tool by calling the appropriate implementation"""
         file_path = self.tool.path
-        source_dir = self.args.source_dir or "."
+        source_dir = self.agent.args.source_dir or "."
         abs_project_dir = os.path.abspath(source_dir)
         abs_file_path = os.path.abspath(os.path.join(source_dir, file_path))
 

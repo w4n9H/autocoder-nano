@@ -39,29 +39,29 @@ class WebSearchToolResolver(BaseToolResolver):
     ):
         super().__init__(agent, tool, args)
         self.tool: WebSearchTool = tool
-        self.args = args
+        # self.args = args
 
     def request_search_api(self, query: str):
         # 从多个渠道获取摘要及 url list
         url_list = []
-        if self.args.search_metaso_key and self.args.search_metaso_key.startswith("mk-"):
+        if self.agent.args.search_metaso_key and self.agent.args.search_metaso_key.startswith("mk-"):
             url_list.extend(
                 metaso_search_api(
                     query=query,
-                    size=str(self.args.search_size),
+                    size=str(self.agent.args.search_size),
                     include_summary=True,
                     include_raw_content=True,
-                    metaso_key=self.args.search_metaso_key
+                    metaso_key=self.agent.args.search_metaso_key
                 )
             )
 
-        if self.args.search_bocha_key and self.args.search_bocha_key.startswith("sk-"):
+        if self.agent.args.search_bocha_key and self.agent.args.search_bocha_key.startswith("sk-"):
             url_list.extend(
                 bocha_search_api(
                     query=query,
                     summary=True,
-                    count=self.args.search_size,
-                    bocha_key=self.args.search_bocha_key
+                    count=self.agent.args.search_size,
+                    bocha_key=self.agent.args.search_bocha_key
                 )
             )
 
@@ -69,7 +69,7 @@ class WebSearchToolResolver(BaseToolResolver):
         for u in url_list:
             if len(u.get("content", "")) < 10:
                 u["content"] = metaso_reader_api(
-                    url=u["link"], metaso_key=self.args.search_metaso_key
+                    url=u["link"], metaso_key=self.agent.args.search_metaso_key
                 )
 
         return url_list

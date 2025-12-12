@@ -13,6 +13,7 @@ from autocoder_nano.index import (index_export, index_import, extract_symbols)
 from autocoder_nano.rules import rules_from_active_files, get_rules_context
 from autocoder_nano.core import AutoLLM
 from autocoder_nano.actypes import *
+from autocoder_nano.acmodels import BUILTIN_MODELS
 from autocoder_nano.acrunner import (chat_command, index_command, index_query_command,
                                      rag_build_command, rag_query_command, execute_shell_command,
                                      generate_shell_command, revert, auto_command, context_command,
@@ -909,47 +910,18 @@ def configure_project_model():
     def print_header(text):
         print_formatted_text(HTML(f"<header>{escape(text)}</header>"), style=style)
 
-    default_model = {
-        "1": {"name": "(Volcengine)deepseek/deepseek-r1-0528",
-              "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "deepseek-r1-250528"},
-        "2": {"name": "(Volcengine)deepseek/deepseek-v3.1-terminus",
-              "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "deepseek-v3-1-terminus"},
-        "3": {"name": "(Volcengine)byte/doubao-seed-1.6-251015",
-              "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "doubao-seed-1-6-251015"},
-        "4": {"name": "(Volcengine)moonshotai/kimi-k2",
-              "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-              "model_name": "kimi-k2-250905"},
-        "5": {"name": "(iFlow)ali/qwen3-max",
-              "base_url": "https://apis.iflow.cn/v1",
-              "model_name": "qwen3-max"},
-        "6": {"name": "(iFlow)bigmodel/glm-4.6",
-              "base_url": "https://apis.iflow.cn/v1",
-              "model_name": "glm-4.6"},
-        "7": {"name": "(OpenRouter)anthropic/claude-opus-4",
-              "base_url": "https://openrouter.ai/api/v1",
-              "model_name": "anthropic/claude-opus-4"},
-        "8": {"name": "(OpenRouter)anthropic/claude-sonnet-4.5",
-              "base_url": "https://openrouter.ai/api/v1",
-              "model_name": "anthropic/claude-sonnet-4.5"},
-        "9": {"name": "(OpenRouter)google/gemini-3-pro-preview",
-              "base_url": "https://openrouter.ai/api/v1",
-              "model_name": "google/gemini-3-pro-preview"},
-        "10": {"name": "(OpenRouter)openai/gpt-5",
-               "base_url": "https://openrouter.ai/api/v1",
-               "model_name": "openai/gpt-5"},
-        "11": {"name": "(BigModel)bigmodel/glm-4.6",
-               "base_url": "https://open.bigmodel.cn/api/paas/v4",
-               "model_name": "glm-4.6"},
-        "12": {"name": "(BigModel)bigmodel/coding-plan",
-               "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
-               "model_name": "glm-4.6"},
-        "13": {"name": "(Volcengine)byte/doubao-seed-code-plan",
-               "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
-               "model_name": "doubao-seed-code-preview-latest"},
-    }
+    def convert_models(builtin_models: dict[str: dict]):
+        _result = {}
+        for _key, _model_info in builtin_models.items():
+            _model_id = _model_info["id"]
+            _result[_model_id] = {
+                "name": _key,
+                "base_url": _model_info["base_url"],
+                "model_name": _model_info["model_name"]
+            }
+        return _result
+
+    default_model = convert_models(BUILTIN_MODELS)
 
     # 内置模型
     print_header(f"\n=== 正在配置项目模型 ===\n")
@@ -957,19 +929,9 @@ def configure_project_model():
     print_info("OpenRouter: https://openrouter.ai/")
     print_info("iFlow: https://platform.iflow.cn/")
     print_info("")
-    print_info(f"  1. (Volcengine)deepseek/deepseek-r1-0528")
-    print_info(f"  2. (Volcengine)deepseek/deepseek-v3.1-terminus")
-    print_info(f"  3. (Volcengine)byte/doubao-seed-1.6-251015")
-    print_info(f"  4. (Volcengine)moonshotai/kimi-k2-250905")
-    print_info(f"  5. (iFlow)ali/qwen3-max[免费调用]")
-    print_info(f"  6. (iFlow)bigmodel/glm-4.6[免费调用]")
-    print_info(f"  7. (OpenRouter)anthropic/claude-opus-4")
-    print_info(f"  8. (OpenRouter)anthropic/claude-sonnet-4.5")
-    print_info(f"  9. (OpenRouter)google/gemini-3-pro-preview")
-    print_info(f"  10. (OpenRouter)openai/gpt-5")
-    print_info(f"  11. (BigModel)bigmodel/glm-4.6")
-    print_info(f"  12. (BigModel)bigmodel/coding-plan")
-    print_info(f"  13. (Volcengine)byte/doubao-seed-code-plan")
+    for key, model_info in BUILTIN_MODELS.items():
+        model_id = model_info["id"]
+        print_info(f"  {model_id}. {key}")
     print_info(f"  14. 其他模型")
     model_num = input(f"  请选择您想使用的模型供应商编号(1-14): ").strip().lower()
 

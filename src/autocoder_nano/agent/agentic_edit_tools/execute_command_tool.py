@@ -35,7 +35,7 @@ class ExecuteCommandToolResolver(BaseToolResolver):
     def resolve(self) -> ToolResult:
         command = self.tool.command
         requires_approval = self.tool.requires_approval
-        source_dir = self.args.source_dir or "."
+        source_dir = self.agent.args.source_dir or "."
 
         try:
             exit_code, output = run_cmd_subprocess(command, verbose=False, cwd=source_dir)

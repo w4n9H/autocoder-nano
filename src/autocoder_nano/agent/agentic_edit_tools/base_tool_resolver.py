@@ -24,7 +24,7 @@ class BaseToolResolver(ABC):
         """
         self.agent = agent
         self.tool = tool
-        self.args = args
+        # self.args = args
 
     @abstractmethod
     def resolve(self) -> ToolResult:

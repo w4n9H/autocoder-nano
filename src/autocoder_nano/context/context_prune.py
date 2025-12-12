@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pydantic import BaseModel
 
 from autocoder_nano.actypes import SourceCode, VerifyFileRelevance, AutoCoderArgs
+from autocoder_nano.acmodels import get_model_max_context
 from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.rag.token_counter import count_tokens
 from autocoder_nano.utils.printer_utils import Printer
@@ -21,7 +22,7 @@ class ContentPruner:
     def __init__(self, args: AutoCoderArgs, llm: AutoLLM, max_tokens: int):
         self.args = args
         self.llm = llm
-        self.llm.setup_default_model_name(self.args.chat_model)
+        # self.llm.setup_default_model_name(self.args.chat_model)
         self.max_tokens = max_tokens
 
     @staticmethod
@@ -556,7 +557,7 @@ class ConversationsPruner:
     def __init__(self, args: AutoCoderArgs, llm: AutoLLM):
         self.args = args
         self.llm = llm
-        self.llm.setup_default_model_name(self.args.chat_model)
+        # self.llm.setup_default_model_name(self.args.chat_model)
         self.replacement_message = ("This message has been cleared. If you still want to get this information, "
                                     "you can call the tool again to retrieve it.")
         self.strategies = {
@@ -609,7 +610,15 @@ class ConversationsPruner:
         Returns:
             修剪后的对话列表
         """
-        safe_zone_tokens = self.args.conversation_prune_safe_zone_tokens
+        # safe_zone_tokens = self.args.conversation_prune_safe_zone_tokens
+        safe_zone_ratio = self.args.conversation_prune_ratio
+        current_model = self.llm.default_model_name
+        model_max_context = get_model_max_context(current_model)
+        safe_zone_tokens = int(model_max_context * safe_zone_ratio) if model_max_context > 0 \
+            else self.args.conversation_prune_safe_zone_tokens
+        printer.print_text(f"当前模型: {current_model} [{model_max_context}], "
+                           f"安全窗口大小: {safe_zone_tokens} [{safe_zone_ratio}]", style=COLOR_INFO)
+
         current_tokens = count_tokens(json.dumps(conversations, ensure_ascii=False))
 
         if current_tokens <= safe_zone_tokens:

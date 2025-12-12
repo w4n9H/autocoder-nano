@@ -118,7 +118,7 @@ class SearchFilesToolResolver(BaseToolResolver):
         search_path_str = self.tool.path
         regex_pattern = self.tool.regex
         file_pattern = self.tool.file_pattern or "*"
-        source_dir = self.args.source_dir or "."
+        source_dir = self.agent.args.source_dir or "."
         absolute_source_dir = os.path.abspath(source_dir)
         absolute_search_path = os.path.abspath(os.path.join(source_dir, search_path_str))
 

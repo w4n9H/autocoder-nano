@@ -16,7 +16,7 @@ class ReplaceInFileToolResolver(BaseToolResolver):
                  tool: ReplaceInFileTool, args: AutoCoderArgs):
         super().__init__(agent, tool, args)
         self.tool: ReplaceInFileTool = tool  # For type hinting
-        self.args = args
+        # self.args = args
 
     @staticmethod
     def parse_diff(diff_content: str) -> List[Tuple[str, str]]:
@@ -137,7 +137,7 @@ class ReplaceInFileToolResolver(BaseToolResolver):
         """Resolve the replacement in file tool by calling the appropriate implementation"""
         file_path = self.tool.path
         diff_content = self.tool.diff
-        source_dir = self.args.source_dir or "."
+        source_dir = self.agent.args.source_dir or "."
         abs_project_dir = os.path.abspath(source_dir)
         abs_file_path = os.path.abspath(os.path.join(source_dir, file_path))
 
