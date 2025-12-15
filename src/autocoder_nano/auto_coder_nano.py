@@ -390,21 +390,21 @@ def coding_command(query: str, llm: AutoLLM):
 
 
 def print_commit_info(commit_result: CommitResult, llm_commit_message: str):
-    printer.print_table_compact(
-        data=[
-            ["提交说明", llm_commit_message],
-            ["提交哈希", commit_result.commit_hash],
-            ["提交信息", commit_result.commit_message],
-            ["更改的文件", "\n".join(commit_result.changed_files) if commit_result.changed_files else "No files changed"]
-        ],
-        title="提交信息", headers=["属性", "值"], caption="(使用 /revert 撤销此提交)"
-    )
-
     if commit_result.diffs:
         for file, diff in commit_result.diffs.items():
             printer.print_text(f"File: {file}", style="green")
             syntax = Syntax(diff, "diff", theme="monokai", line_numbers=True)
             printer.print_panel(syntax, title="File Diff", center=True)
+
+        printer.print_table_compact(
+            data=[
+                ["提交说明", llm_commit_message],
+                ["提交哈希", commit_result.commit_hash],
+                ["提交信息", commit_result.commit_message],
+                ["更改的文件", "\n".join(commit_result.changed_files) if commit_result.changed_files else "No files changed"]
+            ],
+            title="提交信息", headers=["属性", "值"], caption="(使用 /revert 撤销此提交)"
+        )
 
 
 def commit_info(query: str, llm: AutoLLM):
