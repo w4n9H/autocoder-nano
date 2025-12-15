@@ -266,7 +266,7 @@ def execute_revert(args: AutoCoderArgs):
     md5 = hashlib.md5(file_content.encode("utf-8")).hexdigest()
     file_name = os.path.basename(args.file)
 
-    revert_result = revert_changes(repo_path, f"auto_coder_nano_{file_name}_{md5}")
+    revert_result = revert_changes(repo_path, f"auto_coder_{file_name}_{md5}")
     if revert_result:
         os.remove(args.file)
         printer.print_text(f"已成功回退最后一次 chat action 的更改，并移除 YAML 文件 {args.file}", style="green")

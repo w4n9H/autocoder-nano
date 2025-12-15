@@ -369,7 +369,7 @@ class BaseAgent:
 
                 try:
                     commit_message = commit_changes(
-                        self.args.source_dir, f"auto_coder_nano_{latest_yaml_file}_{md5}",
+                        self.args.source_dir, f"auto_coder_{latest_yaml_file}_{md5}",
                     )
                     if commit_message:
                         printer.print_text(f"Commit 成功", style=COLOR_SUCCESS)
