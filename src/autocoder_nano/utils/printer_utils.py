@@ -85,7 +85,6 @@ class Printer:
                 style=content_style,    # 内容为白色
                 header_style=header_style,  # 表头加粗（继承白色）
                 justify="center" if center else "left",  # 列内容居中
-                no_wrap=True  # 防止内容和表头换行，更符合TUI风格
             )
 
         # 行内容处理 - 确保所有元素可渲染

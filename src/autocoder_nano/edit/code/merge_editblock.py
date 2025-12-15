@@ -347,7 +347,7 @@ class CodeAutoMergeEditBlock:
 
         if changes_made and not force_skip_git and not self.args.skip_commit:
             try:
-                commit_changes(self.args.source_dir, f"auto_coder_pre_{file_name}_{md5}")
+                commit_changes(self.args.source_dir, f"auto_coder_nano_{file_name}_{md5}")
             except Exception as e:
                 printer.print_text(self.git_require_msg(source_dir=self.args.source_dir, error=str(e)), style="red")
                 return
@@ -374,7 +374,7 @@ class CodeAutoMergeEditBlock:
         if changes_made:
             if not force_skip_git and not self.args.skip_commit:
                 try:
-                    commit_result = commit_changes(self.args.source_dir, f"auto_coder_{file_name}_{md5}")
+                    commit_result = commit_changes(self.args.source_dir, f"auto_coder_nano_{file_name}_{md5}")
                     git_print_commit_info(commit_result=commit_result)
                 except Exception as e:
                     printer.print_text(self.git_require_msg(source_dir=self.args.source_dir, error=str(e)),
