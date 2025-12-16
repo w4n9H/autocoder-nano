@@ -58,12 +58,12 @@ class Printer:
             center: bool = True,  # 新增居中参数
     ) -> None:
         # TUI风格的颜色配置
-        title_style = "bold black on bright_green"  # 经典终端绿底黑字
+        title_style = "bold white on green"          # 更醒目的标题
         caption_style = "dim black on bright_blue"  # 蓝灰背景
-        header_style = "bold white on cyan"  # 经典蓝底白字表头
-        content_style = "white"  # 白色内容
-        alt_row_style = "dim white"  # 斑马纹的暗白色
-        border_style = "green"  # 绿色边框
+        header_style = "bold black on yellow"         # 高对比度表头
+        content_style = "bright_white"                # 亮白色内容
+        alt_row_style = "white"                       # 斑马纹使用纯白色
+        border_style = "bright_green"                 # 鲜绿色边框
 
         table = Table(
             title=Text(f"  {title}  ", style=title_style),
