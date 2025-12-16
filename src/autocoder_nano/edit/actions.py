@@ -8,6 +8,7 @@ from autocoder_nano.index.entry import build_index_and_filter_files
 from autocoder_nano.core import AutoLLM
 from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.project import PyProject, SuffixProject
+from autocoder_nano.rag.token_counter import count_tokens
 from autocoder_nano.utils.printer_utils import Printer
 
 
@@ -17,7 +18,7 @@ printer = Printer()
 class BaseAction:
     @staticmethod
     def _get_content_length(content: str) -> int:
-        return len(content)
+        return count_tokens(content)
 
 
 class ActionPyProject(BaseAction):
@@ -42,10 +43,10 @@ class ActionPyProject(BaseAction):
         # args = self.args
         if self.args.execute and self.llm:
             content_length = self._get_content_length(content)
-            if content_length > self.args.model_max_input_length:
+            if content_length > self.args.conversation_prune_safe_zone_tokens:
                 printer.print_text(
                     f"发送给模型的内容长度为 {content_length} 个 token(可能收集了过多文件),"
-                    f"已超过最大输入长度限制 {self.args.model_max_input_length}.",
+                    f"已超过最大输入长度限制 {self.args.conversation_prune_safe_zone_tokens}.",
                     style="yellow"
                 )
 
@@ -101,10 +102,10 @@ class ActionSuffixProject(BaseAction):
     def process_content(self, content: str):
         if self.args.execute and self.llm:
             content_length = self._get_content_length(content)
-            if content_length > self.args.model_max_input_length:
+            if content_length > self.args.conversation_prune_safe_zone_tokens:
                 printer.print_text(
                     f"发送给模型的内容长度为 {content_length} 个 token(可能收集了过多文件),"
-                    f"已超过最大输入长度限制 {self.args.model_max_input_length}.",
+                    f"已超过最大输入长度限制 {self.args.conversation_prune_safe_zone_tokens}.",
                     style="yellow"
                 )
 
