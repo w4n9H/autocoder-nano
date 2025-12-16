@@ -1,19 +1,13 @@
-import time
-from typing import Any, Optional, List, Union, Dict, Iterable, Generator
-from contextlib import contextmanager
+from typing import Any, Optional, List, Union, Dict, Iterable
 
 from rich import box
 from rich.console import Console, Group
-from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
-from rich.box import Box, ROUNDED
-from rich.columns import Columns
-from rich.emoji import Emoji
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
+from rich.align import Align
 
 
 class Printer:
@@ -23,8 +17,6 @@ class Printer:
         :param console: 可传入自定义的Rich Console实例
         """
         self.console = console or Console()
-        self._live: Optional[Live] = None
-        self._progress: Optional[Progress] = None
 
     def print_table(
         self, data: Iterable[Iterable[Any]], title: Optional[str] = None, headers: Optional[List[str]] = None,
@@ -59,31 +51,40 @@ class Printer:
             data: Iterable[Iterable[Any]],
             title: Optional[str] = None,
             headers: Optional[List[str]] = None,
-            show_lines: bool = False,
-            expand: bool = False,
+            show_lines: bool = True,
+            expand: bool = True,
             caption: Optional[str] = None,
             compact: bool = True,
-            center: bool = True  # 新增居中参数
+            center: bool = True,  # 新增居中参数
     ) -> None:
-        """ 打印表格（紧凑版本） """
+        # TUI风格的颜色配置
+        title_style = "bold white on green"          # 更醒目的标题
+        caption_style = "dim black on bright_blue"  # 蓝灰背景
+        header_style = "bold black on yellow"         # 高对比度表头
+        content_style = "bright_white"                # 亮白色内容
+        alt_row_style = "white"                       # 斑马纹使用纯白色
+        border_style = "bright_green"                 # 鲜绿色边框
+
         table = Table(
-            title=title,
-            show_header=bool(headers),
-            show_lines=show_lines,
-            expand=expand,
-            caption=caption,
-            padding=(0, 0) if compact else (0, 1),  # 紧凑模式减少内边距
-            box=box.SIMPLE if compact else box.ASCII  # 紧凑模式使用简单边框
+            title=Text(f"  {title}  ", style=title_style),
+            caption=Text(f" {caption} ", style=caption_style) if caption else None,  # 使用灰黑色背景
+            show_header=bool(headers),  # 显示标题行
+            show_lines=show_lines,  # 在每行之间绘制分隔线
+            show_edge=True,  # 在表格外部绘制边框, 默认为 True。
+            expand=expand,  # 如果为 True，则扩展表格以填充可用空间；否则将自动计算表格宽度。默认为 False。
+            padding=(0, 0) if compact else (1, 2),  # 紧凑模式减少内边距
+            box=box.SQUARE,
+            style="on black",
+            row_styles=[content_style, alt_row_style],  # 斑马纹
+            border_style=border_style,
         )
 
-        # 列样式调整
         for header in (headers or []):
             table.add_column(
                 header,
-                style="cyan",
-                header_style="bold magenta",
-                min_width=20 if compact else None,
-                justify="center" if center else "left"  # 列内容居中
+                style=content_style,    # 内容为白色
+                header_style=header_style,  # 表头加粗（继承白色）
+                justify="center" if center else "left",  # 列内容居中
             )
 
         # 行内容处理 - 确保所有元素可渲染
@@ -91,12 +92,10 @@ class Printer:
             styled_row = [str(item) if not isinstance(item, Text) else item for item in row]
             table.add_row(*styled_row)
 
-        # 自动添加面板
         self.print_panel(
             table,
-            title=None,
-            border_style="cyan" if compact else "blue",
-            width=None if compact else 100,
+            border_style="bold green",
+            padding=(0, 0),
             center=center  # 传递居中参数
         )
 
@@ -128,7 +127,7 @@ class Printer:
         # 创建居中包装器
         renderable = content
         if center:
-            renderable = Columns([content], align="center", width=width)
+            renderable = Align.center(content, width=width)
 
         panel = Panel(
             renderable,
@@ -136,7 +135,8 @@ class Printer:
             border_style=border_style,
             width=width,
             padding=padding,
-            box=box.SQUARE
+            box=box.DOUBLE,
+            expand=True
         )
         self.console.print(panel)
 
@@ -162,148 +162,6 @@ class Printer:
                 for t in texts
             ])
         self.console.print(rich_text, justify=justify)
-
-    @contextmanager
-    def live_context(self, refresh_per_second: float = 4.0) -> Generator[None, Any, None]:
-        """动态内容上下文管理器"""
-        with Live(console=self.console, refresh_per_second=refresh_per_second) as live:
-            self._live = live
-            try:
-                yield
-            finally:
-                self._live = None
-
-    def update_live(self, content: Any) -> None:
-        """更新动态内容"""
-        if self._live:
-            self._live.update(content)
-
-    @contextmanager
-    def progress_context(self) -> Generator[Progress, Any, None]:
-        """进度条上下文管理器"""
-        self._progress = Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            console=self.console
-        )
-        with self._progress:
-            yield self._progress
-            self._progress = None
-
-    @contextmanager
-    def progress_context_with_panel(
-            self, title: Optional[str] = None, border_style: str = "cyan"
-    ) -> Generator[Progress, Any, None]:
-        self._progress = Progress(
-            SpinnerColumn(style="cyan"),
-            TextColumn("[progress.description]{task.description}", justify="right"),
-            BarColumn(bar_width=None, style="blue1", complete_style="bold blue", finished_style="bold green"),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%", style="bold"),
-            TextColumn("•"),
-            TextColumn("[cyan]{task.completed}/{task.total}", justify="left"),
-            expand=True,
-            transient=True
-        )
-
-        # 创建包含进度条的面板
-        progress_panel = Panel(
-            self._progress,
-            title=title or "任务进度",
-            border_style=border_style,
-            padding=(1, 2),
-            box=box.ROUNDED
-        )
-
-        # 使用单个Live实例包装整个面板
-        with Live(progress_panel, console=self.console, refresh_per_second=10) as live:
-            # 手动将Progress的live替换为我们创建的live
-            self._progress.live = live
-            with self._progress:
-                yield self._progress
-                self._progress = None
-
-    def print_card(
-        self, content: Union[str, Text, Markdown, Syntax], title: Optional[str] = None,
-        border_style: str = "cyan", width: Optional[int] = None, icon: Optional[str] = None, box: Box = ROUNDED
-    ) -> None:
-        """
-        基础卡片输出
-        :param content: 内容（支持多种格式）
-        :param title: 卡片标题
-        :param border_style: 边框样式
-        :param width: 卡片宽度
-        :param icon: 标题前图标（支持Emoji）
-        :param box: 边框样式（来自rich.box）
-        """
-        if icon:
-            title = f"{Emoji(icon)} {title}" if title else Emoji(icon)
-
-        panel = Panel(
-            content,
-            title=title,
-            box=box,
-            border_style=border_style,
-            width=width,
-            padding=(0, 1)
-        )
-        self.console.print(panel)
-
-    def multi_col_cards(
-        self, cards: List[Dict[str, Any]], equal: bool = True
-    ) -> None:
-        """
-        多列卡片布局
-        :param cards: 卡片参数列表
-        :param equal: 是否等宽
-        """
-        rendered_cards = []
-        for card in cards:
-            content = card.get("content", "")
-            if isinstance(content, str):
-                # 自动识别Markdown
-                if content.strip().startswith(("#", "-", "*")):
-                    content = Markdown(content)
-
-            rendered = Panel(
-                content,
-                title=card.get("title"),
-                box=card.get("box", ROUNDED),
-                border_style=card.get("border_style", "cyan"),
-                width=card.get("width")
-            )
-            rendered_cards.append(rendered)
-
-        self.console.print(Columns(rendered_cards, equal=equal))
-
-    def status_card(
-        self, message: str, status: str = "info", title: Optional[str] = None
-    ) -> None:
-        """
-        状态卡片（预设样式）
-        :param status: 状态类型（info/success/warning/error）
-        :param message: 主要内容
-        :param title: 可选标题
-        """
-        config = {
-            "info": {"icon": "ℹ️", "color": "cyan"},
-            "success": {"icon": "✅", "color": "green"},
-            "warning": {"icon": "⚠️", "color": "yellow"},
-            "error": {"icon": "❌", "color": "red"}
-        }.get(status.lower(), {})
-
-        title_text = Text()
-        if config.get("icon"):
-            title_text.append(f"{config['icon']}  ")
-        if title:
-            title_text.append(title, style=f"bold {config['color']}")
-
-        self.print_card(
-            content=Markdown(message),
-            title=title_text,
-            border_style=config.get("color", "cyan")
-        )
 
     def print_key_value(
         self, items: Dict[str, Any], key_style: str = "bold cyan",
@@ -409,61 +267,3 @@ if __name__ == '__main__':
     printer.print_text(Text("32 (senior)", style="bold red"))
     printer.print_text(Text("32 (senior)", style="dim red"))
     printer.print_text("32 (senior)", style="dim red")
-
-    # 动态内容示例
-    # with printer.live_context():
-    #     for i in range(10):
-    #         printer.update_live(f"Processing... [bold green]{i + 1}/10")
-    #         time.sleep(0.1)
-
-    # 进度条示例
-    # with printer.progress_context() as progress:
-    #     task = progress.add_task("Downloading", total=10)
-    #     for i in range(10):
-    #         progress.update(task, advance=1)
-    #         time.sleep(0.1)
-
-    # with printer.progress_context_with_panel(title="数据处理进度") as progress:
-    #     task = progress.add_task("[red]下载文件...", total=10)
-    #
-    #     for i in range(10):
-    #         time.sleep(0.1)
-    #         progress.update(task, advance=1)
-
-    # 基础卡片
-    printer.print_card(
-        title="系统通知",
-        content="当前系统版本：v2.4.1 , 可用存储空间：128GB",
-        icon="package",
-        border_style="dim blue",
-        width=50
-    )
-
-    printer.print_card(
-        title="第一阶段",
-        content="处理 REST/RAG/Search 资源...",
-        border_style="dim cyan"
-    )
-
-    # # 多列卡片
-    # printer.multi_col_cards([
-    #     {
-    #         "title": "CPU使用率",
-    #         "content": "```\n[██████ 75%]\n```",
-    #         "border_style": "yellow"
-    #     },
-    #     {
-    #         "title": "内存状态",
-    #         "content": "已用：4.2/8.0 GB"
-    #     },
-    #     {
-    #         "title": "网络状态",
-    #         "content": Markdown("- Ping: 28ms\n- 带宽：↑1.2 ↓4.5 Mbps")
-    #     }
-    # ])
-
-    # printer.status_card(
-    #     status="error",
-    #     message="无法连接到数据库：\n- 检查网络连接\n- 验证凭据有效性",
-    #     title="严重错误"
-    # )

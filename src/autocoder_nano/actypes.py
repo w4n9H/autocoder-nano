@@ -14,12 +14,12 @@ class AutoCoderArgs(BaseModel):
     query: Optional[str] = None  # 你想让模型做什么
     template: Optional[str] = 'common'  #
     project_type: Optional[str] = None  # 项目的类型
-    index_build_workers: Optional[int] = 1  # 构建索引的线程数量
+    index_build_workers: Optional[int] = 2  # 构建索引的线程数量
     index_filter_level: Optional[int] = 0  # 用于查找相关文件的过滤级别
     index_filter_file_num: Optional[int] = -1  #
     index_filter_workers: Optional[int] = 1  # 过滤文件的线程数量
-    index_model_max_input_length: Optional[int] = 6000  # 模型最大输入长度
-    filter_batch_size: Optional[int] = 5  #
+    index_model_max_input_length: Optional[int] = 6000  # 模型最大输入长度[废弃]
+    filter_batch_size: Optional[int] = 10  #
     anti_quota_limit: Optional[int] = 1  # 请求模型时的间隔时间(s)
     skip_build_index: Optional[bool] = False  # 是否跳过索引构建(索引可以帮助您通过查询找到相关文件)
     skip_filter_index: Optional[bool] = False  #
@@ -34,7 +34,7 @@ class AutoCoderArgs(BaseModel):
     include_project_structure: Optional[bool] = False  # 在生成代码的提示中是否包含项目目录结构
     urls: Optional[Union[str, List[str]]] = ""  # 一些文档的URL/路径，可以帮助模型了解你当前的工作
     # model: Optional[str] = ""  # 您要驱动运行的模型
-    model_max_input_length: Optional[int] = 6000  # 模型最大输入长度
+    model_max_input_length: Optional[int] = 6000  # 模型最大输入长度[废弃]
     skip_confirm: Optional[bool] = False
     silence: Optional[bool] = False
     exclude_files: Optional[Union[str, List[str]]] = ""

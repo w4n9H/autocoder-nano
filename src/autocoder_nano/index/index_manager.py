@@ -3,13 +3,15 @@ import json
 import os
 import time
 from typing import List, Optional
-
-# from loguru import logger
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing import cpu_count
+import threading
 
 from autocoder_nano.index.symbols_utils import extract_symbols, symbols_info_to_str
 from autocoder_nano.core import AutoLLM
 from autocoder_nano.core import prompt
 from autocoder_nano.actypes import SourceCode, AutoCoderArgs, IndexItem, SymbolType, FileList
+from autocoder_nano.rag.token_counter import count_tokens
 from autocoder_nano.utils.printer_utils import Printer
 
 
@@ -25,7 +27,7 @@ class IndexManager:
         self.index_file = os.path.join(self.index_dir, "index.json")
         self.llm = llm
         self.llm.setup_default_model_name(args.chat_model)
-        self.max_input_length = args.model_max_input_length  # 模型输入最大长度
+        self.conversation_prune_safe_zone_tokens = args.conversation_prune_safe_zone_tokens  # 模型输入最大长度
         # 使用 time.sleep(self.anti_quota_limit) 防止超过 API 频率限制
         self.anti_quota_limit = args.anti_quota_limit
         # 如果索引目录不存在,则创建它
@@ -40,6 +42,16 @@ class IndexManager:
         else:  # 首次 build index
             printer.print_text("首次生成索引.", style="green")
             index_data = {}
+
+        # 清理已不存在的文件索引
+        keys_to_remove = []
+        for file_path in index_data:
+            if not os.path.exists(file_path):
+                keys_to_remove.append(file_path)
+        # 删除无效条目并记录日志
+        for key in set(keys_to_remove):
+            if key in index_data:
+                del index_data[key]
 
         @prompt()
         def error_message(source_dir: str, file_path: str):
@@ -57,7 +69,12 @@ class IndexManager:
         updated_sources = []
         wait_to_build_files = []
         for source in self.sources:
+            file_path = source.module_name
+            if not os.path.exists(file_path):
+                continue
             source_code = source.source_code
+            if len(source_code) <= 0:
+                continue
             md5 = hashlib.md5(source_code.encode("utf-8")).hexdigest()
             if source.module_name not in index_data or index_data[source.module_name]["md5"] != md5:
                 wait_to_build_files.append(source)
@@ -66,14 +83,26 @@ class IndexManager:
         total_files = len(self.sources)
         printer.print_text(f"总文件数: {total_files}, 需要索引文件数: {num_files}", style="green")
 
-        for source in wait_to_build_files:
-            build_result = self.build_index_for_single_source(source)
-            if build_result is not None:
-                counter += 1
-                printer.print_text(f"正在构建索引:{counter}/{num_files}...", style="green")
-                module_name = build_result["module_name"]
-                index_data[module_name] = build_result
-                updated_sources.append(module_name)
+        with ThreadPoolExecutor(max_workers=max(int(cpu_count() / 2), self.args.index_build_workers)) as executor:
+            futures = [
+                executor.submit(self.build_index_for_single_source, source) for source in wait_to_build_files
+            ]
+            for future in as_completed(futures):
+                result = future.result()
+                if result is not None:
+                    counter += 1
+                    printer.print_text(f"正在构建索引:{counter}/{num_files}...", style="green")
+                    module_name = result["module_name"]
+                    index_data[module_name] = result
+                    updated_sources.append(module_name)
+        # for source in wait_to_build_files:
+        #     build_result = self.build_index_for_single_source(source)
+        #     if build_result is not None:
+        #         counter += 1
+        #         printer.print_text(f"正在构建索引:{counter}/{num_files}...", style="green")
+        #         module_name = build_result["module_name"]
+        #         index_data[module_name] = build_result
+        #         updated_sources.append(module_name)
         if updated_sources:
             with open(self.index_file, "w") as fp:
                 json_str = json.dumps(index_data, indent=2, ensure_ascii=False)
@@ -87,7 +116,7 @@ class IndexManager:
         current_chunk = []
         current_length = 0
         for line in lines:
-            if current_length + len(line) + 1 <= self.max_input_length:
+            if current_length + len(line) + 1 <= self.conversation_prune_safe_zone_tokens:
                 current_chunk.append(line)
                 current_length += len(line) + 1
             else:
@@ -171,11 +200,11 @@ class IndexManager:
         try:
             start_time = time.monotonic()
             source_code = source.source_code
-            if len(source.source_code) > self.max_input_length:
+            if count_tokens(source.source_code) > self.conversation_prune_safe_zone_tokens:
                 printer.print_text(
                     f"""
                     警告[构建索引]: 源代码({source.module_name})长度过长,
-                    ({len(source.source_code)}) > 模型最大输入长度({self.max_input_length}),
+                    ({len(source.source_code)}) > 模型最大输入长度({self.conversation_prune_safe_zone_tokens}),
                     正在分割为多个块...
                     """,
                     style="yellow"
@@ -306,8 +335,8 @@ class IndexManager:
     def get_target_files_by_query(self, query: str):
         """ 根据查询条件查找相关文件，考虑不同过滤级别 """
         all_results = []
+        lock = threading.Lock()
         completed = 0
-        total = 0
 
         includes = None
         if self.args.index_filter_level == 0:
@@ -315,17 +344,36 @@ class IndexManager:
         if self.args.index_filter_level >= 1:
             includes = None
 
-        for chunk in self._get_meta_str(includes=includes):
-            result = self._get_target_files_by_query.with_llm(self.llm).with_return_type(FileList).run(chunk, query)
+        def _process_filter_by_query(_chunk):
+            result = self._get_target_files_by_query.with_llm(self.llm).with_return_type(FileList).run(_chunk, query)
             if result is not None:
-                all_results.extend(result.file_list)
-                completed += 1
+                with lock:
+                    all_results.extend(result.file_list)
             else:
                 printer.print_text(f"无法找到分块的目标文件.原因可能是模型响应未返回格式错误.", style="yellow")
-            total += 1
-            time.sleep(self.anti_quota_limit)
+            time.sleep(self.args.anti_quota_limit)
 
-        printer.print_text(f"已完成 {completed}/{total} 个分块(基于查询条件)", style="green")
+        chunks_to_process = list(self._get_meta_str(includes=includes))
+        total = len(chunks_to_process)
+        with ThreadPoolExecutor(max_workers=max(int(cpu_count() / 2), self.args.index_filter_workers)) as executor:
+            futures = [
+                executor.submit(_process_filter_by_query, chunk) for chunk in chunks_to_process
+            ]
+            for future in as_completed(futures):
+                future.result()
+                completed += 1
+                printer.print_text(f"已完成 {completed}/{total} 个分块(基于查询条件)", style="green")
+        # for chunk in self._get_meta_str(includes=includes):
+        #     result = self._get_target_files_by_query.with_llm(self.llm).with_return_type(FileList).run(chunk, query)
+        #     if result is not None:
+        #         all_results.extend(result.file_list)
+        #         completed += 1
+        #     else:
+        #         printer.print_text(f"无法找到分块的目标文件.原因可能是模型响应未返回格式错误.", style="yellow")
+        #     total += 1
+        #     time.sleep(self.anti_quota_limit)
+
+        # printer.print_text(f"已完成 {completed}/{total} 个分块(基于查询条件)", style="green")
         all_results = list({file.file_path: file for file in all_results}.values())
         if self.args.index_filter_file_num > 0:
             limited_results = all_results[: self.args.index_filter_file_num]
@@ -375,21 +423,44 @@ class IndexManager:
     def get_related_files(self, file_paths: List[str]):
         """ 根据文件路径查询相关文件 """
         all_results = []
-
+        lock = threading.Lock()
         completed = 0
         total = 0
 
-        for chunk in self._get_meta_str():
+        def _process_filter_by_file(_chunk):
+            nonlocal completed
             result = self._get_related_files.with_llm(self.llm).with_return_type(
-                FileList).run(chunk, "\n".join(file_paths))
+                FileList).run(_chunk, "\n".join(file_paths))
             if result is not None:
-                all_results.extend(result.file_list)
-                completed += 1
+                with lock:
+                    all_results.extend(result.file_list)
+                    completed += 1
             else:
-                printer.print_text(f"无法找到与分块相关的文件。原因可能是模型限制或查询条件与文件不匹配.", style="yellow")
-            total += 1
-            time.sleep(self.anti_quota_limit)
-        printer.print_text(f"已完成 {completed}/{total} 个分块(基于相关文件)", style="green")
+                printer.print_text(f"无法找到分块的目标文件.原因可能是模型响应未返回格式错误.", style="yellow")
+            time.sleep(self.args.anti_quota_limit)
+
+        chunks_to_process = list(self._get_meta_str())
+        total = len(chunks_to_process)
+        with ThreadPoolExecutor(max_workers=max(int(cpu_count() / 2), self.args.index_filter_workers)) as executor:
+            futures = [
+                executor.submit(_process_filter_by_file, chunk) for chunk in chunks_to_process
+            ]
+            for future in as_completed(futures):
+                future.result()
+                completed += 1
+                printer.print_text(f"已完成 {completed}/{total} 个分块(基于相关文件)", style="green")
+
+        # for chunk in self._get_meta_str():
+        #     result = self._get_related_files.with_llm(self.llm).with_return_type(
+        #         FileList).run(chunk, "\n".join(file_paths))
+        #     if result is not None:
+        #         all_results.extend(result.file_list)
+        #         completed += 1
+        #     else:
+        #         printer.print_text(f"无法找到与分块相关的文件。原因可能是模型限制或查询条件与文件不匹配.", style="yellow")
+        #     total += 1
+        #     time.sleep(self.anti_quota_limit)
+        # printer.print_text(f"已完成 {completed}/{total} 个分块(基于相关文件)", style="green")
         all_results = list({file.file_path: file for file in all_results}.values())
         return FileList(file_list=all_results)
 

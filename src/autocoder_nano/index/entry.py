@@ -1,6 +1,9 @@
 import os
 import time
 from typing import List, Dict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing import cpu_count
+import threading
 
 # from loguru import logger
 # from rich.console import Console
@@ -72,11 +75,14 @@ def build_index_and_filter_files(args: AutoCoderArgs, llm: AutoLLM, sources: Lis
                 data_list = []
                 if result:
                     for _file_path, _score, _status, _reason in results:
-                        data_list.append([_file_path, str(_score) if _score is not None else "N/A", _status, _reason])
+                        data_list.append(
+                            [os.path.relpath(_file_path, args.source_dir),
+                             f"{_score}/{_status}" if _score is not None else "N/A",
+                             _reason])
                 printer.print_table_compact(
                     data=data_list,
                     title="文件相关性验证结果",
-                    headers=["文件路径", "得分", "状态", "原因/错误"]
+                    headers=["文件路径", "得分/状态", "原因/错误"]
                 )
 
             def _verify_single_file(single_file: TargetFile):
@@ -106,11 +112,19 @@ def build_index_and_filter_files(args: AutoCoderArgs, llm: AutoLLM, sources: Lis
                             return single_file.file_path, None, "ERROR", error_msg
                 return
 
-            for pending_verify_file in temp_files:
-                result = _verify_single_file(pending_verify_file)
-                if result:
-                    verification_results.append(result)
-                time.sleep(args.anti_quota_limit)
+            with ThreadPoolExecutor(max_workers=max(int(cpu_count() / 2), args.index_filter_workers)) as executor:
+                futures = [
+                    executor.submit(_verify_single_file, pending_verify_file) for pending_verify_file in temp_files
+                ]
+                for future in as_completed(futures):
+                    result = future.result()
+                    if result:
+                        verification_results.append(result)
+            # for pending_verify_file in temp_files:
+            #     result = _verify_single_file(pending_verify_file)
+            #     if result:
+            #         verification_results.append(result)
+            #     time.sleep(args.anti_quota_limit)
 
             _print_verification_results(verification_results)
             # Keep all files, not just verified ones

@@ -242,8 +242,7 @@ def exclude_files(query: str):
         printer.print_table_compact(
             headers=["File Pattern"],
             data=[[file_pattern] for file_pattern in existing_file_patterns],
-            title="Exclude Files",
-            show_lines=False
+            title="Exclude Files"
         )
         return
 
@@ -390,21 +389,21 @@ def coding_command(query: str, llm: AutoLLM):
     completer.refresh_files()
 
 
-def print_commit_info(commit_result: CommitResult):
-    printer.print_table_compact(
-        data=[
-            ["提交哈希", commit_result.commit_hash],
-            ["提交信息", commit_result.commit_message],
-            ["更改的文件", "\n".join(commit_result.changed_files) if commit_result.changed_files else "No files changed"]
-        ],
-        title="提交信息", headers=["属性", "值"], caption="(使用 /revert 撤销此提交)"
-    )
-
+def print_commit_info(commit_result: CommitResult, llm_commit_message: str):
     if commit_result.diffs:
         for file, diff in commit_result.diffs.items():
             printer.print_text(f"File: {file}", style="green")
             syntax = Syntax(diff, "diff", theme="monokai", line_numbers=True)
             printer.print_panel(syntax, title="File Diff", center=True)
+        printer.print_table_compact(
+            data=[
+                ["提交说明", llm_commit_message],
+                ["提交哈希", commit_result.commit_hash],
+                ["提交信息", commit_result.commit_message],
+                ["更改的文件", "\n".join(commit_result.changed_files) if commit_result.changed_files else "No files changed"]
+            ],
+            title="提交信息", headers=["属性", "值"], caption="(使用 /revert 撤销此提交)"
+        )
 
 
 def commit_info(query: str, llm: AutoLLM):
@@ -455,12 +454,13 @@ def commit_info(query: str, llm: AutoLLM):
                 commit_message = generate_commit_message.with_llm(commit_llm).run(
                     uncommitted_changes
                 )
-                memory["conversation"].append({"role": "user", "content": commit_message.output})
+                llm_to_commit_message = commit_message.output
+                memory["conversation"].append({"role": "user", "content": llm_to_commit_message})
             except Exception as err:
                 printer.print_text(f"Commit 信息生成失败: {err}", style="red")
                 return
 
-            yaml_config["query"] = commit_message.output
+            yaml_config["query"] = llm_to_commit_message
             yaml_content = convert_yaml_config_to_str(yaml_config=yaml_config)
             with open(os.path.join(execute_file), "w", encoding="utf-8") as f:
                 f.write(yaml_content)
@@ -468,8 +468,8 @@ def commit_info(query: str, llm: AutoLLM):
             file_content = open(execute_file).read()
             md5 = hashlib.md5(file_content.encode("utf-8")).hexdigest()
             file_name = os.path.basename(execute_file)
-            commit_result = commit_changes(repo_path, f"auto_coder_nano_{file_name}_{md5}\n{commit_message}")
-            print_commit_info(commit_result=commit_result)
+            commit_result = commit_changes(repo_path, f"auto_coder_nano_{file_name}_{md5}")
+            print_commit_info(commit_result=commit_result, llm_commit_message=llm_to_commit_message)
             if commit_message:
                 printer.print_text(f"Commit 成功", style="green")
         except Exception as err:
