@@ -6,9 +6,9 @@ SubAgent = {
         "tools": [
             "todo_read",
             "todo_write",
-            "search_files",
+            # "search_files",
             "list_files",
-            "read_file",
+            # "read_file",
             "call_subagent",
             "ask_followup_question",
             "attempt_completion"
