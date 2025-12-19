@@ -40,10 +40,13 @@ class SubAgents(BaseAgent):
         # prompt 管理
         self.prompt_manager = PromptManager(args=self.args)
 
+        # subagent printer prefix
+        self.spp = f"* (sub:{self.agent_type}) "
+
     def _reinforce_guidelines(self, interval=5):
         """ 每N轮对话强化指导原则 """
         if len(self.current_conversations) % interval == 0:
-            printer.print_text(f"SubAgent 强化工具使用规则(间隔{interval})", style=COLOR_SYSTEM)
+            printer.print_text(f"强化工具使用规则(间隔{interval})", style=COLOR_SYSTEM, prefix=self.spp)
             self.current_conversations.append(
                 {"role": "user", "content": self._get_tools_prompt()}
             )
@@ -87,9 +90,16 @@ class SubAgents(BaseAgent):
         # 错误处理
         - 如果工具调用失败，你需要分析错误信息，并重新尝试，或者向用户报告错误并请求帮助
         
-        ## 工具熔断机制
+        # 工具熔断机制
         - 工具连续失败3次时启动备选方案或直接结束任务
         - 自动标注行业惯例方案供用户确认
+        
+        # 工具调用规范
+        - 调用前必须在 <thinking></thinking> 内分析：
+            * 分析系统环境及目录结构
+            * 根据目标选择合适工具
+            * 必填参数检查（用户提供或可推断，否则用 `ask_followup_question` 询问）
+        - 当所有必填参数齐备或可明确推断后，才关闭思考标签并调用工具
         
         # 工具使用指南
         1. 开始任务前务必进行全面搜索和探索
@@ -118,8 +128,8 @@ class SubAgents(BaseAgent):
             {"role": "system", "content": self.prompt_manager.prompt_sysinfo.prompt()}
         ]
 
-        printer.print_text(f"📝 SubAgent 系统提示词长度(token): {self._count_conversations_tokens(system_prompt)}",
-                           style=COLOR_TOKEN_USAGE)
+        printer.print_text(f"系统提示词长度(token): {self._count_conversations_tokens(system_prompt)}",
+                           style=COLOR_INFO, prefix=self.spp)
 
         return system_prompt
 
@@ -139,7 +149,7 @@ class SubAgents(BaseAgent):
             iteration_count += 1
             tool_executed = False
             last_message = self.current_conversations[-1]
-            printer.print_text(f"🔄 SubAgent 当前为第{iteration_count}轮对话", style=COLOR_ITERATION)
+            printer.print_text(f"当前为第{iteration_count}轮对话", style=COLOR_INFO, prefix=self.spp)
 
             if last_message["role"] == "assistant":
                 if should_yield_completion_event:
@@ -194,9 +204,7 @@ class SubAgents(BaseAgent):
                     yield event  # Yield the ToolCallEvent for display
 
                     if isinstance(tool_obj, AttemptCompletionTool):
-                        printer.print_text(
-                            f"SubAgent 正在结束会话, 完成结果: {tool_obj.result[:50]}...", style=COLOR_COMPLETION
-                        )
+                        printer.print_text(f"正在准备结束会话 ...", style=COLOR_INFO, prefix=self.spp)
                         completion_event = CompletionEvent(completion=tool_obj, completion_xml=tool_xml)
                         mark_event_should_finish = True
                         should_yield_completion_event = True
@@ -251,8 +259,8 @@ class SubAgents(BaseAgent):
 
                 elif isinstance(event, ErrorEvent):
                     if event.message.startswith("Stream ended with unterminated"):
-                        printer.print_text(f"SubAgent LLM Response 流以未闭合的标签块结束, 即将强化记忆",
-                                           style=COLOR_ERROR)
+                        printer.print_text(f"LLM Response 流以未闭合的标签块结束, 即将强化记忆",
+                                           style=COLOR_ERROR, prefix=self.spp)
                         self.current_conversations.append(
                             {"role": "user",
                              "content": "使用工具时需要包含 开始和结束标签, 缺失结束标签会导致工具调用失败"}
@@ -262,8 +270,8 @@ class SubAgents(BaseAgent):
                     yield event
 
             if not tool_executed:
-                printer.print_text("SubAgent LLM 响应完成, 未执行任何工具, 将 Assistant Buffer 内容写入会话历史",
-                                   style=COLOR_WARNING)
+                # printer.print_text("LLM 响应完成, 未执行任何工具, 将 Assistant Buffer 内容写入会话历史",
+                #                    style=COLOR_WARNING, prefix=self.spp)
                 if assistant_buffer:
                     last_message = self.current_conversations[-1]
                     if last_message["role"] != "assistant":
@@ -275,7 +283,7 @@ class SubAgents(BaseAgent):
                         tokens_used=self._count_conversations_tokens(self.current_conversations))
 
                 # 添加系统提示，要求LLM必须使用工具或明确结束，而不是直接退出
-                printer.print_text("💡 SubAgent 正在添加系统提示: 请使用工具或尝试直接生成结果", style=COLOR_SYSTEM)
+                # printer.print_text("正在添加系统提示: 请使用工具或尝试直接生成结果", style=COLOR_INFO, prefix=self.spp)
 
                 self.current_conversations.append({
                     "role": "user",
@@ -284,18 +292,16 @@ class SubAgents(BaseAgent):
                 })
                 yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(self.current_conversations))
                 # 继续循环，让 LLM 再思考，而不是 break
-                printer.print_text("🔄 SubAgent 持续运行 LLM 交互循环（保持不中断）", style=COLOR_ITERATION)
+                # printer.print_text("🔄 SubAgent 持续运行 LLM 交互循环（保持不中断）", style=COLOR_ITERATION)
                 continue
 
-        printer.print_text(f"✅ SubAgent [{self.agent_type.title()}] 分析循环已完成，共执行 {iteration_count} 次迭代.",
-                           style=COLOR_ITERATION)
+        printer.print_text(f"分析循环已完成，共执行 {iteration_count} 次迭代.", style=COLOR_SUCCESS, prefix=self.spp)
 
     def run_subagent(self, request: AgenticEditRequest):
         project_name = os.path.basename(os.path.abspath(self.args.source_dir))
 
-        printer.print_text(f"🚀 SubAgent [{self.agent_type.title()}] 开始运行, 项目名: {project_name}, "
-                           f"用户目标: {request.user_input[:50]}...",
-                           style=COLOR_SYSTEM)
+        printer.print_text(f"开始运行, 项目名: {project_name}, 用户目标: {request.user_input[:50]}...",
+                           style=COLOR_SYSTEM, prefix=self.spp)
         completion_text = ""
         completion_status = False
         try:
@@ -304,55 +310,53 @@ class SubAgents(BaseAgent):
             for event in event_stream:
                 if isinstance(event, TokenUsageEvent):
                     last_meta: SingleOutputMeta = event.usage
-                    printer.print_text(f"📝 SubAgent Token 使用: "
-                                       f"Input({last_meta.input_tokens_count})/"
-                                       f"Output({last_meta.generated_tokens_count})",
-                                       style=COLOR_TOKEN_USAGE)
+                    printer.print_text(
+                        Text.assemble(
+                            ("Token 使用: ", "grey60"),
+                            (f"Input({last_meta.input_tokens_count})", "grey50"),
+                            (f"/", "grey60"),
+                            (f"Output({last_meta.generated_tokens_count})", "grey50")
+                        ),
+                        prefix=self.spp
+                    )
                 elif isinstance(event, WindowLengthChangeEvent):
-                    printer.print_text(f"📝 SubAgent 当前 Token 总用量: {event.tokens_used}", style=COLOR_TOKEN_USAGE)
+                    printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_INFO, prefix=self.spp)
                 elif isinstance(event, LLMThinkingEvent):
                     # 以不太显眼的样式（比如灰色）呈现思考内容
-                    printer.print_panel(
-                        content=Text(f"{event.text}", style=COLOR_LLM_THINKING),
-                        title="💭 SubAgent LLM Thinking",
-                        border_style=COLOR_PANEL_INFO,
-                        center=True)
+                    printer.print_text(f"LLM Thinking: ", style="grey60", prefix=self.spp)
+                    printer.print_llm_output(f"{event.text}")
                 elif isinstance(event, LLMOutputEvent):
-                    printer.print_panel(
-                        content=Text(f"{event.text}", style=COLOR_LLM_OUTPUT),
-                        title="💬 SubAgent LLM Output",
-                        border_style=COLOR_PANEL_INFO,
-                        center=True)
+                    printer.print_text(f"LLM Output: ", style="grey60", prefix=self.spp)
+                    printer.print_llm_output(f"{event.text}")
                 elif isinstance(event, ToolCallEvent):
-                    printer.print_text(f"️🛠️ SubAgent 工具调用: {type(event.tool).__name__}, "
-                                       f"{self.get_tool_display_message(event.tool)}",
-                                       style=COLOR_TOOL_CALL)
+                    printer.print_text(
+                        Text.assemble(
+                            (f"{type(event.tool).__name__}: ", "bold grey60"),
+                            (f"{self.get_tool_display_message(event.tool)}", "grey50")
+                        ),
+                        prefix=self.spp
+                    )
                 elif isinstance(event, ToolResultEvent):
                     result = event.result
                     printer.print_text(
-                        f"{'✅' if result.success else '❌'} SubAgent 工具返回: {event.tool_name}, "
-                        f"状态: {'成功' if result.success else '失败'}, 信息: {result.message}",
-                        style=COLOR_TOOL_CALL
+                        Text.assemble(
+                            (f"{event.tool_name} Result: ", "bold grey60"),
+                            (f"{result.message}", "bright_green" if result.success else "bright_red")
+                        ),
+                        prefix=self.spp
                     )
                 elif isinstance(event, CompletionEvent):
                     self._apply_changes(request)  # 在这里完成实际合并
                     # 保存完成结果用于返回
                     completion_text = event.completion.result
                     completion_status = True
-                    printer.print_panel(
-                        content=Markdown(completion_text),
-                        border_style=COLOR_PANEL_SUCCESS,
-                        title="🏁 任务完成", center=True
-                    )
                     if event.completion.command:
-                        printer.print_text(f"SubAgent 建议命令: {event.completion.command}", style=COLOR_DEBUG)
-                    printer.print_text(f"SubAgent {self.agent_type.title()} 结束", style=COLOR_AGENT_END)
+                        printer.print_text(f"建议命令: {event.completion.command}", style="grey50", prefix=self.spp)
+                    printer.print_text(f"任务完成", style="bright_green", prefix=self.spp)
+                    printer.print_llm_output(f"{completion_text}")
                 elif isinstance(event, ErrorEvent):
-                    printer.print_panel(
-                        content=f"错误: {event.message}",
-                        border_style=COLOR_PANEL_ERROR,
-                        title="🔥 SubAgent 任务失败", center=True
-                    )
+                    printer.print_text(f"任务失败", style="bright_red", prefix=self.spp)
+                    printer.print_llm_output(f"{event.message}")
 
                 time.sleep(self.args.anti_quota_limit)
 
@@ -360,11 +364,8 @@ class SubAgents(BaseAgent):
                 if completion_text:
                     break
         except Exception as err:
-            printer.print_panel(
-                content=f"FATAL ERROR: {err}",
-                title=f"🔥 SubAgent {self.agent_type.title()} 执行失败",
-                border_style=COLOR_PANEL_ERROR,
-                center=True)
+            printer.print_text(f"SubAgent 执行失败", style="bright_red", prefix=self.spp)
+            printer.print_llm_output(f"{err}")
             completion_text = f"SubAgent {self.agent_type.title()} 执行失败: {str(err)}"
 
         return completion_status, completion_text

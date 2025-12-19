@@ -503,26 +503,25 @@ def configure(conf: str, skip_print=False):
         if key in memory["conf"]:
             del memory["conf"][key]
             save_memory()
-            print(f"\033[92mDeleted configuration: {key}\033[0m")
+            printer.print_text(f"Deleted configuration: {key}", style="bright_green")
         else:
-            print(f"\033[93mConfiguration not found: {key}\033[0m")
+            printer.print_text(f"Configuration not found: {key}", style="bright_yellow")
     else:
         parts = conf.split(":", 1)
         if len(parts) != 2:
-            print(
-                "\033[91mError: Invalid configuration format. Use 'key:value' or '/drop key'.\033[0m"
-            )
+            printer.print_text(
+                "Error: Invalid configuration format. Use 'key:value' or '/drop key'.", style="bright_red")
             return
         key, value = parts
         key = key.strip()
         value = value.strip()
         if not value:
-            print("\033[91mError: Value cannot be empty. Use 'key:value'.\033[0m")
+            printer.print_text("Error: Value cannot be empty. Use 'key:value'.", style="bright_red")
             return
         memory["conf"][key] = value
         save_memory()
         if not skip_print:
-            print(f"\033[92mSet {key} to {value}\033[0m")
+            printer.print_text(f"Set {key} to {value}", style="bright_green")
 
 
 def configure_project_type() -> str:
@@ -577,7 +576,7 @@ def configure_project_type() -> str:
 
 
 def initialize_system():
-    printer.print_text(f"🚀 正在初始化系统...", style="green")
+    printer.print_text(f"正在初始化系统...", style="dim green")
 
     def _init_project():
         first_time = False
@@ -601,7 +600,7 @@ def initialize_system():
                 printer.print_text("退出而不初始化.", style="yellow")
                 exit(1)
 
-        printer.print_text("项目初始化完成.", style="green")
+        printer.print_text("项目初始化完成.", style="dim green")
 
     _init_project()
 
@@ -1025,7 +1024,13 @@ def main():
         completer.update_current_files(memory["current_files"]["files"])
         completer.refresh_files()
     except Exception as e:
-        print(f"\033[91m发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
+        printer.print_text(
+            Text.assemble(
+                ("初始化过程发生异常:", "bright_red"),
+                (f"{type(e).__name__}", "bright_yellow"),
+                (f" - {str(e)}", "")
+            )
+        )
         exit(1)
 
     if len(memory["models"]) == 0:
@@ -1044,13 +1049,17 @@ def main():
     auto_llm = AutoLLM()  # 创建模型
     if len(memory["models"]) > 0:
         for _model_name in memory["models"]:
-            printer.print_text(f"正在部署 {_model_name} 模型...", style="green")
+            printer.print_text(
+                Text.assemble(
+                    ("正在部署模型: ", "dim green"),
+                    (f"{_model_name}", "bright_green")
+                ))
             auto_llm.setup_sub_client(_model_name,
                                       memory["models"][_model_name]["api_key"],
                                       memory["models"][_model_name]["base_url"],
                                       memory["models"][_model_name]["model"])
 
-    printer.print_text("初始化完成.", style="green")
+    printer.print_text("模型初始化完成.", style="dim green")
 
     if memory["conf"]["chat_model"] not in memory["models"].keys():
         printer.print_text("首选 Chat 模型与部署模型不一致, 请使用 /conf chat_model:& 设置", style="red")
@@ -1062,7 +1071,12 @@ def main():
         try:
             auto_command(project_root=project_root, memory=memory, query=instruction, llm=auto_llm)
         except Exception as e:
-            print(f"\033[91m发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
+            printer.print_text(
+                Text.assemble(
+                    ("发生异常:", "bright_red"),
+                    (f"{type(e).__name__}", "bright_yellow"),
+                    (f" - {str(e)}", "bright_white"))
+            )
             if _raw_args.debug:
                 import traceback
                 traceback.print_exc()
@@ -1234,37 +1248,37 @@ def main():
             elif user_input.startswith("/coding"):
                 query = user_input[len("/coding"):].strip()
                 if not query:
-                    printer.print_text("Please enter your request.", style="yellow")
+                    printer.print_text(Text("Please enter your request.", style="bright_red"))
                     continue
                 coding_command(query=query, llm=auto_llm)
             elif user_input.startswith("/auto"):
                 query = user_input[len("/auto"):].strip()
                 if not query:
-                    print("\033[91mPlease enter your request.\033[0m")
+                    printer.print_text(Text("Please enter your request.", style="bright_red"))
                     continue
                 auto_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
             elif user_input.startswith("/context"):
                 context_args = user_input[len("/context"):].strip().split()
                 if not context_args:
-                    print("\033[91mPlease enter your request.\033[0m")
+                    printer.print_text(Text("Please enter your request.", style="bright_red"))
                     continue
                 context_command(project_root, context_args)
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:
-                    print("\033[91mPlease enter your request.\033[0m")
+                    printer.print_text(Text("Please enter your request.", style="bright_red"))
                 else:
                     chat_command(project_root=project_root, query=query, memory=memory, llm=auto_llm)
             elif user_input.startswith("/models"):
                 models_args = user_input[len("/models"):].strip().split()
                 if not models_args:
-                    print("请输入相关参数.")
+                    printer.print_text(Text("Please enter your request.", style="bright_red"))
                 else:
                     manage_models(models_args, memory["models"], auto_llm)
             elif user_input.startswith("/mode"):
                 conf = user_input[len("/mode"):].strip()
                 if not conf:
-                    print(f"{memory['mode']} [{MODES[memory['mode']]}]")
+                    printer.print_text(f"{memory['mode']} [{MODES[memory['mode']]}]", style="green")
                 else:
                     memory["mode"] = conf
             elif user_input.startswith("/exclude_dirs"):
@@ -1278,7 +1292,7 @@ def main():
                 if user_input.startswith("/shell"):
                     command = user_input[len("/shell"):].strip()
                 if not command:
-                    print("Please enter a shell command to execute.")
+                    printer.print_text(Text("Please enter a shell command to execute.", style="bright_red"))
                 else:
                     execute_shell_command(command)
         except KeyboardInterrupt:
@@ -1287,11 +1301,23 @@ def main():
             try:
                 save_memory()
             except Exception as e:
-                print(f"\033[91m保存配置时发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
-            print("\n\033[93m退出 AutoCoder Nano...\033[0m")
+                printer.print_text(
+                    Text.assemble(
+                        ("保存配置时发生异常:", "bright_red"),
+                        (f"{type(e).__name__}", "bright_yellow"),
+                        (f" - {str(e)}", "")
+                    )
+                )
+            printer.print_text("退出 AutoCoder Nano...", style="bright_yellow")
             break
         except Exception as e:
-            print(f"\033[91m发生异常:\033[0m \033[93m{type(e).__name__}\033[0m - {str(e)}")
+            printer.print_text(
+                Text.assemble(
+                    ("发生异常:", "bright_red"),
+                    (f"{type(e).__name__}", "bright_yellow"),
+                    (f" - {str(e)}", "")
+                )
+            )
             if _raw_args and _raw_args.debug:
                 import traceback
                 traceback.print_exc()

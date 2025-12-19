@@ -4,11 +4,11 @@ AutoCoder Nano 终端配色方案
 """
 
 # 系统状态类
-COLOR_SYSTEM = "bold bright_blue"          # 系统信息 - 亮蓝色加粗
-COLOR_SUCCESS = "bold green"               # 成功状态 - 绿色加粗
-COLOR_ERROR = "bold red"                   # 错误信息 - 红色加粗
-COLOR_WARNING = "bold yellow"              # 警告信息 - 黄色加粗
-COLOR_INFO = "dim white"                   # 一般信息 - 暗白色（低调显示）
+COLOR_SYSTEM = "bright_blue"          # 系统信息 - 亮蓝色加粗
+COLOR_SUCCESS = "bright_green"               # 成功状态 - 绿色加粗
+COLOR_ERROR = "bright_red"                   # 错误信息 - 红色加粗
+COLOR_WARNING = "bright_yellow"              # 警告信息 - 黄色加粗
+COLOR_INFO = "grey50"                   # 一般信息 - 暗白色（低调显示）
 
 # Agent交互类
 COLOR_AGENT_START = COLOR_SYSTEM           # Agent启动 - 亮洋红色加粗

@@ -135,9 +135,16 @@ class AgenticRuntime(BaseAgent):
         # 错误处理
         - 如果工具调用失败，你需要分析错误信息，并重新尝试，或者向用户报告错误并请求帮助
 
-        ## 工具熔断机制
+        # 工具熔断机制
         - 工具连续失败3次时启动备选方案或直接结束任务
         - 自动标注行业惯例方案供用户确认
+        
+        # 工具调用规范
+        - 调用前必须在 <thinking></thinking> 内分析：
+            * 分析系统环境及目录结构
+            * 根据目标选择合适工具
+            * 必填参数检查（用户提供或可推断，否则用 `ask_followup_question` 询问）
+        - 当所有必填参数齐备或可明确推断后，才关闭思考标签并调用工具
 
         # 工具使用指南
         1. 开始任务前务必进行全面搜索和探索
@@ -167,7 +174,7 @@ class AgenticRuntime(BaseAgent):
             {"role": "system", "content": self.prompt_manager.prompt_sysinfo.prompt()}
         ]
 
-        printer.print_text(f"📝 系统提示词长度(token): {self._count_conversations_tokens(system_prompt)}",
+        printer.print_text(f"系统提示词长度(token): {self._count_conversations_tokens(system_prompt)}",
                            style=COLOR_TOKEN_USAGE)
 
         return system_prompt
@@ -185,7 +192,7 @@ class AgenticRuntime(BaseAgent):
                             "role": message['role'],
                             "content": message['content']
                         })
-                printer.print_text(f"📂 恢复对话，已有 {len(current_conversation['messages'])} 条现有消息",
+                printer.print_text(f"恢复对话，已有 {len(current_conversation['messages'])} 条现有消息",
                                    style=COLOR_SUCCESS)
 
     def analyze(self, request: AgenticEditRequest) -> Generator[Union[LLMOutputEvent, LLMThinkingEvent, ToolCallEvent, ToolResultEvent, CompletionEvent, ErrorEvent, WindowLengthChangeEvent, TokenUsageEvent, PlanModeRespondEvent] | None, None, None]:
@@ -220,7 +227,7 @@ class AgenticRuntime(BaseAgent):
             iteration_count += 1
             tool_executed = False
             last_message = conversations[-1]
-            printer.print_text(f"🔄 当前为第 {iteration_count} 轮对话, 历史会话长度(Context):{len(conversations)}",
+            printer.print_text(f"当前为第 {iteration_count} 轮对话, 历史会话长度(Context):{len(conversations)}",
                                style=COLOR_ITERATION)
 
             if last_message["role"] == "assistant":
@@ -286,7 +293,7 @@ class AgenticRuntime(BaseAgent):
 
                     # Handle AttemptCompletion separately as it ends the loop
                     if isinstance(tool_obj, AttemptCompletionTool):
-                        printer.print_text(f"正在结束会话, 完成结果: {tool_obj.result[:50]}...", style=COLOR_COMPLETION)
+                        printer.print_text(f"正在准备结束会话 ...", style=COLOR_INFO)
                         completion_event = CompletionEvent(completion=tool_obj, completion_xml=tool_xml)
                         mark_event_should_finish = True
                         should_yield_completion_event = True
@@ -376,7 +383,7 @@ class AgenticRuntime(BaseAgent):
                     yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(conversations))
 
                 # 添加系统提示，要求LLM必须使用工具或明确结束，而不是直接退出
-                printer.print_text("💡 正在添加系统提示: 请使用工具或尝试直接生成结果", style=COLOR_SYSTEM)
+                printer.print_text("正在添加系统提示: 请使用工具或尝试直接生成结果", style=COLOR_SYSTEM)
 
                 conversations.append({
                     "role": "user",
@@ -391,16 +398,16 @@ class AgenticRuntime(BaseAgent):
 
                 yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(conversations))
                 # 继续循环，让 LLM 再思考，而不是 break
-                printer.print_text("🔄 持续运行 LLM 交互循环（保持不中断）", style=COLOR_ITERATION)
+                printer.print_text("持续运行 LLM 交互循环（保持不中断）", style=COLOR_ITERATION)
                 continue
 
-        printer.print_text(f"✅ Agentic {self.agent_type} 分析循环已完成，共执行 {iteration_count} 次迭代.", style=COLOR_ITERATION)
+        printer.print_text(f"Agentic {self.agent_type} 分析循环已完成，共执行 {iteration_count} 次迭代.", style=COLOR_ITERATION)
         save_formatted_log(self.args.source_dir, json.dumps(conversations, ensure_ascii=False), "agentic_conversation")
 
     def run_in_terminal(self, request: AgenticEditRequest):
         project_name = os.path.basename(os.path.abspath(self.args.source_dir))
 
-        printer.print_text(f"🚀 Agentic {self.agent_type} 开始运行, 项目名: {project_name}, "
+        printer.print_text(f"Agentic {self.agent_type} 开始运行, 项目名: {project_name}, "
                            f"用户目标: {request.user_input.strip()}",
                            style=COLOR_SYSTEM)
 
@@ -418,18 +425,18 @@ class AgenticRuntime(BaseAgent):
                 if isinstance(event, TokenUsageEvent):
                     self._handle_token_usage_event(event, accumulated_token_usage)
                 elif isinstance(event, WindowLengthChangeEvent):
-                    printer.print_text(f"📝 当前 Token 总用量: {event.tokens_used}", style=COLOR_TOKEN_USAGE)
+                    printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_TOKEN_USAGE)
                 elif isinstance(event, LLMThinkingEvent):
                     # 以不太显眼的样式（比如灰色）呈现思考内容
                     printer.print_panel(
                         content=Text(f"{event.text}", style=COLOR_LLM_THINKING),
-                        title="💭 LLM Thinking",
+                        title="LLM Thinking",
                         border_style=COLOR_PANEL_INFO,
                         center=True)
                 elif isinstance(event, LLMOutputEvent):
                     printer.print_panel(
                         content=Text(f"{event.text}", style=COLOR_LLM_OUTPUT),
-                        title="💬 LLM Output",
+                        title="LLM Output",
                         border_style=COLOR_PANEL_INFO,
                         center=True)
                 elif isinstance(event, ToolCallEvent):
@@ -445,7 +452,7 @@ class AgenticRuntime(BaseAgent):
                     printer.print_panel(
                         content=Markdown(event.completion.result),
                         border_style=COLOR_PANEL_SUCCESS,
-                        title="🏁 任务完成", center=True
+                        title="任务完成", center=True
                     )
                     if event.completion.command:
                         printer.print_text(f"建议命令: {event.completion.command}", style=COLOR_DEBUG)
@@ -453,7 +460,7 @@ class AgenticRuntime(BaseAgent):
                     printer.print_panel(
                         content=f"Error: {event.message}",
                         border_style=COLOR_PANEL_ERROR,
-                        title="🔥 任务失败", center=True
+                        title="任务失败", center=True
                     )
 
                 time.sleep(self.args.anti_quota_limit)
@@ -463,7 +470,7 @@ class AgenticRuntime(BaseAgent):
                 printer.print_key_value(accumulated_token_usage)
             printer.print_panel(
                 content=f"FATAL ERROR: {err}",
-                title=f"🔥 Agentic {self.agent_type} 运行错误",
+                title=f"Agentic {self.agent_type} 运行错误",
                 border_style=COLOR_PANEL_ERROR,
                 center=True)
             raise err

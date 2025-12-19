@@ -17,8 +17,6 @@
 
 ### 探查工具
 - list_files：列出指定目录中的文件和目录
-- search_files: 在指定目录的文件中执行正则表达式搜索
-- read_file：读取文本文件
 
 ### 管理工具
 - call_subagent：调用子代理

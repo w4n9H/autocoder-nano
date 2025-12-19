@@ -19,8 +19,8 @@ class Printer:
         self.console = console or Console()
 
     def print_table(
-        self, data: Iterable[Iterable[Any]], title: Optional[str] = None, headers: Optional[List[str]] = None,
-        show_lines: bool = False, expand: bool = False, caption: Optional[str] = None
+            self, data: Iterable[Iterable[Any]], title: Optional[str] = None, headers: Optional[List[str]] = None,
+            show_lines: bool = False, expand: bool = False, caption: Optional[str] = None
     ) -> None:
         """
         打印表格
@@ -58,12 +58,12 @@ class Printer:
             center: bool = True,  # 新增居中参数
     ) -> None:
         # TUI风格的颜色配置
-        title_style = "bold white on green"          # 更醒目的标题
+        title_style = "bold white on green"  # 更醒目的标题
         caption_style = "dim black on bright_blue"  # 蓝灰背景
-        header_style = "bold black on yellow"         # 高对比度表头
-        content_style = "bright_white"                # 亮白色内容
-        alt_row_style = "white"                       # 斑马纹使用纯白色
-        border_style = "bright_green"                 # 鲜绿色边框
+        header_style = "bold black on yellow"  # 高对比度表头
+        content_style = "bright_white"  # 亮白色内容
+        alt_row_style = "white"  # 斑马纹使用纯白色
+        border_style = "bright_green"  # 鲜绿色边框
 
         table = Table(
             title=Text(f"  {title}  ", style=title_style),
@@ -82,7 +82,7 @@ class Printer:
         for header in (headers or []):
             table.add_column(
                 header,
-                style=content_style,    # 内容为白色
+                style=content_style,  # 内容为白色
                 header_style=header_style,  # 表头加粗（继承白色）
                 justify="center" if center else "left",  # 列内容居中
             )
@@ -141,31 +141,26 @@ class Printer:
         self.console.print(panel)
 
     def print_text(
-        self, *texts: Union[str, Text], style: Optional[str] = None, justify: Optional[str] = "left",
-        prefix: Optional[str] = "> "  # 新增前缀参数
+            self, *texts: Union[str, Text], style: Optional[str] = None, justify: Optional[str] = "left",
+            prefix: Optional[str] = "> "  # 新增前缀参数
     ) -> None:
         """灵活文本打印，支持样式和混合内容"""
+        processed_texts = Text()
         if prefix:
-            processed_texts = []
+            processed_texts.append(Text(prefix, style="grey50"))
             for t in texts:
                 if isinstance(t, str):
-                    processed_texts.append(Text(f"{prefix}{t}", style=style))
+                    processed_texts.append(Text(t, style=style))
                 else:
-                    # 对于Text对象，创建新的Text并添加前缀
-                    prefixed_text = Text(prefix)
-                    prefixed_text.append(t)
-                    processed_texts.append(prefixed_text)
-            rich_text = Group(*processed_texts)
+                    processed_texts.append(t)
         else:
-            rich_text = Group(*[
-                Text(str(t), style=style) if isinstance(t, str) else t
-                for t in texts
-            ])
-        self.console.print(rich_text, justify=justify)
+            for t in texts:
+                processed_texts.append(Text(str(t), style=style) if isinstance(t, str) else t)
+        self.console.print(processed_texts, justify=justify)
 
     def print_key_value(
-        self, items: Dict[str, Any], key_style: str = "bold cyan",
-        value_style: str = "green", separator: str = ": ", panel: bool = True, title: Optional[str] = None
+            self, items: Dict[str, Any], key_style: str = "bold cyan",
+            value_style: str = "green", separator: str = ": ", panel: bool = True, title: Optional[str] = None
     ) -> None:
         """
         键值对格式化输出
@@ -184,29 +179,16 @@ class Printer:
         ])
         self._print_with_panel(content, panel, title)
 
-    def context_aware_help(
-        self, help_content: Dict[str, str], current_context: str, width: int = 40
-    ):
-        """
-        上下文感知帮助面板
-        :param help_content: 帮助信息字典 {上下文关键字: 说明内容}
-        :param current_context: 当前分析出的上下文
-        :param width: 面板宽度
-        """
-        matched_keys = [k for k in help_content if k in current_context]
-        if not matched_keys:
-            return
-
-        help_text = Text()
-        for key in matched_keys:
-            help_text.append(f"[bold]{key}[/]\n{help_content[key]}\n\n", style="dim")
-
-        self.print_panel(
-            help_text,
-            title="相关帮助信息",
-            border_style="cyan",
-            width=width
+    def print_llm_output(self, content: str, style: str = "grey50"):
+        md = Panel(
+            Markdown(
+                content, style=style
+            ),
+            padding=(0, 0, 0, 6),
+            expand=True,
+            box=box.SIMPLE_HEAD
         )
+        self.console.print(md)
 
     def _print_with_panel(self, content: Any, use_panel: bool, title: Optional[str] = None) -> None:
         """内部方法：根据参数决定是否使用面板包装"""
@@ -226,6 +208,36 @@ class Printer:
 
 if __name__ == '__main__':
     printer = Printer()
+    printer.print_text(
+        Text.assemble(
+            ("Token 使用: ", "grey60"),
+            (f"Input(10000)", "grey50"), (f"/", "grey60"),
+            (f"Output(500)", "grey50")
+        ),
+        prefix=f"* (sub:reader) "
+    )
+    # agent 中表示模型 thinking 过程
+    printer.print_text(f"LLM Thinking :", style="grey60", prefix=f"* (sub:reader) ")
+    printer.print_llm_output("- 可能需要多次调整，确保每段话既全面又简洁。")
+    # agent 工具调用
+    printer.print_text(
+        Text.assemble(
+            (f"WriteToFileTool: ", "bold grey60"),
+            (f"写入文件: /path/path/", "grey50")
+        ),
+        prefix=f"* (sub:reader) "
+    )
+    # agent 工具调用状态
+    printer.print_text(
+        Text.assemble(
+            (f"WriteToFileTool: ", "bold grey60"),
+            (f"成功", "bright_green")
+        ),
+        prefix=f"* (sub:reader) "
+    )
+    printer.print_llm_output("- 可能需要多次调整，确保每段话既全面又简洁。")
+    printer.print_text(f"任务完成", style="bright_green", prefix=f"* (sub:reader) ")
+    printer.print_text(f"任务失败", style="bright_red", prefix=f"* (sub:reader) ")
     # 表格示例
     printer.print_table(
         headers=["Name", "Age", "Country"],
@@ -262,8 +274,3 @@ if __name__ == '__main__':
 
     # 代码示例
     printer.print_code('print("Hello World!")', line_numbers=False)
-
-    # Text示例
-    printer.print_text(Text("32 (senior)", style="bold red"))
-    printer.print_text(Text("32 (senior)", style="dim red"))
-    printer.print_text("32 (senior)", style="dim red")
