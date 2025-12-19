@@ -179,15 +179,14 @@ class Printer:
         ])
         self._print_with_panel(content, panel, title)
 
-    def print_llm_output(self, content: str, padding: tuple = (0, 0), style: str = "grey50"):
-        panel = Panel(
-            content if isinstance(content, Text) else Text(content, style=style),
-            padding=padding,
+    def print_llm_output(self, content: str, style: str = "grey50"):
+        md = Panel(
+            Markdown(
+                content, style=style
+            ),
+            padding=(0, 0, 0, 6),
             expand=True,
             box=box.SIMPLE_HEAD
-        )
-        md = Markdown(
-            content, style=style
         )
         self.console.print(md)
 
