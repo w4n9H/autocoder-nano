@@ -90,9 +90,16 @@ class SubAgents(BaseAgent):
         # 错误处理
         - 如果工具调用失败，你需要分析错误信息，并重新尝试，或者向用户报告错误并请求帮助
         
-        ## 工具熔断机制
+        # 工具熔断机制
         - 工具连续失败3次时启动备选方案或直接结束任务
         - 自动标注行业惯例方案供用户确认
+        
+        # 工具调用规范
+        - 调用前必须在 <thinking></thinking> 内分析：
+            * 分析系统环境及目录结构
+            * 根据目标选择合适工具
+            * 必填参数检查（用户提供或可推断，否则用 `ask_followup_question` 询问）
+        - 当所有必填参数齐备或可明确推断后，才关闭思考标签并调用工具
         
         # 工具使用指南
         1. 开始任务前务必进行全面搜索和探索
@@ -197,10 +204,7 @@ class SubAgents(BaseAgent):
                     yield event  # Yield the ToolCallEvent for display
 
                     if isinstance(tool_obj, AttemptCompletionTool):
-                        printer.print_text(
-                            f"正在结束会话, 完成结果: {tool_obj.result[:50]}...",
-                            style=COLOR_SYSTEM, prefix=self.spp
-                        )
+                        printer.print_text(f"正在准备结束会话 ...", style=COLOR_INFO, prefix=self.spp)
                         completion_event = CompletionEvent(completion=tool_obj, completion_xml=tool_xml)
                         mark_event_should_finish = True
                         should_yield_completion_event = True
@@ -266,8 +270,8 @@ class SubAgents(BaseAgent):
                     yield event
 
             if not tool_executed:
-                printer.print_text("LLM 响应完成, 未执行任何工具, 将 Assistant Buffer 内容写入会话历史",
-                                   style=COLOR_WARNING, prefix=self.spp)
+                # printer.print_text("LLM 响应完成, 未执行任何工具, 将 Assistant Buffer 内容写入会话历史",
+                #                    style=COLOR_WARNING, prefix=self.spp)
                 if assistant_buffer:
                     last_message = self.current_conversations[-1]
                     if last_message["role"] != "assistant":
@@ -279,7 +283,7 @@ class SubAgents(BaseAgent):
                         tokens_used=self._count_conversations_tokens(self.current_conversations))
 
                 # 添加系统提示，要求LLM必须使用工具或明确结束，而不是直接退出
-                printer.print_text("正在添加系统提示: 请使用工具或尝试直接生成结果", style=COLOR_INFO, prefix=self.spp)
+                # printer.print_text("正在添加系统提示: 请使用工具或尝试直接生成结果", style=COLOR_INFO, prefix=self.spp)
 
                 self.current_conversations.append({
                     "role": "user",
@@ -336,12 +340,11 @@ class SubAgents(BaseAgent):
                     result = event.result
                     printer.print_text(
                         Text.assemble(
-                            (f"{event.tool_name}: ", "bold grey60"),
-                            (f"{'成功' if result.success else '失败'}", "bright_green" if result.success else "bright_red")
+                            (f"{event.tool_name} Result: ", "bold grey60"),
+                            (f"{result.message}", "bright_green" if result.success else "bright_red")
                         ),
                         prefix=self.spp
                     )
-                    printer.print_llm_output(f"{result.message}")
                 elif isinstance(event, CompletionEvent):
                     self._apply_changes(request)  # 在这里完成实际合并
                     # 保存完成结果用于返回
