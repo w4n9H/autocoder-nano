@@ -5,8 +5,7 @@ from openai import OpenAI, Stream
 from openai.types.chat import ChatCompletionChunk, ChatCompletion
 
 from autocoder_nano.actypes import LLMRequest, LLMResponse, AutoCoderArgs, SingleOutputMeta
-from autocoder_nano.utils.color_utils import COLOR_LLM_CALL, COLOR_WARNING
-from autocoder_nano.utils.printer_utils import Printer
+from autocoder_nano.utils.printer_utils import Printer, COLOR_INFO, COLOR_WARNING
 
 
 printer = Printer()
@@ -16,6 +15,9 @@ class AutoLLM:
     def __init__(self):
         self.default_model_name = None
         self.sub_clients = {}
+
+        # llm printer prefix
+        self.lpp = f"* (waiting for llm) "
 
     def setup_sub_client(self, client_name: str, api_key: str, base_url: str, model_name=""):
         self.sub_clients[client_name] = {
@@ -42,7 +44,8 @@ class AutoLLM:
             model = self.default_model_name
 
         model_name = self.sub_clients[model]["model_name"]
-        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai]", style=COLOR_LLM_CALL)
+        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai]",
+                           style=COLOR_INFO, prefix=self.lpp)
         request = LLMRequest(
             model=model_name,
             messages=conversations
@@ -62,7 +65,8 @@ class AutoLLM:
         client: OpenAI = self.sub_clients[model]["client"]
         model_name = self.sub_clients[model]["model_name"]
 
-        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai_ex]", style=COLOR_LLM_CALL)
+        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai_ex]",
+                           style=COLOR_INFO, prefix=self.lpp)
 
         request = LLMRequest(
             model=model_name,
@@ -184,7 +188,8 @@ class AutoLLM:
             conversations = [{"role": "user", "content": conversations}]
 
         model_name = self.sub_clients[model]["model_name"]
-        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[chat_ai]", style=COLOR_LLM_CALL)
+        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[chat_ai]",
+                           style=COLOR_INFO, prefix=self.lpp)
         request = LLMRequest(
             model=model_name,
             messages=conversations
