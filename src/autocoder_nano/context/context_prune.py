@@ -10,8 +10,7 @@ from autocoder_nano.actypes import SourceCode, VerifyFileRelevance, AutoCoderArg
 from autocoder_nano.acmodels import get_model_max_context
 from autocoder_nano.core import prompt, extract_code, AutoLLM
 from autocoder_nano.rag.token_counter import count_tokens
-from autocoder_nano.utils.printer_utils import Printer
-from autocoder_nano.utils.color_utils import *
+from autocoder_nano.utils.printer_utils import Printer, COLOR_WARNING, COLOR_ERROR, COLOR_INFO
 
 
 printer = Printer()
@@ -24,6 +23,9 @@ class ContentPruner:
         self.llm = llm
         # self.llm.setup_default_model_name(self.args.chat_model)
         self.max_tokens = max_tokens
+
+        # compressing printer prefix
+        self.cpp = f"* (compressing...) "
 
     @staticmethod
     def _split_content_with_sliding_window(content: str, window_size=100, overlap=20) -> List[Tuple[int, int, str]]:
@@ -88,7 +90,8 @@ class ContentPruner:
                 else:
                     break
             except Exception as e:
-                printer.print_text(f"Failed to read file {file_source.module_name}: {e}", style=COLOR_ERROR)
+                printer.print_text(f"Failed to read file {file_source.module_name}: {e}", style=COLOR_ERROR,
+                                   prefix=self.cpp)
                 selected_files.append(file_source)
 
         return selected_files
@@ -206,10 +209,12 @@ class ContentPruner:
 
         total_input_tokens = sum(f.tokens for f in file_sources)
         printer.print_text(
-            f"🚀 开始代码片段抽取处理，共 {len(file_sources)} 个文件，总token数: {total_input_tokens}", style=COLOR_DEBUG
+            f"开始代码片段抽取处理，共 {len(file_sources)} 个文件，总token数: {total_input_tokens}",
+            style=COLOR_WARNING, prefix=self.cpp
         )
         printer.print_text(
-            f"📋 处理策略: 完整文件优先阈值={full_file_tokens}, 最大token限制={self.max_tokens}", style=COLOR_DEBUG
+            f"处理策略: 完整文件优先阈值={full_file_tokens}, 最大token限制={self.max_tokens}",
+            style=COLOR_WARNING, prefix=self.cpp
         )
 
         for file_source in file_sources:
@@ -221,8 +226,8 @@ class ContentPruner:
                         module_name=file_source.module_name, source_code=file_source.source_code, tokens=tokens))
                     token_count += tokens
                     printer.print_text(
-                        f"✅ 文件 {file_source.module_name} 完整保留 (token数: {tokens}，当前总token数: {token_count})",
-                        style=COLOR_DEBUG
+                        f"文件 {file_source.module_name} 完整保留 (token数: {tokens}，当前总token数: {token_count})",
+                        style=COLOR_WARNING, prefix=self.cpp
                     )
                     continue
 
@@ -234,14 +239,15 @@ class ContentPruner:
                         self.args.context_prune_sliding_window_overlap
                     )
                     printer.print_text(
-                        f"📊 文件 {file_source.module_name} 通过滑动窗口分割为 {len(chunks)} 个chunks", style=COLOR_DEBUG)
+                        f"文件 {file_source.module_name} 通过滑动窗口分割为 {len(chunks)} 个chunks",
+                        style=COLOR_WARNING, prefix=self.cpp)
 
                     all_snippets = []
                     chunk_with_results = 0
                     for chunk_idx, (chunk_start, chunk_end, chunk_content) in enumerate(chunks):
                         printer.print_text(
-                            f"🔍 处理chunk {chunk_idx + 1}/{len(chunks)} (行号: {chunk_start}-{chunk_end})",
-                            style=COLOR_DEBUG)
+                            f"处理chunk {chunk_idx + 1}/{len(chunks)} (行号: {chunk_start}-{chunk_end})",
+                            style=COLOR_WARNING, prefix=self.cpp)
                         extracted = self.extract_code_snippets.with_llm(self.llm).run(
                             conversations=conversations,
                             content=chunk_content,
@@ -254,7 +260,8 @@ class ContentPruner:
                             if snippets:  # 有抽取结果
                                 chunk_with_results += 1
                                 printer.print_text(
-                                    f"✅ chunk {chunk_idx + 1} 抽取到 {len(snippets)} 个代码片段: {snippets}", style=COLOR_DEBUG)
+                                    f"chunk {chunk_idx + 1} 抽取到 {len(snippets)} 个代码片段: {snippets}",
+                                    style=COLOR_WARNING, prefix=self.cpp)
                                 # 获取到的本来就是在原始文件里的绝对行号
                                 # 后续在构建代码片段内容时，会为了适配数组操作修改行号，这里无需处理
                                 adjusted_snippets = [{
@@ -263,18 +270,20 @@ class ContentPruner:
                                 } for snippet in snippets]
                                 all_snippets.extend(adjusted_snippets)
                             else:
-                                printer.print_text(f"❌ chunk {chunk_idx + 1} 未抽取到相关代码片段", style=COLOR_ERROR)
+                                printer.print_text(f"chunk {chunk_idx + 1} 未抽取到相关代码片段",
+                                                   style=COLOR_ERROR, prefix=self.cpp)
                         else:
-                            printer.print_text(f"❌ chunk {chunk_idx + 1} 抽取失败，未返回结果", style=COLOR_ERROR)
+                            printer.print_text(f"chunk {chunk_idx + 1} 抽取失败，未返回结果",
+                                               style=COLOR_ERROR, prefix=self.cpp)
                     printer.print_text(
-                        f"📈 滑动窗口处理完成: {chunk_with_results}/{len(chunks)} 个chunks有抽取结果，共收集到 {len(all_snippets)} 个代码片段",
-                        style=COLOR_DEBUG
+                        f"滑动窗口处理完成: {chunk_with_results}/{len(chunks)} 个chunks有抽取结果，共收集到 {len(all_snippets)} 个代码片段",
+                        style=COLOR_WARNING, prefix=self.cpp
                     )
 
                     merged_snippets = self._merge_overlapping_snippets(all_snippets)
 
-                    printer.print_text(f"🔄 合并重叠片段: {len(all_snippets)} -> {len(merged_snippets)} 个片段",
-                                       style=COLOR_DEBUG)
+                    printer.print_text(f"合并重叠片段: {len(all_snippets)} -> {len(merged_snippets)} 个片段",
+                                       style=COLOR_WARNING, prefix=self.cpp)
                     # if merged_snippets:
                     #     self.printer.print_str_in_terminal(f"    合并后的片段: {merged_snippets}")
 
@@ -289,18 +298,20 @@ class ContentPruner:
                                 module_name=file_source.module_name, source_code=content_snippets,
                                 tokens=snippet_tokens))
                             token_count += snippet_tokens
-                            printer.print_text(f"✅ 文件 {file_source.module_name} 滑动窗口处理成功，最终抽取到结果", style=COLOR_DEBUG)
+                            printer.print_text(f"文件 {file_source.module_name} 滑动窗口处理成功，最终抽取到结果",
+                                               style=COLOR_WARNING, prefix=self.cpp)
                             continue
                         else:
                             printer.print_text(
-                                f"❌ 文件 {file_source.module_name} 滑动窗口处理后token数超限"
+                                f"文件 {file_source.module_name} 滑动窗口处理后token数超限"
                                 f" ({token_count + snippet_tokens} > {self.max_tokens})，停止处理",
-                                style=COLOR_ERROR
+                                style=COLOR_ERROR, prefix=self.cpp
                             )
                             break
                     else:
                         printer.print_text(
-                            f"⏭️ 文件 {file_source.module_name} 滑动窗口处理后无相关代码片段，跳过处理", style=COLOR_WARNING)
+                            f"文件 {file_source.module_name} 滑动窗口处理后无相关代码片段，跳过处理",
+                            style=COLOR_WARNING, prefix=self.cpp)
                         continue
 
                 # 抽取关键片段
@@ -311,8 +322,8 @@ class ContentPruner:
                 for index, line in enumerate(lines):
                     new_content += f"{index + 1} {line}\n"
 
-                printer.print_text(f"🔍 开始对文件 {file_source.module_name} 进行整体代码片段抽取 (共 {len(lines)} 行)",
-                                   style=COLOR_DEBUG)
+                printer.print_text(f"开始对文件 {file_source.module_name} 进行整体代码片段抽取 (共 {len(lines)} 行)",
+                                   style=COLOR_WARNING, prefix=self.cpp)
 
                 extracted = self.extract_code_snippets.with_llm(self.llm).run(
                     conversations=conversations,
@@ -325,9 +336,10 @@ class ContentPruner:
                     snippets = json.loads(json_str)
 
                     if snippets:
-                        printer.print_text(f"✅ 抽取到 {len(snippets)} 个代码片段: {snippets}", style=COLOR_DEBUG)
+                        printer.print_text(f"抽取到 {len(snippets)} 个代码片段: {snippets}",
+                                           style=COLOR_WARNING, prefix=self.cpp)
                     else:
-                        printer.print_text(f"❌ 未抽取到相关代码片段", style=COLOR_ERROR)
+                        printer.print_text(f"未抽取到相关代码片段", style=COLOR_ERROR, prefix=self.cpp)
 
                     # 只有当有代码片段时才处理
                     if snippets:
@@ -339,21 +351,24 @@ class ContentPruner:
                                                              source_code=content_snippets,
                                                              tokens=snippet_tokens))
                             token_count += snippet_tokens
-                            printer.print_text(f"✅ 文件 {file_source.module_name} 整体抽取成功，最终抽取到结果", style=COLOR_DEBUG)
+                            printer.print_text(f"文件 {file_source.module_name} 整体抽取成功，最终抽取到结果",
+                                               style=COLOR_WARNING, prefix=self.cpp)
                         else:
                             printer.print_text(
-                                f"❌ 文件 {file_source.module_name} 整体抽取后token数超限"
+                                f"文件 {file_source.module_name} 整体抽取后token数超限"
                                 f" ({token_count + snippet_tokens} > {self.max_tokens})，停止处理",
-                                style=COLOR_ERROR)
+                                style=COLOR_ERROR, prefix=self.cpp)
                             break
                     else:
                         # 没有相关代码片段，跳过这个文件
-                        printer.print_text(f"⏭️ 文件 {file_source.module_name} 无相关代码片段，跳过处理", style=COLOR_WARNING)
+                        printer.print_text(f"文件 {file_source.module_name} 无相关代码片段，跳过处理",
+                                           style=COLOR_WARNING, prefix=self.cpp)
                 else:
-                    printer.print_text(f"❌ 文件 {file_source.module_name} 整体抽取失败，未返回结果", style=COLOR_ERROR)
+                    printer.print_text(f"文件 {file_source.module_name} 整体抽取失败，未返回结果",
+                                       style=COLOR_ERROR, prefix=self.cpp)
 
             except Exception as e:
-                printer.print_text(f"❌ 文件 {file_source.module_name} 处理异常: {e}", style=COLOR_ERROR)
+                printer.print_text(f"文件 {file_source.module_name} 处理异常: {e}", style=COLOR_ERROR, prefix=self.cpp)
                 continue
 
         total_input_tokens = sum(f.tokens for f in file_sources)
@@ -367,8 +382,8 @@ class ContentPruner:
                 else:
                     snippet_files += 1
 
-        printer.print_text(f"🎯 代码片段抽取处理完成", style=COLOR_DEBUG)
-        printer.print_text(f"📊 处理结果统计:", style=COLOR_DEBUG)
+        printer.print_text(f"代码片段抽取处理完成", style=COLOR_WARNING, prefix=self.cpp)
+        printer.print_text(f"处理结果统计:", style=COLOR_WARNING, prefix=self.cpp)
         printer.print_key_value(
             items={
                 "输入文件数": f"{len(file_sources)} 个",
@@ -518,7 +533,7 @@ class ContentPruner:
                     "content": file_source.source_code
                 }
             except Exception as e:
-                printer.print_text(f"Failed to score file {file_source.module_name}: {e}")
+                printer.print_text(f"Failed to score file {file_source.module_name}: {e}", prefix=self.cpp)
                 return {}
 
         # 使用线程池并行打分
@@ -585,6 +600,8 @@ class ConversationsPruner:
                         "group_size": self.args.conversation_prune_group_size}
             )
         }
+        # compressing printer prefix
+        self.cpp = f"* (compressing...) "
 
     @staticmethod
     def _split_system_messages(history_conversation):
@@ -617,7 +634,7 @@ class ConversationsPruner:
         safe_zone_tokens = int(model_max_context * safe_zone_ratio) if model_max_context > 0 \
             else self.args.conversation_prune_safe_zone_tokens
         printer.print_text(f"当前模型: {current_model} [{model_max_context}], "
-                           f"安全窗口大小: {safe_zone_tokens} [{safe_zone_ratio}]", style=COLOR_INFO)
+                           f"安全窗口大小: {safe_zone_tokens} [{safe_zone_ratio}]", style=COLOR_INFO, prefix=self.cpp)
 
         current_tokens = count_tokens(json.dumps(conversations, ensure_ascii=False))
 
@@ -635,7 +652,7 @@ class ConversationsPruner:
         elif strategy.name == "hybrid":
             return self._hybrid_prune(conversations, strategy.config)
         else:
-            printer.print_text(f"未知策略：{strategy_name}，已默认使用占位策略", style=COLOR_WARNING)
+            printer.print_text(f"未知策略：{strategy_name}，已默认使用占位策略", style=COLOR_WARNING, prefix=self.cpp)
             return self._tool_output_cleanup_prune(conversations, strategy.config)
 
     def _hybrid_prune(self, conversations: List[Dict[str, Any]], config: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -696,14 +713,14 @@ class ConversationsPruner:
         system_conversations, other_conversations = self._split_system_messages(processed_conversations)
 
         init_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
-        printer.print_text(f"[截断裁剪策略]对话: {len(system_conversations + other_conversations)} 条, "
+        printer.print_text(f"对话: {len(system_conversations + other_conversations)} 条, "
                            f"Token计数: {init_tokens}",
-                           style=COLOR_DEBUG)
+                           style=COLOR_WARNING, prefix=self.cpp)
         while True:
             current_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
             if current_tokens <= safe_zone_tokens:
                 printer.print_text(f"Token计数（{current_tokens}）已在安全区（{safe_zone_tokens}）内，停止裁剪",
-                                   style=COLOR_DEBUG)
+                                   style=COLOR_WARNING, prefix=self.cpp)
                 break
 
             # 如果剩余对话不足一组，直接返回系统提示词列表
@@ -714,7 +731,8 @@ class ConversationsPruner:
             other_conversations = other_conversations[group_size:]
 
         final_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
-        printer.print_text(f"[截断裁剪策略]清理完成, Token计数：{init_tokens} → {final_tokens}", style=COLOR_DEBUG)
+        printer.print_text(f"清理完成, Token计数：{init_tokens} → {final_tokens}",
+                           style=COLOR_WARNING, prefix=self.cpp)
 
         return system_conversations + other_conversations
 
@@ -727,14 +745,13 @@ class ConversationsPruner:
         system_conversations, other_conversations = self._split_system_messages(processed_conversations)
 
         init_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
-        printer.print_text(f"[摘要裁剪策略]对话: {len(system_conversations + other_conversations)} 条, "
-                           f"Token计数: {init_tokens}",
-                           style=COLOR_DEBUG)
+        printer.print_text(f"对话: {len(system_conversations + other_conversations)} 条, Token计数: {init_tokens}",
+                           style=COLOR_WARNING, prefix=self.cpp)
         while True:
             current_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
             if current_tokens <= safe_zone_tokens:
                 printer.print_text(f"Token计数（{current_tokens}）已在安全区（{safe_zone_tokens}）内，停止裁剪",
-                                   style=COLOR_DEBUG)
+                                   style=COLOR_WARNING, prefix=self.cpp)
                 break
 
             # 找到要处理的对话组
@@ -756,7 +773,8 @@ class ConversationsPruner:
                                    ] + recent_conversations
 
         final_tokens = count_tokens(json.dumps(system_conversations + other_conversations, ensure_ascii=False))
-        printer.print_text(f"[摘要裁剪策略]清理完成, Token计数：{init_tokens} → {final_tokens}", style=COLOR_DEBUG)
+        printer.print_text(f"清理完成, Token计数：{init_tokens} → {final_tokens}",
+                           style=COLOR_WARNING, prefix=self.cpp)
         return system_conversations + other_conversations
 
     @prompt()
@@ -787,7 +805,8 @@ class ConversationsPruner:
             if conv.get("role") == "user" and isinstance(conv.get("content"), str) and self._is_tool_result_message(conv.get("content", "")):
                 tool_result_indices.append(i)
 
-        printer.print_text(f"[占位裁剪策略]发现 {len(tool_result_indices)} 条可能需要清理的工具结果消息", style=COLOR_DEBUG)
+        printer.print_text(f"发现 {len(tool_result_indices)} 条可能需要清理的工具结果消息",
+                           style=COLOR_WARNING, prefix=self.cpp)
 
         # 依次清理工具输出，从首个输出开始
         init_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
@@ -795,13 +814,15 @@ class ConversationsPruner:
             current_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
 
             if current_tokens <= safe_zone_tokens:
-                printer.print_text(f"Token计数（{current_tokens}）已在安全区（{safe_zone_tokens}）内，停止裁剪", style=COLOR_DEBUG)
+                printer.print_text(f"Token计数（{current_tokens}）已在安全区（{safe_zone_tokens}）内，停止裁剪",
+                                   style=COLOR_WARNING, prefix=self.cpp)
                 break
 
             # 提取工具名称以生成更具体的替换消息
             tool_name = self._extract_tool_name(processed_conversations[tool_index]["content"])
             if tool_name in ["RecordMemoryTool"]:
-                printer.print_text(f"[占位裁剪策略]已跳过清理索引[{tool_index}]的工具结果({tool_name})")
+                printer.print_text(f"已跳过清理索引[{tool_index}]的工具结果({tool_name})",
+                                   style=COLOR_WARNING, prefix=self.cpp)
             else:
                 replacement_content = self._generate_replacement_message(tool_name)
 
@@ -810,12 +831,12 @@ class ConversationsPruner:
                 processed_conversations[tool_index]["content"] = replacement_content
 
                 printer.print_text(
-                    f"[占位裁剪策略]已清理索引[{tool_index}]的工具结果({tool_name}),字符数从 {len(original_content)} 减少到 {len(replacement_content)}",
-                    style=COLOR_DEBUG
+                    f"已清理索引[{tool_index}]的工具结果({tool_name}),字符数从 {len(original_content)} 减少到 {len(replacement_content)}",
+                    style=COLOR_WARNING, prefix=self.cpp
                 )
 
         final_tokens = count_tokens(json.dumps(processed_conversations, ensure_ascii=False))
-        printer.print_text(f"[占位裁剪策略]清理完成。Token计数：{init_tokens} → {final_tokens}", style=COLOR_DEBUG)
+        printer.print_text(f"清理完成。Token计数：{init_tokens} → {final_tokens}", style=COLOR_WARNING, prefix=self.cpp)
 
         return processed_conversations
 
