@@ -5,6 +5,7 @@ import os
 import xml.sax.saxutils
 from importlib import resources
 
+from rich.markdown import Markdown
 from rich.text import Text
 
 from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
@@ -51,7 +52,7 @@ class BaseAgent:
         # self.tool_resolver_map = {}  # 子类填充具体工具实现
 
         # main agent printer prefix
-        self.mapp = "* (main agent) "
+        self.mapp = "* (main:agent) "
 
     @staticmethod
     def get_tool_display_message(tool: BaseTool) -> str:
@@ -438,6 +439,13 @@ class BaseAgent:
             ),
             prefix=self.mapp
         )
+
+        if event.tool_name in ["TodoReadTool", "TodoWriteTool"]:
+            printer.print_panel(
+                content=Markdown(result.content),
+                title="Todo List",
+                border_style=COLOR_INFO,
+                center=True)
 
         # 不在展示具体的代码，以展示 Agent 操作为主
         # content_str = self._format_tool_result_content(result.content)
