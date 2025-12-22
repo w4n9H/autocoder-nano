@@ -436,7 +436,7 @@ class BaseAgent:
                 (f"{event.tool_name} Result: ", COLOR_SYSTEM),
                 (f"{result.message}", COLOR_SUCCESS if result.success else COLOR_ERROR)
             ),
-            prefix=self.spp
+            prefix=self.mapp
         )
 
         # 不在展示具体的代码，以展示 Agent 操作为主
