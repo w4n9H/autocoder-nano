@@ -21,8 +21,8 @@ class AutoCoderArgs(BaseModel):
     index_model_max_input_length: Optional[int] = 6000  # 模型最大输入长度[废弃]
     filter_batch_size: Optional[int] = 10  #
     anti_quota_limit: Optional[int] = 1  # 请求模型时的间隔时间(s)
-    skip_build_index: Optional[bool] = False  # 是否跳过索引构建(索引可以帮助您通过查询找到相关文件)
-    skip_filter_index: Optional[bool] = False  #
+    skip_build_index: Optional[bool] = True  # 是否跳过索引构建(索引可以帮助您通过查询找到相关文件)
+    skip_filter_index: Optional[bool] = True  #
     verify_file_relevance_score: Optional[int] = 6  #
     auto_merge: Optional[Union[bool, str]] = False  # 自动合并代码 True or False, 'editblock'
     enable_multi_round_generate: Optional[bool] = False  # 启用多轮生成
@@ -49,7 +49,7 @@ class AutoCoderArgs(BaseModel):
     buff_ratio: Optional[float] = 0.1
     required_exts: Optional[str] = None  # 指定处理的文件后缀,例如.pdf,.doc
     monitor_mode: bool = False  # 监控模式,会监控doc_dir目录中的文件变化
-    enable_hybrid_index: bool = True  # 开启混合索引
+    enable_hybrid_index: bool = False  # 开启混合索引
     disable_auto_window: bool = False
     hybrid_index_max_output_tokens: Optional[int] = 30000
     rag_type: Optional[str] = "simple"
