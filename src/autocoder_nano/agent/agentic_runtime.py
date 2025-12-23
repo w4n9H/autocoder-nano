@@ -15,8 +15,8 @@ from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.core import AutoLLM, stream_chat_with_continue, prompt
 from autocoder_nano.actypes import AutoCoderArgs, SourceCodeList
 from autocoder_nano.utils.formatted_log_utils import save_formatted_log
-from autocoder_nano.utils.printer_utils import Printer
-from autocoder_nano.utils.color_utils import *
+from autocoder_nano.utils.printer_utils import (
+    Printer, COLOR_SYSTEM, COLOR_SUCCESS, COLOR_WARNING, COLOR_ERROR, COLOR_INFO)
 
 printer = Printer()
 
@@ -91,7 +91,7 @@ class AgenticRuntime(BaseAgent):
     def _reinforce_guidelines(self, conversations, interval=5):
         """ 每N轮对话强化指导原则 """
         if len(conversations) % interval == 0:
-            printer.print_text(f"强化工具使用规则(间隔{interval})", style=COLOR_SYSTEM)
+            printer.print_text(f"强化工具使用规则(间隔{interval})", style=COLOR_SYSTEM, prefix=self.mapp)
             conversations.append(
                 {"role": "user", "content": self._get_tools_prompt()}
             )
@@ -175,7 +175,7 @@ class AgenticRuntime(BaseAgent):
         ]
 
         printer.print_text(f"系统提示词长度(token): {self._count_conversations_tokens(system_prompt)}",
-                           style=COLOR_TOKEN_USAGE)
+                           style=COLOR_INFO, prefix=self.mapp)
 
         return system_prompt
 
@@ -193,7 +193,7 @@ class AgenticRuntime(BaseAgent):
                             "content": message['content']
                         })
                 printer.print_text(f"恢复对话，已有 {len(current_conversation['messages'])} 条现有消息",
-                                   style=COLOR_SUCCESS)
+                                   style=COLOR_SUCCESS, prefix=self.mapp)
 
     def analyze(self, request: AgenticEditRequest) -> Generator[Union[LLMOutputEvent, LLMThinkingEvent, ToolCallEvent, ToolResultEvent, CompletionEvent, ErrorEvent, WindowLengthChangeEvent, TokenUsageEvent, PlanModeRespondEvent] | None, None, None]:
         conversations = self._build_system_prompt()
@@ -228,7 +228,7 @@ class AgenticRuntime(BaseAgent):
             tool_executed = False
             last_message = conversations[-1]
             printer.print_text(f"当前为第 {iteration_count} 轮对话, 历史会话长度(Context):{len(conversations)}",
-                               style=COLOR_ITERATION)
+                               style=COLOR_INFO, prefix=self.mapp)
 
             if last_message["role"] == "assistant":
                 if should_yield_completion_event:
@@ -293,7 +293,7 @@ class AgenticRuntime(BaseAgent):
 
                     # Handle AttemptCompletion separately as it ends the loop
                     if isinstance(tool_obj, AttemptCompletionTool):
-                        printer.print_text(f"正在准备结束会话 ...", style=COLOR_INFO)
+                        printer.print_text(f"正在准备结束会话 ...", style=COLOR_INFO, prefix=self.mapp)
                         completion_event = CompletionEvent(completion=tool_obj, completion_xml=tool_xml)
                         mark_event_should_finish = True
                         should_yield_completion_event = True
@@ -356,7 +356,7 @@ class AgenticRuntime(BaseAgent):
 
                 elif isinstance(event, ErrorEvent):
                     if event.message.startswith("Stream ended with unterminated"):
-                        printer.print_text(f"流以未闭合的标签块结束, 即将强化记忆", style=COLOR_ERROR)
+                        printer.print_text(f"流以未闭合的标签块结束, 即将强化记忆", style=COLOR_ERROR, prefix=self.mapp)
                         conversations.append(
                             {"role": "user", "content": "使用工具时需要包含 开始和结束标签, 缺失结束标签会导致工具调用失败"}
                         )
@@ -366,24 +366,25 @@ class AgenticRuntime(BaseAgent):
 
             if not tool_executed:
                 # No tool executed in this LLM response cycle
-                printer.print_text("LLM响应完成, 未执行任何工具", style=COLOR_WARNING)
+                printer.print_text("LLM响应完成, 未执行任何工具", style=COLOR_WARNING, prefix=self.mapp)
                 if assistant_buffer:
-                    printer.print_text(f"将 Assistant Buffer 内容写入会话历史（字符数：{len(assistant_buffer)}）")
+                    printer.print_text(f"将 Assistant Buffer 内容写入会话历史（字符数：{len(assistant_buffer)}）",
+                                       style=COLOR_INFO, prefix=self.mapp)
 
                     last_message = conversations[-1]
                     if last_message["role"] != "assistant":
-                        printer.print_text("添加新的 Assistant 消息", style=COLOR_SYSTEM)
+                        printer.print_text("添加新的 Assistant 消息", style=COLOR_INFO, prefix=self.mapp)
                         conversations.append({"role": "assistant", "content": assistant_buffer})
                         self.conversation_manager.append_message_to_current(
                             role="assistant", content=assistant_buffer, metadata={})
                     elif last_message["role"] == "assistant":
-                        printer.print_text("追加已存在的 Assistant 消息", style=COLOR_SYSTEM)
+                        printer.print_text("追加已存在的 Assistant 消息", style=COLOR_INFO, prefix=self.mapp)
                         last_message["content"] += assistant_buffer
 
                     yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(conversations))
 
                 # 添加系统提示，要求LLM必须使用工具或明确结束，而不是直接退出
-                printer.print_text("正在添加系统提示: 请使用工具或尝试直接生成结果", style=COLOR_SYSTEM)
+                printer.print_text("正在添加系统提示: 请使用工具或尝试直接生成结果", style=COLOR_INFO, prefix=self.mapp)
 
                 conversations.append({
                     "role": "user",
@@ -398,10 +399,11 @@ class AgenticRuntime(BaseAgent):
 
                 yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(conversations))
                 # 继续循环，让 LLM 再思考，而不是 break
-                printer.print_text("持续运行 LLM 交互循环（保持不中断）", style=COLOR_ITERATION)
+                printer.print_text("持续运行 LLM 交互循环（保持不中断）", style=COLOR_INFO, prefix=self.mapp)
                 continue
 
-        printer.print_text(f"Agentic {self.agent_type} 分析循环已完成，共执行 {iteration_count} 次迭代.", style=COLOR_ITERATION)
+        printer.print_text(f"Agentic {self.agent_type} 分析循环已完成，共执行 {iteration_count} 次迭代.",
+                           style=COLOR_INFO, prefix=self.mapp)
         save_formatted_log(self.args.source_dir, json.dumps(conversations, ensure_ascii=False), "agentic_conversation")
 
     def run_in_terminal(self, request: AgenticEditRequest):
@@ -409,7 +411,7 @@ class AgenticRuntime(BaseAgent):
 
         printer.print_text(f"Agentic {self.agent_type} 开始运行, 项目名: {project_name}, "
                            f"用户目标: {request.user_input.strip()}",
-                           style=COLOR_SYSTEM)
+                           style=COLOR_SYSTEM, prefix=self.mapp)
 
         # 用于累计TokenUsageEvent数据
         accumulated_token_usage = {
@@ -425,19 +427,19 @@ class AgenticRuntime(BaseAgent):
                 if isinstance(event, TokenUsageEvent):
                     self._handle_token_usage_event(event, accumulated_token_usage)
                 elif isinstance(event, WindowLengthChangeEvent):
-                    printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_TOKEN_USAGE)
+                    printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_INFO, prefix=self.mapp)
                 elif isinstance(event, LLMThinkingEvent):
                     # 以不太显眼的样式（比如灰色）呈现思考内容
                     printer.print_panel(
-                        content=Text(f"{event.text}", style=COLOR_LLM_THINKING),
+                        content=Text(f"{event.text}", style=COLOR_INFO),
                         title="LLM Thinking",
-                        border_style=COLOR_PANEL_INFO,
+                        border_style=COLOR_INFO,
                         center=True)
                 elif isinstance(event, LLMOutputEvent):
                     printer.print_panel(
-                        content=Text(f"{event.text}", style=COLOR_LLM_OUTPUT),
+                        content=Text(f"{event.text}", style=COLOR_INFO),
                         title="LLM Output",
-                        border_style=COLOR_PANEL_INFO,
+                        border_style=COLOR_INFO,
                         center=True)
                 elif isinstance(event, ToolCallEvent):
                     self._handle_tool_call_event(event)
@@ -447,19 +449,19 @@ class AgenticRuntime(BaseAgent):
                     try:
                         self._apply_changes(request)  # 在这里完成实际合并
                     except Exception as e:
-                        printer.print_text(f"合并变更失败: {e}", style=COLOR_ERROR)
+                        printer.print_text(f"合并变更失败: {e}", style=COLOR_ERROR, prefix=self.mapp)
 
                     printer.print_panel(
                         content=Markdown(event.completion.result),
-                        border_style=COLOR_PANEL_SUCCESS,
+                        border_style=COLOR_SUCCESS,
                         title="任务完成", center=True
                     )
                     if event.completion.command:
-                        printer.print_text(f"建议命令: {event.completion.command}", style=COLOR_DEBUG)
+                        printer.print_text(f"建议命令: {event.completion.command}", style=COLOR_INFO, prefix=self.mapp)
                 elif isinstance(event, ErrorEvent):
                     printer.print_panel(
                         content=f"Error: {event.message}",
-                        border_style=COLOR_PANEL_ERROR,
+                        border_style=COLOR_ERROR,
                         title="任务失败", center=True
                     )
 
@@ -471,9 +473,9 @@ class AgenticRuntime(BaseAgent):
             printer.print_panel(
                 content=f"FATAL ERROR: {err}",
                 title=f"Agentic {self.agent_type} 运行错误",
-                border_style=COLOR_PANEL_ERROR,
+                border_style=COLOR_ERROR,
                 center=True)
             raise err
         finally:
             self._delete_old_todo_file()
-            printer.print_text(f"Agentic {self.agent_type} 结束", style=COLOR_AGENT_END)
+            printer.print_text(f"Agentic {self.agent_type} 结束", style=COLOR_SUCCESS, prefix=self.mapp)

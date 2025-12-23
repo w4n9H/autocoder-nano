@@ -5,7 +5,8 @@ import os
 import xml.sax.saxutils
 from importlib import resources
 
-from jinja2.filters import sync_do_unique
+from rich.markdown import Markdown
+from rich.text import Text
 
 from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
 from autocoder_nano.core import AutoLLM, prompt
@@ -13,12 +14,12 @@ from autocoder_nano.rag.token_counter import count_tokens
 from autocoder_nano.rules import get_rules_context
 from autocoder_nano.utils.config_utils import prepare_chat_yaml, get_last_yaml_file, convert_yaml_config_to_str
 from autocoder_nano.utils.git_utils import get_uncommitted_changes, commit_changes
-from autocoder_nano.utils.printer_utils import Printer
+from autocoder_nano.utils.printer_utils import (
+    Printer, COLOR_ERROR, COLOR_SUCCESS, COLOR_WARNING, COLOR_INFO, COLOR_SYSTEM)
 from autocoder_nano.agent.agent_define import get_subagent_define
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.agent.agentic_edit_tools import *
 from autocoder_nano.utils.sys_utils import detect_env
-from autocoder_nano.utils.color_utils import *
 
 printer = Printer()
 
@@ -49,6 +50,9 @@ class BaseAgent:
         self.llm = llm
         # self.conversation_manager = get_context_manager()
         # self.tool_resolver_map = {}  # 子类填充具体工具实现
+
+        # main agent printer prefix
+        self.mapp = "* (main:agent) "
 
     @staticmethod
     def get_tool_display_message(tool: BaseTool) -> str:
@@ -90,15 +94,15 @@ class BaseAgent:
 
         return context
 
-    @staticmethod
-    def _parse_tool_xml(tool_xml: str, tool_tag: str) -> Optional[BaseTool]:
+    def _parse_tool_xml(self, tool_xml: str, tool_tag: str) -> Optional[BaseTool]:
         """ Agent工具 XML字符串 解析器 """
         params = {}
         try:
             # 在<tool_tag>和</tool_tag>之间查找内容
             inner_xml_match = re.search(rf"<{tool_tag}>(.*?)</{tool_tag}>", tool_xml, re.DOTALL)
             if not inner_xml_match:
-                printer.print_text(f"无法在<{tool_tag}>...</{tool_tag}>标签内找到内容", style=COLOR_ERROR)
+                printer.print_text(f"无法在<{tool_tag}>...</{tool_tag}>标签内找到内容",
+                                   style=COLOR_ERROR, prefix=self.mapp)
                 return None
             inner_xml = inner_xml_match.group(1).strip()
 
@@ -121,7 +125,7 @@ class BaseAgent:
                         params['options'] = json.loads(params['options'])
                     except json.JSONDecodeError:
                         printer.print_text(f"ask_followup_question_tool 参数JSON解码失败: {params['options']}",
-                                           style=COLOR_ERROR)
+                                           style=COLOR_ERROR, prefix=self.mapp)
                         # 保持为字符串还是处理错误？目前先保持为字符串
                         pass
                 if tool_tag == 'plan_mode_respond' and 'options' in params:
@@ -129,24 +133,24 @@ class BaseAgent:
                         params['options'] = json.loads(params['options'])
                     except json.JSONDecodeError:
                         printer.print_text(f"plan_mode_respond_tool 参数JSON解码失败: {params['options']}",
-                                           style=COLOR_ERROR)
+                                           style=COLOR_ERROR, prefix=self.mapp)
                 # 处理 list_files 工具的递归参数
                 if tool_tag == 'list_files' and 'recursive' in params:
                     params['recursive'] = params['recursive'].lower() == 'true'
                 return tool_cls(**params)
             else:
-                printer.print_text(f"未找到标签对应的工具类: {tool_tag}", style=COLOR_ERROR)
+                printer.print_text(f"未找到标签对应的工具类: {tool_tag}", style=COLOR_ERROR, prefix=self.mapp)
                 return None
         except Exception as e:
-            printer.print_text(f"解析工具XML <{tool_tag}> 失败: {e}\nXML内容:\n{tool_xml}", style=COLOR_ERROR)
+            printer.print_text(f"解析工具XML <{tool_tag}> 失败: {e}\nXML内容:\n{tool_xml}",
+                               style=COLOR_ERROR, prefix=self.mapp)
             return None
 
-    @staticmethod
-    def _reconstruct_tool_xml(tool: BaseTool) -> str:
+    def _reconstruct_tool_xml(self, tool: BaseTool) -> str:
         """ Reconstructs the XML representation of a tool call from its Pydantic model. """
         tool_tag = next((tag for tag, model in TOOL_MODEL_MAP.items() if isinstance(tool, model)), None)
         if not tool_tag:
-            printer.print_text(f"找不到工具类型 {type(tool).__name__} 对应的标签名", style=COLOR_ERROR)
+            printer.print_text(f"找不到工具类型 {type(tool).__name__} 对应的标签名", style=COLOR_ERROR, prefix=self.mapp)
             return f"<error>Could not find tag for tool {type(tool).__name__}</error>"
 
         xml_parts = [f"<{tool_tag}>"]
@@ -372,13 +376,13 @@ class BaseAgent:
                         self.args.source_dir, f"auto_coder_nano_{latest_yaml_file}_{md5}",
                     )
                     if commit_message:
-                        printer.print_text(f"Commit 成功", style=COLOR_SUCCESS)
+                        printer.print_text(f"Commit 成功", style=COLOR_SUCCESS, prefix=self.mapp)
                 except Exception as err:
                     import traceback
                     traceback.print_exc()
-                    printer.print_text(f"Commit 失败: {err}", style=COLOR_ERROR)
+                    printer.print_text(f"Commit 失败: {err}", style=COLOR_ERROR, prefix=self.mapp)
         else:
-            printer.print_text(f"文件未进行任何更改, 无需 Commit", style=COLOR_WARNING)
+            printer.print_text(f"文件未进行任何更改, 无需 Commit", style=COLOR_WARNING, prefix=self.mapp)
 
     @staticmethod
     def _count_conversations_tokens(conversations: list):
@@ -393,10 +397,10 @@ class BaseAgent:
         accumulated_token_usage["input_tokens"] += last_meta.input_tokens_count
         accumulated_token_usage["output_tokens"] += last_meta.generated_tokens_count
 
-        printer.print_text(f"📝 Token 使用: "
+        printer.print_text(f"Token 使用: "
                            f"Input({last_meta.input_tokens_count})/"
                            f"Output({last_meta.generated_tokens_count})",
-                           style=COLOR_TOKEN_USAGE)
+                           style=COLOR_INFO, prefix=self.mapp)
 
     def _handle_tool_call_event(self, event):
         """处理工具调用事件"""
@@ -406,7 +410,13 @@ class BaseAgent:
 
         tool_name = type(event.tool).__name__
         display_content = self.get_tool_display_message(event.tool)
-        printer.print_text(f"️🛠️ 工具调用: {tool_name}, {display_content}", style=COLOR_TOOL_CALL)
+        printer.print_text(
+            Text.assemble(
+                (f"{tool_name}: ", COLOR_SYSTEM),
+                (f"{display_content}", COLOR_INFO)
+            ),
+            prefix=self.mapp
+        )
 
     def _handle_tool_result_event(self, event):
         """处理工具结果事件"""
@@ -414,14 +424,28 @@ class BaseAgent:
             return
 
         result = event.result
-        if result.success:
-            title = f"✅ 工具返回: {event.tool_name}"
-        else:
-            title = f"❌ 工具返回: {event.tool_name}"
-        base_content = f"状态: {'成功' if result.success else '失败'}, 信息: {result.message}"
+        # if result.success:
+        #     title = f"工具返回: {event.tool_name}"
+        # else:
+        #     title = f"工具返回: {event.tool_name}"
+        # base_content = f"状态: {'成功' if result.success else '失败'}, 信息: {result.message}"
 
         # 打印基础信息面板
-        printer.print_text(f"{title}, {base_content}", style=COLOR_TOOL_CALL)
+        # printer.print_text(f"{title}, {base_content}", style=COLOR_INFO, prefix=self.mapp)
+        printer.print_text(
+            Text.assemble(
+                (f"{event.tool_name} Result: ", COLOR_SYSTEM),
+                (f"{result.message}", COLOR_SUCCESS if result.success else COLOR_ERROR)
+            ),
+            prefix=self.mapp
+        )
+
+        if event.tool_name in ["TodoReadTool", "TodoWriteTool"]:
+            printer.print_panel(
+                content=Markdown(result.content),
+                title="Todo List",
+                border_style=COLOR_INFO,
+                center=True)
 
         # 不在展示具体的代码，以展示 Agent 操作为主
         # content_str = self._format_tool_result_content(result.content)
@@ -430,8 +454,7 @@ class BaseAgent:
         #     printer.print_code(
         #         code=content_str, lexer=lexer, theme="monokai", line_numbers=True, panel=True)
 
-    @staticmethod
-    def _format_tool_result_content(result_content, max_len: int = 500):
+    def _format_tool_result_content(self, result_content, max_len: int = 500):
         """格式化工具返回的内容"""
 
         def _format_content(_content):
@@ -451,7 +474,7 @@ class BaseAgent:
                 else:
                     content_str = str(result_content)
             except Exception as e:
-                printer.print_text(f"Error formatting tool result content: {e}", style=COLOR_WARNING)
+                printer.print_text(f"Error formatting tool result content: {e}", style=COLOR_WARNING, prefix=self.mapp)
                 content_str = _format_content(str(result_content))
 
         return content_str
@@ -489,7 +512,7 @@ class BaseAgent:
     def _delete_old_todo_file(self):
         todo_file = os.path.join(self.args.source_dir, ".auto-coder", "todos", "current_session.json")
         if os.path.exists(todo_file):
-            printer.print_text(f"TodoList 文件已清理", style=COLOR_INFO)
+            printer.print_text(f"TodoList 文件已清理", style=COLOR_INFO, prefix=self.mapp)
             os.remove(todo_file)
 
 
@@ -524,7 +547,7 @@ class ToolResolverFactory:
             _resolver_class = TOOL_RESOLVER_MAP[_tool_type]
 
             self.register_resolver(_tool_type, _resolver_class)
-        printer.print_text(f"已注册 Agent Tool Resolver {len(tool_list)} 个", style=COLOR_DEBUG)
+        printer.print_text(f"已注册 Agent Tool Resolver {len(tool_list)} 个", style=COLOR_INFO)
 
     def get_resolvers(self):
         return self._resolvers
@@ -549,7 +572,7 @@ class ToolResolverFactory:
     def clear_instances(self) -> None:
         """清除所有解析器实例"""
         self._resolvers.clear()
-        printer.print_text("🔄 已清除所有工具解析器实例", style=COLOR_WARNING)
+        printer.print_text("已清除所有工具解析器实例", style=COLOR_WARNING)
 
 
 class PromptManager:

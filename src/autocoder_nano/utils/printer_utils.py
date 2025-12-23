@@ -10,6 +10,13 @@ from rich.text import Text
 from rich.align import Align
 
 
+COLOR_SYSTEM = "grey60"                      # 系统信息 - 亮蓝色加粗
+COLOR_SUCCESS = "bright_green"               # 成功状态 - 绿色加粗
+COLOR_ERROR = "bright_red"                   # 错误信息 - 红色加粗
+COLOR_WARNING = "bright_yellow"              # 警告信息 - 黄色加粗
+COLOR_INFO = "grey50"                        # 一般信息 - 暗白色（低调显示）
+
+
 class Printer:
     def __init__(self, console: Optional[Console] = None):
         """
@@ -147,7 +154,7 @@ class Printer:
         """灵活文本打印，支持样式和混合内容"""
         processed_texts = Text()
         if prefix:
-            processed_texts.append(Text(prefix, style="grey50"))
+            processed_texts.append(Text(prefix, style="sandy_brown"))
             for t in texts:
                 if isinstance(t, str):
                     processed_texts.append(Text(t, style=style))

@@ -13,8 +13,8 @@ from rich.markdown import Markdown
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.core import AutoLLM, stream_chat_with_continue, prompt
 from autocoder_nano.actypes import AutoCoderArgs, SourceCodeList, SingleOutputMeta
-from autocoder_nano.utils.printer_utils import Printer
-from autocoder_nano.utils.color_utils import *
+from autocoder_nano.utils.printer_utils import (
+    Printer, COLOR_SYSTEM, COLOR_INFO, COLOR_SUCCESS, COLOR_ERROR)
 
 printer = Printer()
 
@@ -312,10 +312,10 @@ class SubAgents(BaseAgent):
                     last_meta: SingleOutputMeta = event.usage
                     printer.print_text(
                         Text.assemble(
-                            ("Token 使用: ", "grey60"),
-                            (f"Input({last_meta.input_tokens_count})", "grey50"),
-                            (f"/", "grey60"),
-                            (f"Output({last_meta.generated_tokens_count})", "grey50")
+                            ("Token 使用: ", COLOR_SYSTEM),
+                            (f"Input({last_meta.input_tokens_count})", COLOR_INFO),
+                            (f"/", COLOR_SYSTEM),
+                            (f"Output({last_meta.generated_tokens_count})", COLOR_INFO)
                         ),
                         prefix=self.spp
                     )
@@ -323,16 +323,16 @@ class SubAgents(BaseAgent):
                     printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_INFO, prefix=self.spp)
                 elif isinstance(event, LLMThinkingEvent):
                     # 以不太显眼的样式（比如灰色）呈现思考内容
-                    printer.print_text(f"LLM Thinking: ", style="grey60", prefix=self.spp)
+                    printer.print_text(f"LLM Thinking: ", style=COLOR_SYSTEM, prefix=self.spp)
                     printer.print_llm_output(f"{event.text}")
                 elif isinstance(event, LLMOutputEvent):
-                    printer.print_text(f"LLM Output: ", style="grey60", prefix=self.spp)
+                    printer.print_text(f"LLM Output: ", style=COLOR_SYSTEM, prefix=self.spp)
                     printer.print_llm_output(f"{event.text}")
                 elif isinstance(event, ToolCallEvent):
                     printer.print_text(
                         Text.assemble(
-                            (f"{type(event.tool).__name__}: ", "bold grey60"),
-                            (f"{self.get_tool_display_message(event.tool)}", "grey50")
+                            (f"{type(event.tool).__name__}: ", COLOR_SYSTEM),
+                            (f"{self.get_tool_display_message(event.tool)}", COLOR_INFO)
                         ),
                         prefix=self.spp
                     )
@@ -340,8 +340,8 @@ class SubAgents(BaseAgent):
                     result = event.result
                     printer.print_text(
                         Text.assemble(
-                            (f"{event.tool_name} Result: ", "bold grey60"),
-                            (f"{result.message}", "bright_green" if result.success else "bright_red")
+                            (f"{event.tool_name} Result: ", COLOR_SYSTEM),
+                            (f"{result.message}", COLOR_SUCCESS if result.success else COLOR_ERROR)
                         ),
                         prefix=self.spp
                     )
@@ -351,11 +351,11 @@ class SubAgents(BaseAgent):
                     completion_text = event.completion.result
                     completion_status = True
                     if event.completion.command:
-                        printer.print_text(f"建议命令: {event.completion.command}", style="grey50", prefix=self.spp)
-                    printer.print_text(f"任务完成", style="bright_green", prefix=self.spp)
+                        printer.print_text(f"建议命令: {event.completion.command}", style=COLOR_INFO, prefix=self.spp)
+                    printer.print_text(f"任务完成", style=COLOR_SUCCESS, prefix=self.spp)
                     printer.print_llm_output(f"{completion_text}")
                 elif isinstance(event, ErrorEvent):
-                    printer.print_text(f"任务失败", style="bright_red", prefix=self.spp)
+                    printer.print_text(f"任务失败", style=COLOR_ERROR, prefix=self.spp)
                     printer.print_llm_output(f"{event.message}")
 
                 time.sleep(self.args.anti_quota_limit)
@@ -364,7 +364,7 @@ class SubAgents(BaseAgent):
                 if completion_text:
                     break
         except Exception as err:
-            printer.print_text(f"SubAgent 执行失败", style="bright_red", prefix=self.spp)
+            printer.print_text(f"SubAgent 执行失败", style=COLOR_ERROR, prefix=self.spp)
             printer.print_llm_output(f"{err}")
             completion_text = f"SubAgent {self.agent_type.title()} 执行失败: {str(err)}"
 
