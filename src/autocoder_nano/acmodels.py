@@ -8,10 +8,10 @@ BUILTIN_MODELS = {
         "output_price": 0.0,  # 单位:元/百万 output tokens
         "context": 128000
     },
-    "(Volcengine)deepseek/deepseek-v3.1-terminus": {
+    "(Volcengine)deepseek/deepseek-v3.2": {
         "id": "2",
         "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-        "model_name": "deepseek-v3-1-terminus",
+        "model_name": "deepseek-v3-2-251201",
         "description": "擅长数学求解与学术逻辑验证",
         "input_price": 0.0,
         "output_price": 0.0,
@@ -44,19 +44,19 @@ BUILTIN_MODELS = {
         "output_price": 0.0,
         "context": 256000
     },
-    "(iFlow)bigmodel/glm-4.6": {
+    "(iFlow)bigmodel/glm-4.7": {
         "id": "6",
         "base_url": "https://apis.iflow.cn/v1",
-        "model_name": "glm-4.6",
+        "model_name": "glm-4.7",
         "description": "通用能力强，适合多轮对话",
         "input_price": 0.0,
         "output_price": 0.0,
         "context": 200000
     },
-    "(OpenRouter)anthropic/claude-opus-4": {
+    "(OpenRouter)anthropic/claude-opus-4.5": {
         "id": "7",
         "base_url": "https://openrouter.ai/api/v1",
-        "model_name": "anthropic/claude-opus-4",
+        "model_name": "anthropic/claude-opus-4.5",
         "description": "擅长深度编程与复杂工作流",
         "input_price": 0.0,
         "output_price": 0.0,
@@ -89,10 +89,10 @@ BUILTIN_MODELS = {
         "output_price": 0.0,
         "context": 400000
     },
-    "(BigModel)bigmodel/glm-4.6": {
+    "(BigModel)bigmodel/glm-4.7": {
         "id": "11",
         "base_url": "https://open.bigmodel.cn/api/paas/v4",
-        "model_name": "glm-4.6",
+        "model_name": "glm-4.7",
         "description": "通用能力强，适合多轮对话",
         "input_price": 0.0,
         "output_price": 0.0,
@@ -101,7 +101,7 @@ BUILTIN_MODELS = {
     "(BigModel)bigmodel/coding-plan": {
         "id": "12",
         "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
-        "model_name": "glm-4.6",
+        "model_name": "glm-4.7",
         "description": "编码能力强，适合多轮对话",
         "input_price": 0.0,
         "output_price": 0.0,
