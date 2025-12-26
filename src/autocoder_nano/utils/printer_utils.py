@@ -10,11 +10,12 @@ from rich.text import Text
 from rich.align import Align
 
 
-COLOR_SYSTEM = "grey60"                      # 系统信息 - 亮蓝色加粗
-COLOR_SUCCESS = "bright_green"               # 成功状态 - 绿色加粗
-COLOR_ERROR = "bright_red"                   # 错误信息 - 红色加粗
-COLOR_WARNING = "bright_yellow"              # 警告信息 - 黄色加粗
-COLOR_INFO = "grey50"                        # 一般信息 - 暗白色（低调显示）
+COLOR_SYSTEM = "grey62"                      # 系统信息 - 暗灰色 60
+COLOR_SUCCESS = "bright_green"               # 成功状态 - 亮绿色
+COLOR_ERROR = "bright_red"                   # 错误信息 - 亮红色
+COLOR_WARNING = "bright_yellow"              # 警告信息 - 亮黄色
+COLOR_INFO = "grey50"                        # 一般信息 - 暗灰色（低调显示）
+COLOR_BORDER = "dim cyan"                    # 边框颜色 - 青色
 
 
 class Printer:
@@ -66,11 +67,11 @@ class Printer:
     ) -> None:
         # TUI风格的颜色配置
         title_style = "bold white on green"  # 更醒目的标题
-        caption_style = "dim black on bright_blue"  # 蓝灰背景
-        header_style = "bold black on yellow"  # 高对比度表头
-        content_style = "bright_white"  # 亮白色内容
-        alt_row_style = "white"  # 斑马纹使用纯白色
-        border_style = "bright_green"  # 鲜绿色边框
+        caption_style = "dim black on cyan"  # 蓝灰背景
+        header_style = "bold white on yellow"  # 高对比度表头
+        content_style = "bright_white"  # 亮灰色
+        alt_row_style = "white"  # 暗灰色
+        border_style = COLOR_BORDER  # 鲜绿色边框
 
         table = Table(
             title=Text(f"  {title}  ", style=title_style),
@@ -101,7 +102,7 @@ class Printer:
 
         self.print_panel(
             table,
-            border_style="bold green",
+            border_style=COLOR_BORDER,
             padding=(0, 0),
             center=center  # 传递居中参数
         )
@@ -127,7 +128,7 @@ class Printer:
         self._print_with_panel(syntax, panel)
 
     def print_panel(
-        self, content: Any, title: Optional[str] = None, border_style: str = "cyan",
+        self, content: Any, title: Optional[str] = None, border_style: str = COLOR_BORDER,
         width: Optional[int] = None, padding: tuple = (0, 1), center: bool = False  # 新增居中参数
     ) -> None:
         """带边框的面板输出（支持居中版）"""
@@ -217,19 +218,19 @@ if __name__ == '__main__':
     printer = Printer()
     printer.print_text(
         Text.assemble(
-            ("Token 使用: ", "grey60"),
-            (f"Input(10000)", "grey50"), (f"/", "grey60"),
+            ("Token 使用: ", "grey62"),
+            (f"Input(10000)", "grey50"), (f"/", "grey62"),
             (f"Output(500)", "grey50")
         ),
         prefix=f"* (sub:reader) "
     )
     # agent 中表示模型 thinking 过程
-    printer.print_text(f"LLM Thinking :", style="grey60", prefix=f"* (sub:reader) ")
+    printer.print_text(f"LLM Thinking :", style="grey62", prefix=f"* (sub:reader) ")
     printer.print_llm_output("- 可能需要多次调整，确保每段话既全面又简洁。")
     # agent 工具调用
     printer.print_text(
         Text.assemble(
-            (f"WriteToFileTool: ", "bold grey60"),
+            (f"WriteToFileTool: ", "bold grey62"),
             (f"写入文件: /path/path/", "grey50")
         ),
         prefix=f"* (sub:reader) "
@@ -237,7 +238,7 @@ if __name__ == '__main__':
     # agent 工具调用状态
     printer.print_text(
         Text.assemble(
-            (f"WriteToFileTool: ", "bold grey60"),
+            (f"WriteToFileTool: ", "bold grey62"),
             (f"成功", "bright_green")
         ),
         prefix=f"* (sub:reader) "
