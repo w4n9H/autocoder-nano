@@ -188,32 +188,62 @@ class TodoWriteToolResolver(BaseToolResolver):
         # Show the latest todos
         recent_todos = todos[-10:] if len(todos) > 10 else todos
 
-        output = [f"✅ 操作完成: {action_performed}\n"]
-
+        output = [f"### 操作完成: {action_performed}\n"]
         if action_performed.startswith("Created"):
-            output.append("📝 新创建的 Todo List:")
-            for todo in recent_todos:
-                priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo.get('priority', 'medium'), "⚪")
-                status_icon = {"pending": "⏳", "in_progress": "🔄", "completed": "✅"}.get(todo.get('status', 'pending'),
-                                                                                         "⏳")
-                output.append(f"  {priority_icon} {status_icon} [{todo['id']}] {todo['content']}")
-
+            output.append("#### 新创建的 Todo List")
+        elif action_performed.startswith("Added"):
+            output.append("#### 新添加的任务")
         elif action_performed.startswith("Updated") or action_performed.startswith("Marked"):
-            output.append("📝 已更新的 Todo List:")
-            for todo in recent_todos:
-                priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo.get('priority', 'medium'), "⚪")
-                status_icon = {"pending": "⏳", "in_progress": "🔄", "completed": "✅"}.get(todo.get('status', 'pending'),
-                                                                                         "⏳")
-                output.append(f"  {priority_icon} {status_icon} [{todo['id']}] {todo['content']}")
+            output.append("#### 已更新的 Todo List")
+        else:
+            output.append("#### Todo List")
+
+        output.append("")  # Empty line for spacing
+
+        for todo in recent_todos:
+            priority_icon = {"high": "[高]", "medium": "[中]", "low": "[低]"}.get(todo.get('priority', 'medium'), "[中]")
+            status_icon = {
+                "pending": "[待处理]", "in_progress": "[进行中]", "completed": "[已完成]"
+            }.get(todo.get('status', 'pending'), "[待处理]")
+
+            content_line = f"- {priority_icon} {status_icon} **[{todo['id']}]** {todo['content']}"
+            output.append(content_line)
+            if todo.get('notes'):
+                output.append(f"  > {todo['notes']}")
+
+        output.append("")
+        output.append("---")
+
+        # if action_performed.startswith("Created"):
+        #     output.append("📝 新创建的 Todo List:")
+        #     for todo in recent_todos:
+        #         priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo.get('priority', 'medium'), "⚪")
+        #         status_icon = {"pending": "⏳", "in_progress": "🔄", "completed": "✅"}.get(todo.get('status', 'pending'),
+        #                                                                                  "⏳")
+        #         output.append(f"  {priority_icon} {status_icon} [{todo['id']}] {todo['content']}")
+        #
+        # elif action_performed.startswith("Updated") or action_performed.startswith("Marked"):
+        #     output.append("📝 已更新的 Todo List:")
+        #     for todo in recent_todos:
+        #         priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo.get('priority', 'medium'), "⚪")
+        #         status_icon = {"pending": "⏳", "in_progress": "🔄", "completed": "✅"}.get(todo.get('status', 'pending'),
+        #                                                                                  "⏳")
+        #         output.append(f"  {priority_icon} {status_icon} [{todo['id']}] {todo['content']}")
 
         total_todos = len(todos)
         pending_count = len([t for t in todos if t.get('status') == 'pending'])
         in_progress_count = len([t for t in todos if t.get('status') == 'in_progress'])
         completed_count = len([t for t in todos if t.get('status') == 'completed'])
 
-        output.append(
-            f"\n📊 当前摘要: 总计 {total_todos} 项 | 待处理 {pending_count} | 进行中 {in_progress_count} | 已完成 {completed_count}")
-
+        # output.append(
+        #     f"\n📊 当前摘要: 总计 {total_todos} 项 | 待处理 {pending_count} | 进行中 {in_progress_count} | 已完成 {completed_count}")
+        summary_line = (
+            f"**📊 当前摘要**: 总计 **{total_todos}** 项 | "
+            f"待处理 **{pending_count}** | "
+            f"进行中 **{in_progress_count}** | "
+            f"已完成 **{completed_count}**"
+        )
+        output.append(summary_line)
         return "\n".join(output)
 
     def resolve(self) -> ToolResult:

@@ -50,39 +50,32 @@ class TodoReadToolResolver(BaseToolResolver):
         if not todos:
             return "当前会话中未找到待办事项."
 
-        output = ["=== 当前会话 Todo List ===\n"]
+        output = ["## 当前会话 Todo List \n"]
 
         # Group by status
         pending = [t for t in todos if t.get('status') == 'pending']
         in_progress = [t for t in todos if t.get('status') == 'in_progress']
         completed = [t for t in todos if t.get('status') == 'completed']
 
-        if in_progress:
-            output.append("🔄 进行中:")
-            for todo in in_progress:
-                priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo.get('priority', 'medium'), "⚪")
-                output.append(f"  {priority_icon} [{todo['id']}] {todo['content']}")
-                if todo.get('notes'):
-                    output.append(f"     📝 {todo['notes']}")
+        def render_section(title: str, icon: str, section_todos: List[Dict[str, Any]]):
+            if not section_todos:
+                return
+
+            output.append(f"### {icon} {title}")
+            for _todo in section_todos:
+                _priority_icon = {
+                    "high": "[high]", "medium": "[medium]", "low": "[low]"
+                }.get(_todo.get('priority', 'medium'), "[medium]")
+
+                _line = f"- {_priority_icon} **[{_todo['id']}]** {_todo['content']}"
+                output.append(_line)
+                if _todo.get('notes'):
+                    output.append(f"  > {_todo['notes']}")
             output.append("")
 
-        if pending:
-            output.append("⏳ 待处理:")
-            for todo in pending:
-                priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo.get('priority', 'medium'), "⚪")
-                output.append(f"  {priority_icon} [{todo['id']}] {todo['content']}")
-                if todo.get('notes'):
-                    output.append(f"     📝 {todo['notes']}")
-            output.append("")
-
-        if completed:
-            output.append("✅ 已完成:")
-            for todo in completed:
-                priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo.get('priority', 'medium'), "⚪")
-                output.append(f"  {priority_icon} [{todo['id']}] {todo['content']}")
-                if todo.get('notes'):
-                    output.append(f"     📝 {todo['notes']}")
-            output.append("")
+        render_section("进行中", "", in_progress)
+        render_section("待处理", "", pending)
+        render_section("已完成", "", completed)
 
         # Add summary
         total = len(todos)
@@ -91,7 +84,7 @@ class TodoReadToolResolver(BaseToolResolver):
         completed_count = len(completed)
 
         output.append(
-            f"📊 摘要: 总计 {total} 项 | 待处理 {pending_count} | 进行中 {in_progress_count} | 已完成 {completed_count}")
+            f"**摘要**: 总计 {total} 项 | 待处理 {pending_count} | 进行中 {in_progress_count} | 已完成 {completed_count}")
 
         return "\n".join(output)
 
