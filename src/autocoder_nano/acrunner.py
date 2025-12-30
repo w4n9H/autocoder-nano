@@ -19,7 +19,7 @@ from autocoder_nano.project import project_source
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.utils.config_utils import get_final_config, get_last_yaml_file, convert_yaml_to_config
 from autocoder_nano.utils.git_utils import revert_changes
-from autocoder_nano.utils.printer_utils import Printer
+from autocoder_nano.utils.printer_utils import Printer, COLOR_ERROR, COLOR_SUCCESS, COLOR_WARNING, COLOR_BORDER
 from autocoder_nano.utils.sys_utils import detect_env
 
 printer = Printer()
@@ -32,7 +32,7 @@ def print_chat_history(history, max_entries=5):
         role = entry["role"]
         content = entry["content"]
         if role == "user":
-            printer.print_text(Text(content, style="bold red"))
+            printer.print_text(Text(content, style=COLOR_ERROR))
         else:
             printer.print_markdown(content, panel=True)
 
@@ -65,7 +65,7 @@ def chat_command(project_root: str, query: str, memory: dict, llm: AutoLLM):
             fp.write(json_str)
 
         printer.print_panel(
-            Text("新会话已开始, 之前的聊天历史已存档.", style="green"),
+            Text("新会话已开始, 之前的聊天历史已存档.", style=COLOR_SUCCESS),
             title="Session Status",
             center=True
         )
@@ -134,7 +134,7 @@ def index_query_command(project_root: str, memory: dict, query: str, llm: AutoLL
 def rag_build_command(project_root: str, memory: dict, llm: AutoLLM):
     args = get_final_config(project_root, memory, query="", delete_execute_file=True)
     if not args.rag_url:
-        printer.print_text("请通过 /conf 设置 rag_url 参数, 即本地目录", style="red")
+        printer.print_text("请通过 /conf 设置 rag_url 参数, 即本地目录", style=COLOR_ERROR)
         return
     rag_build_cache(llm=llm, args=args, path=args.rag_url)
     return
@@ -143,7 +143,7 @@ def rag_build_command(project_root: str, memory: dict, llm: AutoLLM):
 def rag_query_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
     if not args.rag_url:
-        printer.print_text("请通过 /conf 设置 rag_url 参数, 即本地目录", style="red")
+        printer.print_text("请通过 /conf 设置 rag_url 参数, 即本地目录", style=COLOR_ERROR)
         return
     contexts = rag_retrieval(llm=llm, args=args, path=args.rag_url)
     if contexts:
@@ -177,31 +177,31 @@ def execute_shell_command(command: str):
                     output.append(output_line.strip())
                     live.update(
                         Panel(
-                            Text("\n".join(output[-20:]), style="green"),
+                            Text("\n".join(output[-20:]), style=COLOR_SUCCESS),
                             title="Shell 输出",
-                            border_style="dim blue",
+                            border_style=COLOR_BORDER,
                         )
                     )
                 if error_line:
                     output.append(f"ERROR: {error_line.strip()}")
                     live.update(
                         Panel(
-                            Text("\n".join(output[-20:]), style="red"),
+                            Text("\n".join(output[-20:]), style=COLOR_ERROR),
                             title="Shell 输出",
-                            border_style="dim blue",
+                            border_style=COLOR_BORDER,
                         )
                     )
                 if output_line == "" and error_line == "" and process.poll() is not None:
                     break
 
         if process.returncode != 0:
-            printer.print_text(f"命令执行失败，返回码: {process.returncode}", style="red")
+            printer.print_text(f"命令执行失败，返回码: {process.returncode}", style=COLOR_ERROR)
         else:
-            printer.print_text(f"命令执行成功", style="green")
+            printer.print_text(f"命令执行成功", style=COLOR_SUCCESS)
     except FileNotFoundError:
-        printer.print_text(f"未找到命令:", style="yellow")
+        printer.print_text(f"未找到命令:", style=COLOR_WARNING)
     except subprocess.SubprocessError as e:
-        printer.print_text(f"命令执行错误: {e}", style="yellow")
+        printer.print_text(f"命令执行错误: {e}", style=COLOR_WARNING)
 
 
 @prompt()
@@ -245,7 +245,7 @@ def generate_shell_command(project_root: str, memory: dict, input_text: str, llm
 
     try:
         printer.print_panel(
-            Text(f"正在根据用户输入 {input_text} 生成 Shell 脚本...", style="green"), title="命令生成",
+            Text(f"正在根据用户输入 {input_text} 生成 Shell 脚本...", style=COLOR_SUCCESS), title="命令生成",
         )
         llm.setup_default_model_name(args.code_model)
         result = _generate_shell_script.with_llm(llm).run(user_input=input_text)
@@ -269,9 +269,9 @@ def execute_revert(args: AutoCoderArgs):
     revert_result = revert_changes(repo_path, f"auto_coder_nano_{file_name}_{md5}")
     if revert_result:
         os.remove(args.file)
-        printer.print_text(f"已成功回退最后一次 chat action 的更改，并移除 YAML 文件 {args.file}", style="green")
+        printer.print_text(f"已成功回退最后一次 chat action 的更改，并移除 YAML 文件 {args.file}", style=COLOR_SUCCESS)
     else:
-        printer.print_text(f"回退文件 {args.file} 的更改失败", style="red")
+        printer.print_text(f"回退文件 {args.file} 的更改失败", style=COLOR_ERROR)
     return
 
 
@@ -282,20 +282,21 @@ def revert(project_root: str):
         args = convert_yaml_to_config(file_path)
         execute_revert(args)
     else:
-        printer.print_text(f"No previous chat action found to revert.", style="yellow")
+        printer.print_text(f"No previous chat action found to revert.", style=COLOR_WARNING)
 
 
 def printer_conversation_table(_conversation_list):
     data_list = []
     for i in _conversation_list:
         data_list.append([
-            i["conversation_id"], f"{i['description'][:20]} ......",
+            i["conversation_id"],
+            f"{i['description'][:20]} ......",
             datetime.fromtimestamp(i["updated_at"]).strftime("%Y-%m-%d %H:%M"),
             len(i["messages"])
         ])
     printer.print_table_compact(
         title="历史会话列表",
-        headers=["会话ID", "会话描述", "会话更新时间", "会话消息数量"],
+        headers=["会话ID", "会话需求", "更新时间", "对话数量"],
         data=data_list
     )
 
@@ -330,7 +331,7 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
 
     def _printer_resume_conversation(_conversation_id):
         printer.print_panel(
-            Text(f"Agent 恢复对话[{_conversation_id}]", style="green"),
+            Text(f"Agent 恢复对话[{_conversation_id}]", style=COLOR_SUCCESS),
             title="Agent Session Status",
             center=True
         )
@@ -338,7 +339,7 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
     def _resume_conversation(_query):
         _conv_id = gcm.get_current_conversation_id()
         if not _conv_id:
-            printer.print_text(f"未获取到当前会话ID, 请手动进行选择", style="yellow")
+            printer.print_text(f"未获取到当前会话ID, 请手动进行选择", style=COLOR_WARNING)
             _convs = gcm.list_conversations(limit=10)
             if _convs:
                 printer_conversation_table(_convs)
@@ -348,11 +349,11 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
                 conversation_config.conversation_id = _conv_id
                 _printer_resume_conversation(_conv_id)
             else:
-                printer.print_text(f"未获取到历史会话, 默认创建新会话开始 Agent", style="yellow")
+                printer.print_text(f"未获取到历史会话, 默认创建新会话开始 Agent", style=COLOR_WARNING)
                 conversation_config.action = "new"
                 conversation_config.query = query.strip()
                 conversation_config.conversation_id = None
-                printer.print_text(f"Agent 新会话已开始.", style="green")
+                printer.print_text(f"Agent 新会话已开始.", style=COLOR_SUCCESS)
         else:
             # 这里可能需要判断一下会话id是否真实存在
             conversation_config.action = "resume"
@@ -365,7 +366,7 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
         conversation_config.action = "new"
         conversation_config.query = query
         conversation_config.conversation_id = None
-        printer.print_text(f"Agent 新会话已开始.", style="green")
+        printer.print_text(f"Agent 新会话已开始.", style=COLOR_SUCCESS)
     elif "/resume" in query:
         query = query.replace("/resume", "", 1).strip()
         convs = gcm.list_conversations(limit=10)
@@ -402,15 +403,16 @@ def context_command(project_root, context_args):
         delete_conv_id = input(f" 以上为最近10个会话列表, 请选择您想要删除的对话ID: ").strip().lower()
         delete_conv = gcm.get_conversation(delete_conv_id)
         if delete_conv is None:
-            printer.print_text(f"该会话不存在 {delete_conv_id}", style="yellow")
+            printer.print_text(f"该会话不存在 {delete_conv_id}", style=COLOR_WARNING)
         if isinstance(delete_conv, dict):
             try:
                 if gcm.delete_conversation(delete_conv_id):
-                    printer.print_text(f"删除会话 {delete_conv_id} 成功, 会话条数 {len(delete_conv['messages'])}", style="green")
+                    printer.print_text(f"删除会话 {delete_conv_id} 成功, 会话条数 {len(delete_conv['messages'])}",
+                                       style=COLOR_SUCCESS)
                 else:
-                    printer.print_text(f"删除会话 {delete_conv_id} 失败, 会话可能不存在", style="red")
+                    printer.print_text(f"删除会话 {delete_conv_id} 失败, 会话可能不存在", style=COLOR_ERROR)
             except Exception as e:
-                printer.print_text(f"{e}", style="red")
+                printer.print_text(f"{e}", style=COLOR_ERROR)
 
 
 def editor_command(project_root, command_or_path):

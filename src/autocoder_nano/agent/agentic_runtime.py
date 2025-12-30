@@ -427,7 +427,8 @@ class AgenticRuntime(BaseAgent):
                 if isinstance(event, TokenUsageEvent):
                     self._handle_token_usage_event(event, accumulated_token_usage)
                 elif isinstance(event, WindowLengthChangeEvent):
-                    printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_INFO, prefix=self.mapp)
+                    pass
+                    # printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_INFO, prefix=self.mapp)
                 elif isinstance(event, LLMThinkingEvent):
                     # 以不太显眼的样式（比如灰色）呈现思考内容
                     printer.print_panel(

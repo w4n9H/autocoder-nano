@@ -320,7 +320,8 @@ class SubAgents(BaseAgent):
                         prefix=self.spp
                     )
                 elif isinstance(event, WindowLengthChangeEvent):
-                    printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_INFO, prefix=self.spp)
+                    pass
+                    # printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_INFO, prefix=self.spp)
                 elif isinstance(event, LLMThinkingEvent):
                     # 以不太显眼的样式（比如灰色）呈现思考内容
                     printer.print_text(f"LLM Thinking: ", style=COLOR_SYSTEM, prefix=self.spp)
