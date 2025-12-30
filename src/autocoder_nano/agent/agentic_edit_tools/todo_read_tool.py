@@ -64,8 +64,8 @@ class TodoReadToolResolver(BaseToolResolver):
             output.append(f"### {icon} {title}")
             for _todo in section_todos:
                 _priority_icon = {
-                    "high": "[high]", "medium": "[medium]", "low": "[low]"
-                }.get(_todo.get('priority', 'medium'), "[medium]")
+                    "high": "[高]", "medium": "[中]", "low": "[低]"
+                }.get(_todo.get('priority', 'medium'), "[中]")
 
                 _line = f"- {_priority_icon} **[{_todo['id']}]** {_todo['content']}"
                 output.append(_line)

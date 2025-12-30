@@ -72,11 +72,11 @@ class TodoWriteToolResolver(BaseToolResolver):
         return str(uuid.uuid4())[:8]
 
     @staticmethod
-    def _find_todo_by_id(todos: List[Dict[str, Any]], task_id: str) -> Optional[Dict[str, Any]]:
+    def _find_todo_by_id(todos: List[Dict[str, Any]], task_id: str) -> Optional[int]:
         """Find a todo item by ID."""
-        for todo in todos:
+        for index, todo in enumerate(todos):
             if todo.get('id') == task_id:
-                return todo
+                return index
         return None
 
     def _create_todo_list(self, content: str) -> List[Dict[str, Any]]:
@@ -136,7 +136,7 @@ class TodoWriteToolResolver(BaseToolResolver):
 
         return todos
 
-    def _add_single_task(self, todos: List[Dict[str, Any]], content: str) -> Dict[str, Any]:
+    def _add_single_task(self, todos: List[Dict[str, Any]], content: str) -> List[Dict[str, Any]]:
         """Add a single task to the existing todo list."""
         import re
 
@@ -164,7 +164,7 @@ class TodoWriteToolResolver(BaseToolResolver):
             todo["notes"] = self.tool.notes
 
         todos.append(todo)
-        return todo
+        return todos
 
     def _update_task(self, todo: Dict[str, Any]) -> None:
         """Update an existing task."""
@@ -214,29 +214,11 @@ class TodoWriteToolResolver(BaseToolResolver):
         output.append("")
         output.append("---")
 
-        # if action_performed.startswith("Created"):
-        #     output.append("📝 新创建的 Todo List:")
-        #     for todo in recent_todos:
-        #         priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo.get('priority', 'medium'), "⚪")
-        #         status_icon = {"pending": "⏳", "in_progress": "🔄", "completed": "✅"}.get(todo.get('status', 'pending'),
-        #                                                                                  "⏳")
-        #         output.append(f"  {priority_icon} {status_icon} [{todo['id']}] {todo['content']}")
-        #
-        # elif action_performed.startswith("Updated") or action_performed.startswith("Marked"):
-        #     output.append("📝 已更新的 Todo List:")
-        #     for todo in recent_todos:
-        #         priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo.get('priority', 'medium'), "⚪")
-        #         status_icon = {"pending": "⏳", "in_progress": "🔄", "completed": "✅"}.get(todo.get('status', 'pending'),
-        #                                                                                  "⏳")
-        #         output.append(f"  {priority_icon} {status_icon} [{todo['id']}] {todo['content']}")
-
         total_todos = len(todos)
         pending_count = len([t for t in todos if t.get('status') == 'pending'])
         in_progress_count = len([t for t in todos if t.get('status') == 'in_progress'])
         completed_count = len([t for t in todos if t.get('status') == 'completed'])
 
-        # output.append(
-        #     f"\n📊 当前摘要: 总计 {total_todos} 项 | 待处理 {pending_count} | 进行中 {in_progress_count} | 已完成 {completed_count}")
         summary_line = (
             f"**📊 当前摘要**: 总计 **{total_todos}** 项 | "
             f"待处理 **{pending_count}** | "
@@ -292,10 +274,11 @@ class TodoWriteToolResolver(BaseToolResolver):
                         content=None
                     )
 
-                new_todo = self._add_single_task(todos, self.tool.content)
+                new_todos = self._add_single_task(todos, self.tool.content)
+                data["todos"] = new_todos
 
                 if self._save_todos(data):
-                    response = self._format_todo_response([new_todo], f"Added new task: {new_todo['content']}")
+                    response = self._format_todo_response(new_todos, f"Added new task: {self.tool.content}")
                     return ToolResult(
                         success=True,
                         message="任务添加成功.",
@@ -316,8 +299,8 @@ class TodoWriteToolResolver(BaseToolResolver):
                         content=None
                     )
 
-                todo = self._find_todo_by_id(todos, self.tool.task_id)
-                if not todo:
+                todo_index = self._find_todo_by_id(todos, self.tool.task_id)
+                if not todo_index:
                     return ToolResult(
                         success=False,
                         message=f"错误: 未找到ID为 '{self.tool.task_id}' 的任务.",
@@ -325,20 +308,23 @@ class TodoWriteToolResolver(BaseToolResolver):
                     )
 
                 # Apply specific action
+                old_todo = todos[todo_index]
                 if action == "mark_progress":
-                    todo["status"] = "in_progress"
-                    todo["updated_at"] = datetime.now().isoformat()
-                    action_msg = f"标记任务为进行中: {todo['content']}"
+                    old_todo["status"] = "in_progress"
+                    old_todo["updated_at"] = datetime.now().isoformat()
+                    action_msg = f"标记任务为进行中: {old_todo['content']}"
                 elif action == "mark_completed":
-                    todo["status"] = "completed"
-                    todo["updated_at"] = datetime.now().isoformat()
-                    action_msg = f"标记任务为已完成: {todo['content']}"
+                    old_todo["status"] = "completed"
+                    old_todo["updated_at"] = datetime.now().isoformat()
+                    action_msg = f"标记任务为已完成: {old_todo['content']}"
                 else:  # update
-                    self._update_task(todo)
-                    action_msg = f"更新了任务: {todo['content']}"
+                    self._update_task(old_todo)
+                    action_msg = f"更新了任务: {old_todo['content']}"
 
+                todos[todo_index] = old_todo
+                data["todos"] = todos
                 if self._save_todos(data):
-                    response = self._format_todo_response([todo], action_msg)
+                    response = self._format_todo_response(todos, action_msg)
                     return ToolResult(
                         success=True,
                         message="任务更新成功.",
