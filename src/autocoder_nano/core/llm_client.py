@@ -44,8 +44,8 @@ class AutoLLM:
             model = self.default_model_name
 
         model_name = self.sub_clients[model]["model_name"]
-        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai]",
-                           style=COLOR_INFO, prefix=self.lpp)
+        # printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai]",
+        #                    style=COLOR_INFO, prefix=self.lpp)
         request = LLMRequest(
             model=model_name,
             messages=conversations
@@ -65,8 +65,8 @@ class AutoLLM:
         client: OpenAI = self.sub_clients[model]["client"]
         model_name = self.sub_clients[model]["model_name"]
 
-        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai_ex]",
-                           style=COLOR_INFO, prefix=self.lpp)
+        # printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[stream_chat_ai_ex]",
+        #                    style=COLOR_INFO, prefix=self.lpp)
 
         request = LLMRequest(
             model=model_name,
@@ -188,8 +188,8 @@ class AutoLLM:
             conversations = [{"role": "user", "content": conversations}]
 
         model_name = self.sub_clients[model]["model_name"]
-        printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[chat_ai]",
-                           style=COLOR_INFO, prefix=self.lpp)
+        # printer.print_text(f"模型调用[{model}], 模型名称[{model_name}], 调用函数[chat_ai]",
+        #                    style=COLOR_INFO, prefix=self.lpp)
         request = LLMRequest(
             model=model_name,
             messages=conversations
