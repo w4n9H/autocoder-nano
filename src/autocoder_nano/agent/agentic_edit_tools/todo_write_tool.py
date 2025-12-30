@@ -300,7 +300,8 @@ class TodoWriteToolResolver(BaseToolResolver):
                     )
 
                 todo_index = self._find_todo_by_id(todos, self.tool.task_id)
-                if not todo_index:
+                printer.print_text(f"任务index {todo_index}")
+                if todo_index is None:
                     return ToolResult(
                         success=False,
                         message=f"错误: 未找到ID为 '{self.tool.task_id}' 的任务.",
