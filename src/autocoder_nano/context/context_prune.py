@@ -633,8 +633,8 @@ class ConversationsPruner:
         model_max_context = get_model_max_context(current_model)
         safe_zone_tokens = int(model_max_context * safe_zone_ratio) if model_max_context > 0 \
             else self.args.conversation_prune_safe_zone_tokens
-        printer.print_text(f"当前模型: {current_model} [{model_max_context}], "
-                           f"安全窗口大小: {safe_zone_tokens} [{safe_zone_ratio}]", style=COLOR_INFO, prefix=self.cpp)
+        # printer.print_text(f"当前模型: {current_model} [{model_max_context}], "
+        #                    f"安全窗口大小: {safe_zone_tokens} [{safe_zone_ratio}]", style=COLOR_INFO, prefix=self.cpp)
 
         current_tokens = count_tokens(json.dumps(conversations, ensure_ascii=False))
 
