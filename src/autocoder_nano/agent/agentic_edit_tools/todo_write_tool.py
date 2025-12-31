@@ -300,7 +300,7 @@ class TodoWriteToolResolver(BaseToolResolver):
                     )
 
                 todo_index = self._find_todo_by_id(todos, self.tool.task_id)
-                printer.print_text(f"任务index {todo_index}")
+                # printer.print_text(f"任务index {todo_index}")
                 if todo_index is None:
                     return ToolResult(
                         success=False,
