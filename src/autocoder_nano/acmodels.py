@@ -107,10 +107,10 @@ BUILTIN_MODELS = {
         "output_price": 0.0,
         "context": 200000
     },
-    "(Volcengine)byte/doubao-seed-code-plan": {
+    "(MiniMax)minimax/m2-code-plan": {
         "id": "13",
-        "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
-        "model_name": "doubao-seed-code-preview-latest",
+        "base_url": "https://api.minimaxi.com/v1",
+        "model_name": "MiniMax-M2.1",
         "description": "专攻编程",
         "input_price": 0.0,
         "output_price": 0.0,

@@ -441,11 +441,12 @@ class BaseAgent:
         )
 
         if event.tool_name in ["TodoReadTool", "TodoWriteTool"]:
-            printer.print_panel(
-                content=Markdown(result.content),
-                title="Todo List",
-                border_style=COLOR_INFO,
-                center=True)
+            if result.content:
+                printer.print_panel(
+                    content=Markdown(result.content),
+                    title="Todo List",
+                    border_style=COLOR_INFO,
+                    center=True)
 
         # 不在展示具体的代码，以展示 Agent 操作为主
         # content_str = self._format_tool_result_content(result.content)
