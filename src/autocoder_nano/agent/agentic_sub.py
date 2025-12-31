@@ -122,10 +122,18 @@ class SubAgents(BaseAgent):
 
     def _build_system_prompt(self) -> List[Dict[str, Any]]:
         """ 构建初始对话消息 """
+        _system_prompt = (
+            f""
+            f"{self._get_system_prompt()}\n\n\n"
+            f"=========="
+            f"{self._get_tools_prompt()}\n\n\n"
+            f"=========="
+            f"{self.prompt_manager.prompt_sysinfo.prompt()}")
         system_prompt = [
-            {"role": "system", "content": self._get_system_prompt()},
-            {"role": "system", "content": self._get_tools_prompt()},
-            {"role": "system", "content": self.prompt_manager.prompt_sysinfo.prompt()}
+            {"role": "system", "content": _system_prompt}
+            # {"role": "system", "content": self._get_system_prompt()},
+            # {"role": "system", "content": self._get_tools_prompt()},
+            # {"role": "system", "content": self.prompt_manager.prompt_sysinfo.prompt()}
         ]
 
         printer.print_text(f"系统提示词长度(token): {self._count_conversations_tokens(system_prompt)}",
