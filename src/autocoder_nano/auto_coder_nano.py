@@ -1176,7 +1176,7 @@ def main():
             prompt_message = [
                 ("class:username", "coding"),
                 ("class:at", "@"),
-                ("class:host", "auto-coder.nano"),
+                ("class:host", "supa-nano"),
                 ("class:colon", ":"),
                 ("class:path", "~"),
                 ("class:dollar", "$ "),
