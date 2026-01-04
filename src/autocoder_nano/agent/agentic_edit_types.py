@@ -137,7 +137,7 @@ class LLMOutputEvent(BaseModel):
 
 
 class LLMThinkingEvent(BaseModel):
-    """Represents text within <thinking> tags from the LLM."""
+    """Represents text within <think> tags from the LLM."""
     text: str
 
 

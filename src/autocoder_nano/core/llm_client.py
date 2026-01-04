@@ -74,29 +74,29 @@ class AutoLLM:
             stream=True
         )
 
-        if is_reasoning:
-            response = client.chat.completions.create(
-                messages=request.messages,
-                model=request.model,
-                stream=request.stream,
-                stream_options={"include_usage": True},
-                extra_headers={
-                    "HTTP-Referer": "https://auto-coder.chat",
-                    "X-Title": "auto-coder-nano"
-                },
-                **llm_config
-            )
-        else:
-            response = client.chat.completions.create(
-                messages=conversations,
-                model=model_name,
-                temperature=llm_config.get("temperature", request.temperature),
-                max_tokens=llm_config.get("max_tokens", request.max_tokens),
-                top_p=llm_config.get("top_p", request.top_p),
-                stream=request.stream,
-                stream_options={"include_usage": True},
-                **llm_config
-            )
+        # if is_reasoning:
+        #     response = client.chat.completions.create(
+        #         messages=request.messages,
+        #         model=request.model,
+        #         stream=request.stream,
+        #         stream_options={"include_usage": True},
+        #         extra_headers={
+        #             "HTTP-Referer": "https://auto-coder.chat",
+        #             "X-Title": "auto-coder-nano"
+        #         },
+        #         **llm_config
+        #     )
+        # else:
+        response = client.chat.completions.create(
+            messages=conversations,
+            model=model_name,
+            temperature=llm_config.get("temperature", request.temperature),
+            max_tokens=llm_config.get("max_tokens", request.max_tokens),
+            top_p=llm_config.get("top_p", request.top_p),
+            stream=request.stream,
+            stream_options={"include_usage": True},
+            **llm_config
+        )
 
         last_meta = None
 
