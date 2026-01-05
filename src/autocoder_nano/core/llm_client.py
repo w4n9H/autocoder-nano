@@ -74,29 +74,29 @@ class AutoLLM:
             stream=True
         )
 
-        if is_reasoning:
-            response = client.chat.completions.create(
-                messages=request.messages,
-                model=request.model,
-                stream=request.stream,
-                stream_options={"include_usage": True},
-                extra_headers={
-                    "HTTP-Referer": "https://auto-coder.chat",
-                    "X-Title": "auto-coder-nano"
-                },
-                **llm_config
-            )
-        else:
-            response = client.chat.completions.create(
-                messages=conversations,
-                model=model_name,
-                temperature=llm_config.get("temperature", request.temperature),
-                max_tokens=llm_config.get("max_tokens", request.max_tokens),
-                top_p=llm_config.get("top_p", request.top_p),
-                stream=request.stream,
-                stream_options={"include_usage": True},
-                **llm_config
-            )
+        # if is_reasoning:
+        #     response = client.chat.completions.create(
+        #         messages=request.messages,
+        #         model=request.model,
+        #         stream=request.stream,
+        #         stream_options={"include_usage": True},
+        #         extra_headers={
+        #             "HTTP-Referer": "https://auto-coder.chat",
+        #             "X-Title": "auto-coder-nano"
+        #         },
+        #         **llm_config
+        #     )
+        # else:
+        response = client.chat.completions.create(
+            messages=conversations,
+            model=model_name,
+            temperature=llm_config.get("temperature", request.temperature),
+            max_tokens=llm_config.get("max_tokens", request.max_tokens),
+            top_p=llm_config.get("top_p", request.top_p),
+            stream=request.stream,
+            stream_options={"include_usage": True},
+            **llm_config
+        )
 
         last_meta = None
 
@@ -252,38 +252,30 @@ def stream_chat_with_continue(
 ) -> Generator[Any, None, None]:
     """ 流式处理并继续生成内容，直到完成 """
     count = 0
-    temp_conversations = [] + conversations
     current_metadata = None
     metadatas = {}
     while True:
         # 使用流式接口获取生成内容
         stream_generator = llm.stream_chat_ai_ex(
-            conversations=temp_conversations,
+            conversations=conversations,
             model=args.chat_model,
             delta_mode=True,
             llm_config={**llm_config}
         )
 
-        current_content = ""
-
-        for res in stream_generator:
-            content = res[0]
-            current_content += content
+        for _content, _meta in stream_generator:
             if current_metadata is None:
-                current_metadata = res[1]
-                metadatas[count] = res[1]
+                current_metadata = _meta
+                metadatas[count] = _meta
             else:
-                metadatas[count] = res[1]
-                current_metadata.finish_reason = res[1].finish_reason
-                current_metadata.reasoning_content = res[1].reasoning_content
+                metadatas[count] = _meta
+                current_metadata.finish_reason = _meta.finish_reason
+                current_metadata.reasoning_content = _meta.reasoning_content
 
             # Yield 当前的 StreamChatWithContinueResult
             current_metadata.generated_tokens_count = sum([v.generated_tokens_count for _, v in metadatas.items()])
             current_metadata.input_tokens_count = sum([v.input_tokens_count for _, v in metadatas.items()])
-            yield content, current_metadata
-
-        # 更新对话历史
-        temp_conversations.append({"role": "assistant", "content": current_content})
+            yield _content, current_metadata
 
         # 检查是否需要继续生成
         if current_metadata.finish_reason != "length" or count >= args.generate_max_rounds:

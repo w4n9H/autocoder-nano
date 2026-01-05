@@ -95,7 +95,7 @@ class SubAgents(BaseAgent):
         - 自动标注行业惯例方案供用户确认
         
         # 工具调用规范
-        - 调用前必须在 <thinking></thinking> 内分析：
+        - 调用前必须在 <think></think> 内分析：
             * 分析系统环境及目录结构
             * 根据目标选择合适工具
             * 必填参数检查（用户提供或可推断，否则用 `ask_followup_question` 询问）
@@ -103,7 +103,7 @@ class SubAgents(BaseAgent):
         
         # 工具使用指南
         1. 开始任务前务必进行全面搜索和探索
-        2. 在 <thinking> 标签中评估已有和继续完成任务所需信息
+        2. 在 <think> 标签中评估已有和继续完成任务所需信息
         3. 根据任务选择合适工具，思考是否需其他信息来推进，以及用哪个工具收集
         4. 逐步执行，禁止预判：
             * 单次仅使用一个工具
@@ -122,10 +122,18 @@ class SubAgents(BaseAgent):
 
     def _build_system_prompt(self) -> List[Dict[str, Any]]:
         """ 构建初始对话消息 """
+        _system_prompt = (
+            f""
+            f"{self._get_system_prompt()}\n\n\n"
+            f"=========="
+            f"{self._get_tools_prompt()}\n\n\n"
+            f"=========="
+            f"{self.prompt_manager.prompt_sysinfo.prompt()}")
         system_prompt = [
-            {"role": "system", "content": self._get_system_prompt()},
-            {"role": "system", "content": self._get_tools_prompt()},
-            {"role": "system", "content": self.prompt_manager.prompt_sysinfo.prompt()}
+            {"role": "system", "content": _system_prompt}
+            # {"role": "system", "content": self._get_system_prompt()},
+            # {"role": "system", "content": self._get_tools_prompt()},
+            # {"role": "system", "content": self.prompt_manager.prompt_sysinfo.prompt()}
         ]
 
         printer.print_text(f"系统提示词长度(token): {self._count_conversations_tokens(system_prompt)}",

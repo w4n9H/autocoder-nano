@@ -184,29 +184,30 @@ class BaseAgent:
     def stream_and_parse_llm_response(self, generator):
         """ LLM响应解析器 """
         buffer = ""
+        reasoning = ""
         in_tool_block = False
         in_thinking_block = False
         current_tool_tag = None
         valid_tool_tags = set(TOOL_MODEL_MAP.keys())
         tool_start_pattern = re.compile(r"<(" + "|".join(valid_tool_tags) + r")>")
         # tool_start_pattern = re.compile(r"<(?!thinking\b)([a-zA-Z0-9_]+)>")  # Matches tool tags
-        thinking_start_tag = "<thinking>"
-        thinking_end_tag = "</thinking>"
+        thinking_start_tag = "<think>"
+        thinking_end_tag = "</think>"
 
-        last_metadata = None
         for content_chunk, metadata in generator:
+            if metadata.reasoning_content:
+                reasoning += metadata.reasoning_content
+
             if not content_chunk:
-                last_metadata = metadata
                 continue
 
-            last_metadata = metadata
             buffer += content_chunk
 
             while True:  # 循环处理缓冲区直到无法解析完整事件
                 # 检查状态转换：思考->文本，工具->文本，文本->思考，文本->工具
                 found_event = False
 
-                # 1. 如果在思考块中，检查</thinking>
+                # 1. 如果在思考块中，检查</think>
                 if in_thinking_block:
                     end_think_pos = buffer.find(thinking_end_tag)
                     if end_think_pos != -1:
@@ -249,7 +250,7 @@ class BaseAgent:
                     else:
                         break  # 需要更多数据来关闭工具块
 
-                # 3. 如果在纯文本状态，检查<thinking>或<tool_tag>
+                # 3. 如果在纯文本状态，检查<think>或<tool_tag>
                 else:
                     start_think_pos = buffer.find(thinking_start_tag)
                     tool_match = tool_start_pattern.search(buffer)
@@ -271,7 +272,7 @@ class BaseAgent:
                         else:
                             pass  # 未知标签，暂时视为文本，让缓冲区继续累积
 
-                    if first_tag_pos != -1:  # 找到<thinking>或已知<tool>
+                    if first_tag_pos != -1:  # 找到<think>或已知<tool>
                         # 如果有前置文本则输出
                         preceding_text = buffer[:first_tag_pos]
                         if preceding_text:
@@ -316,10 +317,13 @@ class BaseAgent:
                 if not found_event:
                     break
 
+            if reasoning:
+                yield LLMThinkingEvent(text=reasoning)
+                reasoning = ""  # 清空，避免重复 yield
         # 生成器耗尽后，输出剩余内容
         if in_thinking_block:
             # 未终止的思考块
-            yield ErrorEvent(message="Stream ended with unterminated <thinking> block.")
+            yield ErrorEvent(message="Stream ended with unterminated <think> block.")
             if buffer:
                 # 将剩余内容作为思考输出
                 yield LLMThinkingEvent(text=buffer)
@@ -333,7 +337,7 @@ class BaseAgent:
             yield LLMOutputEvent(text=buffer)
 
         # 这个要放在最后，防止其他关联的多个事件的信息中断
-        yield TokenUsageEvent(usage=last_metadata)
+        yield TokenUsageEvent(usage=metadata)
 
     def _apply_pre_changes(self):
         uncommitted_changes = get_uncommitted_changes(self.args.source_dir)

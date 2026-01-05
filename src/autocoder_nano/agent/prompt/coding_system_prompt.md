@@ -62,7 +62,7 @@
 - 完成后用 `attempt_completion` 展示结果（可附CLI命令）
 
 ## 工具调用规范
-- 调用前必须在 <thinking></thinking> 内分析：
+- 调用前必须在 <think></think> 内分析：
     * 分析系统环境及目录结构
     * 根据目标选择合适工具
     * 必填参数检查（用户提供或可推断，否则用 `ask_followup_question` 询问）
