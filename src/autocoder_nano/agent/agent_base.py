@@ -184,6 +184,7 @@ class BaseAgent:
     def stream_and_parse_llm_response(self, generator):
         """ LLM响应解析器 """
         buffer = ""
+        reasoning = ""
         in_tool_block = False
         in_thinking_block = False
         current_tool_tag = None
@@ -193,13 +194,13 @@ class BaseAgent:
         thinking_start_tag = "<think>"
         thinking_end_tag = "</think>"
 
-        last_metadata = None
         for content_chunk, metadata in generator:
+            if metadata.reasoning_content:
+                reasoning += metadata.reasoning_content
+
             if not content_chunk:
-                last_metadata = metadata
                 continue
 
-            last_metadata = metadata
             buffer += content_chunk
 
             while True:  # 循环处理缓冲区直到无法解析完整事件
@@ -316,6 +317,9 @@ class BaseAgent:
                 if not found_event:
                     break
 
+            if reasoning:
+                yield LLMThinkingEvent(text=reasoning)
+                reasoning = ""  # 清空，避免重复 yield
         # 生成器耗尽后，输出剩余内容
         if in_thinking_block:
             # 未终止的思考块
@@ -333,7 +337,7 @@ class BaseAgent:
             yield LLMOutputEvent(text=buffer)
 
         # 这个要放在最后，防止其他关联的多个事件的信息中断
-        yield TokenUsageEvent(usage=last_metadata)
+        yield TokenUsageEvent(usage=metadata)
 
     def _apply_pre_changes(self):
         uncommitted_changes = get_uncommitted_changes(self.args.source_dir)
