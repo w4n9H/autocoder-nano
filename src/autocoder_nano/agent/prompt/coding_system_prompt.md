@@ -26,6 +26,7 @@
 ## 阶段1：项目探索
 - 使用 `list_files` + `search_files` 分析目录结构, 查找文件, 定位关键目录：src/, lib/, components/, utils/
 - 使用 `execute_command (grep -E "(import|require|from).*['\"]" -R src/ | head -20)`  检查包依赖与导入关系; 识别框架, 库及编码模式
+- 如果 Reader SubAgent 已经完成了此步骤, 获取了关键代码的位置，可以跳过此步骤，直接进入阶段2
 
 ## 阶段2：代码分析
 - 使用 `execute_command (grep -Rn "targetFunction|targetClass" src/)` 检索关键模式和符号(函数/类/等)使用
