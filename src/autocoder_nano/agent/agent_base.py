@@ -559,7 +559,8 @@ class ToolResolverFactory:
 
     def get_resolver(self, tool_type: Type[BaseTool]):
         if not self.has_resolver(tool_type):
-            raise Exception(f"{tool_type} 工具类型不存在")
+            printer.print_text(f"{tool_type} 工具类型不存在", style=COLOR_WARNING)
+            return None
         return self._resolvers[tool_type]
 
     def has_resolver(self, tool_type: Type[BaseTool]) -> bool:
