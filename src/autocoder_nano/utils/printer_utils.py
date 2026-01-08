@@ -140,10 +140,11 @@ class Printer:
         panel = Panel(
             renderable,
             title=title,
+            title_align="left",
             border_style=border_style,
             width=width,
             padding=padding,
-            box=box.DOUBLE,
+            box=box.ROUNDED,
             expand=True
         )
         self.console.print(panel)
