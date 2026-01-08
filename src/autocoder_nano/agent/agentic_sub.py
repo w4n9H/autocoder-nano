@@ -320,7 +320,7 @@ class SubAgents(BaseAgent):
                     last_meta: SingleOutputMeta = event.usage
                     printer.print_text(
                         Text.assemble(
-                            ("Token 使用: ", COLOR_SYSTEM),
+                            ("本次调用模型 Token 使用: ", COLOR_SYSTEM),
                             (f"Input({last_meta.input_tokens_count})", COLOR_INFO),
                             (f"/", COLOR_SYSTEM),
                             (f"Output({last_meta.generated_tokens_count})", COLOR_INFO)

@@ -401,7 +401,7 @@ class BaseAgent:
         accumulated_token_usage["input_tokens"] += last_meta.input_tokens_count
         accumulated_token_usage["output_tokens"] += last_meta.generated_tokens_count
 
-        printer.print_text(f"Token 使用: "
+        printer.print_text(f"本次调用模型 Token 使用: "
                            f"Input({last_meta.input_tokens_count})/"
                            f"Output({last_meta.generated_tokens_count})",
                            style=COLOR_INFO, prefix=self.mapp)
