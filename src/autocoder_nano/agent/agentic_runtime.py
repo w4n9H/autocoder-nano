@@ -440,13 +440,13 @@ class AgenticRuntime(BaseAgent):
                 elif isinstance(event, LLMThinkingEvent):
                     # 以不太显眼的样式（比如灰色）呈现思考内容
                     printer.print_panel(
-                        content=Text(f"{event.text}", style=COLOR_INFO),
+                        content=Text(f"{event.text}", style=COLOR_INFO, justify="left"),
                         title="LLM Thinking",
                         border_style=COLOR_INFO,
                         center=True)
                 elif isinstance(event, LLMOutputEvent):
                     printer.print_panel(
-                        content=Text(f"{event.text}", style=COLOR_INFO),
+                        content=Text(f"{event.text}", style=COLOR_INFO, justify="left"),
                         title="LLM Output",
                         border_style=COLOR_INFO,
                         center=True)
