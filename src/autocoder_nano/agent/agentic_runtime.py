@@ -8,6 +8,7 @@ from typing import Generator, Union
 from rich.text import Text
 
 from autocoder_nano.agent.agent_base import BaseAgent, ToolResolverFactory, PromptManager
+from autocoder_nano.agent.agentic_skills import SkillRegistry
 from autocoder_nano.context import get_context_manager, ConversationsPruner
 from rich.markdown import Markdown
 
@@ -165,6 +166,11 @@ class AgenticRuntime(BaseAgent):
     def _get_system_prompt(self) -> str:
         return self.prompt_manager.load_prompt_file(self.agent_type, "system")
 
+    def _get_skills_pompt(self) -> str:
+        _registry = SkillRegistry(args=self.args)
+        _registry.scan_skills()
+        return _registry.get_skills_summary()
+
     def _build_system_prompt(self) -> List[Dict[str, Any]]:
         """ 构建初始对话消息 """
         _system_prompt = (
@@ -174,6 +180,8 @@ class AgenticRuntime(BaseAgent):
             f"{self.prompt_manager.subagent_info(self.used_subagent)}\n\n\n"
             f"=========="
             f"{self._get_tools_prompt()}\n\n\n"
+            f"=========="
+            f"{self._get_skills_pompt() if self.tool_resolver_factory.has_resolver(CallSkillsTool) else ''}\n\n\n"
             f"=========="
             f"{self.prompt_manager.prompt_sysinfo.prompt()}")
         system_prompt = [
@@ -439,17 +447,21 @@ class AgenticRuntime(BaseAgent):
                     # printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_INFO, prefix=self.mapp)
                 elif isinstance(event, LLMThinkingEvent):
                     # 以不太显眼的样式（比如灰色）呈现思考内容
-                    printer.print_panel(
-                        content=Text(f"{event.text}", style=COLOR_INFO, justify="left"),
-                        title="LLM Thinking",
-                        border_style=COLOR_INFO,
-                        center=True)
+                    # printer.print_panel(
+                    #     content=Text(f"{event.text}", style=COLOR_INFO, justify="left"),
+                    #     title="LLM Thinking",
+                    #     border_style=COLOR_INFO,
+                    #     center=True)
+                    printer.print_text(f"LLM Thinking: ", style=COLOR_SYSTEM, prefix=self.mapp)
+                    printer.print_llm_output(f"{event.text}")
                 elif isinstance(event, LLMOutputEvent):
-                    printer.print_panel(
-                        content=Text(f"{event.text}", style=COLOR_INFO, justify="left"),
-                        title="LLM Output",
-                        border_style=COLOR_INFO,
-                        center=True)
+                    # printer.print_panel(
+                    #     content=Text(f"{event.text}", style=COLOR_INFO, justify="left"),
+                    #     title="LLM Output",
+                    #     border_style=COLOR_INFO,
+                    #     center=True)
+                    printer.print_text(f"LLM Output: ", style=COLOR_SYSTEM, prefix=self.mapp)
+                    printer.print_llm_output(f"{event.text}")
                 elif isinstance(event, ToolCallEvent):
                     self._handle_tool_call_event(event)
                 elif isinstance(event, ToolResultEvent):
