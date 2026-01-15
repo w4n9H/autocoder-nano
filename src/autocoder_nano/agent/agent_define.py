@@ -39,7 +39,7 @@ SubAgent = {
             "search_files",
             "list_files",
             "ask_followup_question",
-            "attempt_completion"
+            "attempt_completion",
             "call_skill"
         ]
     },
