@@ -7,6 +7,7 @@ from importlib import resources
 
 from rich.markdown import Markdown
 from rich.text import Text
+from rich.json import JSON
 
 from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
 from autocoder_nano.core import AutoLLM, prompt
@@ -39,7 +40,8 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     ACModWriteTool: ACModWriteToolResolver,
     ACModSearchTool: ACModSearchToolResolver,
     CallSubAgentTool: CallSubAgentToolResolver,
-    UseRAGTool: UseRAGToolResolver
+    UseRAGTool: UseRAGToolResolver,
+    CallSkillsTool: CallSkillsToolResolver
 }
 
 
@@ -89,6 +91,8 @@ class BaseAgent:
             context = f"子代理调用: {tool.agent_type}"
         elif isinstance(tool, UseRAGTool):
             context = f"RAG检索: {tool.query}"
+        elif isinstance(tool, CallSkillsTool):
+            context = f"Skill调用: {tool.skill_name}"
         else:
             context = ""
 
@@ -401,7 +405,7 @@ class BaseAgent:
         accumulated_token_usage["input_tokens"] += last_meta.input_tokens_count
         accumulated_token_usage["output_tokens"] += last_meta.generated_tokens_count
 
-        printer.print_text(f"Token 使用: "
+        printer.print_text(f"本次调用模型 Token 使用: "
                            f"Input({last_meta.input_tokens_count})/"
                            f"Output({last_meta.generated_tokens_count})",
                            style=COLOR_INFO, prefix=self.mapp)
@@ -449,6 +453,13 @@ class BaseAgent:
                 printer.print_panel(
                     content=Markdown(result.content),
                     title="Todo List",
+                    border_style=COLOR_INFO,
+                    center=True)
+        if event.tool_name in ["CallSkillsTool"]:
+            if result.content:
+                printer.print_panel(
+                    content=JSON(result.content),
+                    title="Skills Call",
                     border_style=COLOR_INFO,
                     center=True)
 
@@ -538,7 +549,7 @@ class ToolResolverFactory:
             raise ValueError(f"Resolver class {resolver_class} must be a subclass of BaseToolResolver")
 
         self._resolvers[tool_type] = resolver_class
-        # printer.print_text(f"✅ 注册工具解析器: {tool_type.__name__} -> {resolver_class.__name__}", style="green")
+        printer.print_text(f"✅ 注册工具解析器: {tool_type.__name__} -> {resolver_class.__name__}", style="green")
 
     def register_dynamic_resolver(self, agent_type):
         subagent = get_subagent_define()
@@ -559,7 +570,8 @@ class ToolResolverFactory:
 
     def get_resolver(self, tool_type: Type[BaseTool]):
         if not self.has_resolver(tool_type):
-            raise Exception(f"{tool_type} 工具类型不存在")
+            printer.print_text(f"{tool_type} 工具类型不存在", style=COLOR_WARNING)
+            return None
         return self._resolvers[tool_type]
 
     def has_resolver(self, tool_type: Type[BaseTool]) -> bool:

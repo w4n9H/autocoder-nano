@@ -6,12 +6,12 @@ SubAgent = {
         "tools": [
             "todo_read",
             "todo_write",
-            # "search_files",
+            "search_files",
             "list_files",
-            # "read_file",
             "call_subagent",
             "ask_followup_question",
-            "attempt_completion"
+            "attempt_completion",
+            "call_skill"
         ]
     },
     "reader": {
@@ -24,6 +24,7 @@ SubAgent = {
             "list_files",
             "ask_followup_question",
             "attempt_completion",
+            "call_skill"
         ]
     },
     "coding": {
@@ -39,6 +40,7 @@ SubAgent = {
             "list_files",
             "ask_followup_question",
             "attempt_completion"
+            "call_skill"
         ]
     },
     "research": {
@@ -49,7 +51,8 @@ SubAgent = {
             "web_search",
             "ask_followup_question",
             "attempt_completion",
-            "write_to_file"
+            "write_to_file",
+            "call_skill"
         ]
     },
     "codereview": {

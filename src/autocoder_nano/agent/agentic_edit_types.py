@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Type, Any
 
-from pydantic import BaseModel, SkipValidation
+from pydantic import BaseModel, SkipValidation, Field
 
 
 class FileChangeEntry(BaseModel):
@@ -124,6 +124,18 @@ class CallSubAgentTool(BaseTool):
     context: Optional[str] = None    # 传递给子代理的上下文信息
 
 
+class CallSkillsTool(BaseTool):
+    """调用技能工具"""
+    skill_name: Optional[str] = Field(
+        default=None,
+        description="要调用的技能名称。如果未指定，系统将自动匹配最相关的技能。"
+    )
+    request: str = Field(
+        ...,
+        description="用户的请求描述"
+    )
+
+
 class CallCusAgentTool(BaseTool):
     """调用自定义代理处理专项任务"""
     task: str  # 子代理处理的具体任务
@@ -211,5 +223,6 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "ac_mod_write": ACModWriteTool,
     "ac_mod_search": ACModSearchTool,
     "call_subagent": CallSubAgentTool,
-    "use_rag_tool": UseRAGTool
+    "use_rag_tool": UseRAGTool,
+    "call_skill": CallSkillsTool,
 }

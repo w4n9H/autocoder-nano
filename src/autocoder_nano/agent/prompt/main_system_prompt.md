@@ -13,20 +13,6 @@
 
 ----------
 
-## 工具系统
-
-### 探查工具
-- list_files：列出指定目录中的文件和目录
-
-### 管理工具
-- call_subagent：调用子代理
-- todo_read：任务状态查看
-- todo_write：任务创建/状态更新（3+步骤复杂任务使用）
-- ask_followup_question: 提出后续问题
-- attempt_completion：完成任务,成果交付
-
-----------
-
 ## 工作流程
 
 1. 任务分析阶段：需求理解(必要时可调用`ask_followup_question`澄清需求) → 任务分解 → 规划子任务(调用`todo_write`写入待办事项)

@@ -7,6 +7,7 @@ from typing import Generator, Union
 from rich.text import Text
 
 from autocoder_nano.agent.agent_base import BaseAgent, ToolResolverFactory, PromptManager
+from autocoder_nano.agent.agentic_skills import SkillRegistry
 from autocoder_nano.context import ConversationsPruner
 from rich.markdown import Markdown
 
@@ -120,6 +121,11 @@ class SubAgents(BaseAgent):
     def _get_system_prompt(self) -> str:
         return self.prompt_manager.load_prompt_file(self.agent_type, "system")
 
+    def _get_skills_pompt(self) -> str:
+        _registry = SkillRegistry(args=self.args)
+        _registry.scan_skills()
+        return _registry.get_skills_summary()
+
     def _build_system_prompt(self) -> List[Dict[str, Any]]:
         """ 构建初始对话消息 """
         _system_prompt = (
@@ -127,6 +133,8 @@ class SubAgents(BaseAgent):
             f"{self._get_system_prompt()}\n\n\n"
             f"=========="
             f"{self._get_tools_prompt()}\n\n\n"
+            f"=========="
+            f"{self._get_skills_pompt() if self.tool_resolver_factory.has_resolver(CallSkillsTool) else ''}\n\n\n"
             f"=========="
             f"{self.prompt_manager.prompt_sysinfo.prompt()}")
         system_prompt = [
@@ -320,7 +328,7 @@ class SubAgents(BaseAgent):
                     last_meta: SingleOutputMeta = event.usage
                     printer.print_text(
                         Text.assemble(
-                            ("Token 使用: ", COLOR_SYSTEM),
+                            ("本次调用模型 Token 使用: ", COLOR_SYSTEM),
                             (f"Input({last_meta.input_tokens_count})", COLOR_INFO),
                             (f"/", COLOR_SYSTEM),
                             (f"Output({last_meta.generated_tokens_count})", COLOR_INFO)
