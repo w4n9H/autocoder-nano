@@ -115,7 +115,7 @@ def metaso_reader_api(
     rs = RetrySession()
     headers = {
         "Content-Type": "application/json",
-        "Accept": "application/json",
+        "Accept": "text/plain",
         "Authorization": f"Bearer {metaso_key}"
     }
     payload = {
@@ -123,7 +123,7 @@ def metaso_reader_api(
     }
     try:
         response = rs.post(url=metaso_url, headers=headers, json=payload)
-        return response.json().get("markdown", "")
+        return response.text
     except Exception as e:
         raise Exception(f"{e}")
 

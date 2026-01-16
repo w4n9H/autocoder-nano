@@ -41,7 +41,8 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     ACModSearchTool: ACModSearchToolResolver,
     CallSubAgentTool: CallSubAgentToolResolver,
     UseRAGTool: UseRAGToolResolver,
-    CallSkillsTool: CallSkillsToolResolver
+    CallSkillsTool: CallSkillsToolResolver,
+    WebReaderTool: WebReaderToolResolver
 }
 
 
@@ -93,6 +94,8 @@ class BaseAgent:
             context = f"RAG检索: {tool.query}"
         elif isinstance(tool, CallSkillsTool):
             context = f"Skill调用: {tool.skill_name}"
+        elif isinstance(tool, WebReaderTool):
+            context = f"正在读取页面: {tool.url}"
         else:
             context = ""
 
@@ -549,7 +552,7 @@ class ToolResolverFactory:
             raise ValueError(f"Resolver class {resolver_class} must be a subclass of BaseToolResolver")
 
         self._resolvers[tool_type] = resolver_class
-        printer.print_text(f"✅ 注册工具解析器: {tool_type.__name__} -> {resolver_class.__name__}", style="green")
+        # printer.print_text(f"✅ 注册工具解析器: {tool_type.__name__} -> {resolver_class.__name__}", style="green")
 
     def register_dynamic_resolver(self, agent_type):
         subagent = get_subagent_define()
