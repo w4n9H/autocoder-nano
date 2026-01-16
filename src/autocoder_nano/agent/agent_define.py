@@ -45,7 +45,7 @@ SubAgent = {
     },
     "research": {
         "description": "研究专家: 精通技术架构的深度调研,擅长市场分析,行业趋势洞察和产品可行性分析",
-        "call": "调用时机:需要通过联网搜索，调研或方案决策的任务，agent_type:research",
+        "call": "调用时机:需要通过联网搜索或者访问网页url获取数据，处理调研或方案决策的任务时，agent_type:research",
         "prompt": "research_system_prompt.md",
         "tools": [
             "web_search",
