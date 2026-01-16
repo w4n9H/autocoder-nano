@@ -115,7 +115,7 @@ def metaso_reader_api(
     rs = RetrySession()
     headers = {
         "Content-Type": "application/json",
-        "Accept": "application/json",
+        "Accept": "text/plain",
         "Authorization": f"Bearer {metaso_key}"
     }
     payload = {

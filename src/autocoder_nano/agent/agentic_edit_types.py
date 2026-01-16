@@ -70,6 +70,10 @@ class WebSearchTool(BaseTool):
     query: str
 
 
+class WebReaderTool(BaseTool):
+    url: str
+
+
 class TodoReadTool(BaseTool):
     """
     Tool for reading the current todolist.
@@ -225,4 +229,5 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "call_subagent": CallSubAgentTool,
     "use_rag_tool": UseRAGTool,
     "call_skill": CallSkillsTool,
+    "web_reader": WebReaderTool
 }

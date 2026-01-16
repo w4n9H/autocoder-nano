@@ -16,6 +16,7 @@ from .ac_mod_search_tool import ACModSearchToolResolver
 from .call_subagent_tool import CallSubAgentToolResolver
 from .use_rag_tool import UseRAGToolResolver
 from .call_skills_tool import CallSkillsToolResolver
+from .web_reader_tool import WebReaderToolResolver
 
 __all__ = [
     "BaseToolResolver",
@@ -34,5 +35,6 @@ __all__ = [
     "ACModSearchToolResolver",
     "CallSubAgentToolResolver",
     "UseRAGToolResolver",
-    "CallSkillsToolResolver"
+    "CallSkillsToolResolver",
+    "WebReaderToolResolver"
 ]

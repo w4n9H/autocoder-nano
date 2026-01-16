@@ -49,6 +49,7 @@ SubAgent = {
         "prompt": "research_system_prompt.md",
         "tools": [
             "web_search",
+            "web_reader",
             "ask_followup_question",
             "attempt_completion",
             "write_to_file",
