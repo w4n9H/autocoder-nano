@@ -560,52 +560,7 @@ class CommandCompleter(Completer):
                     if current_word and current_word in file_name:
                         yield Completion(file_name, start_position=-len(current_word))
 
-            elif words[0] == "/exclude_files":
-                new_text = text[len("/exclude_files"):]
-                parser = CommandTextParser(new_text, words[0])
-                parser.add_files()
-                current_word = parser.current_word()
-                for command in parser.get_sub_commands():
-                    if command.startswith(current_word):
-                        yield Completion(command, start_position=-len(current_word))
-
-            elif words[0] == "/models":
-                new_text = text[len("/models"):]
-                parser = CommandTextParser(new_text, words[0])
-                parser.add_files()
-                current_word = parser.current_word()
-                for command in parser.get_sub_commands():
-                    if command.startswith(current_word):
-                        yield Completion(command, start_position=-len(current_word))
-
-            elif words[0] == "/help":
-                new_text = text[len("/help"):]
-                parser = CommandTextParser(new_text, words[0])
-                parser.add_files()
-                current_word = parser.current_word()
-                for command in parser.get_sub_commands():
-                    if command.startswith(current_word):
-                        yield Completion(command, start_position=-len(current_word))
-
-            elif words[0] == "/rules":
-                new_text = text[len("/rules"):]
-                parser = CommandTextParser(new_text, words[0])
-                parser.add_files()
-                current_word = parser.current_word()
-                for command in parser.get_sub_commands():
-                    if command.startswith(current_word):
-                        yield Completion(command, start_position=-len(current_word))
-
-            elif words[0] == "/context":
-                new_text = text[len("/context"):]
-                parser = CommandTextParser(new_text, words[0])
-                parser.add_files()
-                current_word = parser.current_word()
-                for command in parser.get_sub_commands():
-                    if command.startswith(current_word):
-                        yield Completion(command, start_position=-len(current_word))
-
-            elif words[0] in ["/index", "/git"]:
+            elif words[0] in ["/index", "/git", "/models", "/help", "/rules", "/context", "/exclude_files"]:
                 new_text = text[len(words[0]):]
                 parser = CommandTextParser(new_text, words[0])
                 parser.add_files()
