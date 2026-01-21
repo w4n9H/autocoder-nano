@@ -10,10 +10,11 @@ COMMANDS = {
         "/group": {"/add": "", "/drop": "", "/reset": ""},
         "/refresh": "",
     },
+    "/index": {"/code": "", "/rag": ""},
     "/remove_files": {"/all": ""},
     "/coding": {"/apply": ""},
     "/chat": {"/new": "", "/history": ""},
-    "/models": {"/add_model": "", "/remove": "", "/list": "", "/check": "", "/add": ""},
+    "/models": {"/list": "", "/check": "", "/add": "", "/add_model": "", "/remove": ""},
     "/help": {
         "/add_files": "",
         "/remove_files": "",
@@ -596,6 +597,15 @@ class CommandCompleter(Completer):
 
             elif words[0] == "/context":
                 new_text = text[len("/context"):]
+                parser = CommandTextParser(new_text, words[0])
+                parser.add_files()
+                current_word = parser.current_word()
+                for command in parser.get_sub_commands():
+                    if command.startswith(current_word):
+                        yield Completion(command, start_position=-len(current_word))
+
+            elif words[0] == "/index":
+                new_text = text[len("/index"):]
                 parser = CommandTextParser(new_text, words[0])
                 parser.add_files()
                 current_word = parser.current_word()

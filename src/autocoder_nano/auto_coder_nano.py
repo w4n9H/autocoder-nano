@@ -14,8 +14,8 @@ from autocoder_nano.rules import rules_from_active_files, get_rules_context
 from autocoder_nano.core import AutoLLM
 from autocoder_nano.actypes import *
 from autocoder_nano.acmodels import BUILTIN_MODELS
-from autocoder_nano.acrunner import (chat_command, index_command, index_query_command,
-                                     rag_build_command, rag_query_command, execute_shell_command,
+from autocoder_nano.acrunner import (chat_command, new_index_command,
+                                     execute_shell_command,
                                      generate_shell_command, revert, auto_command, context_command,
                                      editor_command)
 from autocoder_nano.utils.completer_utils import CommandCompleter
@@ -50,11 +50,13 @@ console = printer.get_console()
 project_root = os.getcwd()
 base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-auto-coder")
 
-
+# 命令行精简
+# /rag/build, /index/build 合并为 /index, 移除 /rag/query, /index/query
+# 移除 /mode
 commands = [
-    "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert", "/index/query",
-    "/index/build", "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/mode", "/models", "/commit",
-    "/rules", "/auto", "/rag/build", "/rag/query", "/editor", "/context"
+    "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert",
+    "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/models", "/commit",
+    "/rules", "/auto", "/editor", "/context", "/index"
 ]
 
 memory = {
@@ -1206,16 +1208,22 @@ def main():
             elif user_input.startswith("/editor"):
                 editor_files = user_input[len("/editor"):].strip().split()
                 editor_command(project_root, editor_files)
-            elif user_input.startswith("/index/build"):
-                index_command(project_root=project_root, memory=memory, llm=auto_llm)
-            elif user_input.startswith("/index/query"):
-                query = user_input[len("/index/query"):].strip()
-                index_query_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
-            elif user_input.startswith("/rag/build"):
-                rag_build_command(project_root=project_root, memory=memory, llm=auto_llm)
-            elif user_input.startswith("/rag/query"):
-                query = user_input[len("/rag/query"):].strip()
-                rag_query_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
+            elif user_input.startswith("/index"):
+                index_args = user_input[len("/index"):].strip().split()
+                if not index_args:
+                    printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
+                else:
+                    new_index_command(index_args=index_args, project_root=project_root, memory=memory, llm=auto_llm)
+            # elif user_input.startswith("/index/build"):
+            #     index_command(project_root=project_root, memory=memory, llm=auto_llm)
+            # elif user_input.startswith("/index/query"):
+            #     query = user_input[len("/index/query"):].strip()
+            #     index_query_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
+            # elif user_input.startswith("/rag/build"):
+            #     rag_build_command(project_root=project_root, memory=memory, llm=auto_llm)
+            # elif user_input.startswith("/rag/query"):
+            #     query = user_input[len("/rag/query"):].strip()
+            #     rag_query_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
             elif user_input.startswith("/index/export"):
                 export_path = user_input[len("/index/export"):].strip()
                 index_export(project_root, export_path)
@@ -1276,12 +1284,12 @@ def main():
                     printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
                 else:
                     manage_models(models_args, memory["models"], auto_llm)
-            elif user_input.startswith("/mode"):
-                conf = user_input[len("/mode"):].strip()
-                if not conf:
-                    printer.print_text(f"{memory['mode']} [{MODES[memory['mode']]}]", style=COLOR_SUCCESS)
-                else:
-                    memory["mode"] = conf
+            # elif user_input.startswith("/mode"):
+            #     conf = user_input[len("/mode"):].strip()
+            #     if not conf:
+            #         printer.print_text(f"{memory['mode']} [{MODES[memory['mode']]}]", style=COLOR_SUCCESS)
+            #     else:
+            #         memory["mode"] = conf
             elif user_input.startswith("/exclude_dirs"):
                 dir_names = user_input[len("/exclude_dirs"):].strip().split(",")
                 exclude_dirs(dir_names)

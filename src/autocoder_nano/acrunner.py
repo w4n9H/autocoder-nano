@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 from datetime import datetime
+from typing import List
 
 from rich.text import Text
 from rich.live import Live
@@ -117,6 +118,18 @@ def chat_command(project_root: str, query: str, memory: dict, llm: AutoLLM):
         fp.write(json.dumps(chat_history, indent=2, ensure_ascii=False))
         sfp.write(assistant_response)
     return
+
+
+def new_index_command(index_args: List[str], project_root: str, memory: dict, llm: AutoLLM):
+    """
+      /index /code
+      /index /rag
+    """
+    if index_args[0] == "/code":
+        index_command(project_root, memory, llm)
+
+    if index_args[0] == "/rag":
+        rag_build_command(project_root, memory, llm)
 
 
 def index_command(project_root: str, memory: dict, llm: AutoLLM):
