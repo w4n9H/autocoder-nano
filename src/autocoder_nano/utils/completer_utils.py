@@ -11,6 +11,7 @@ COMMANDS = {
         "/refresh": "",
     },
     "/index": {"/code": "", "/rag": ""},
+    "/git": {"/revert": "", "/commit": ""},
     "/remove_files": {"/all": ""},
     "/coding": {"/apply": ""},
     "/chat": {"/new": "", "/history": ""},
@@ -604,8 +605,8 @@ class CommandCompleter(Completer):
                     if command.startswith(current_word):
                         yield Completion(command, start_position=-len(current_word))
 
-            elif words[0] == "/index":
-                new_text = text[len("/index"):]
+            elif words[0] in ["/index", "/git"]:
+                new_text = text[len(words[0]):]
                 parser = CommandTextParser(new_text, words[0])
                 parser.add_files()
                 current_word = parser.current_word()

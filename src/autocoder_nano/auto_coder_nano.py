@@ -53,10 +53,11 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 # 命令行精简
 # /rag/build, /index/build 合并为 /index, 移除 /rag/query, /index/query
 # 移除 /mode
+# /revert, /commit, 合并为 /git
 commands = [
-    "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat", "/revert",
-    "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/models", "/commit",
-    "/rules", "/auto", "/editor", "/context", "/index"
+    "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat",
+    "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/models",
+    "/rules", "/auto", "/editor", "/context", "/index", "/git"
 ]
 
 memory = {
@@ -481,6 +482,18 @@ def commit_info(query: str, llm: AutoLLM):
             printer.print_text(f"Commit 失败: {err}", style=COLOR_ERROR)
             if execute_file:
                 os.remove(execute_file)
+
+
+def git_command(git_args: List[str], llm: AutoLLM):
+    """
+    /git /commit
+    /git /revert
+    """
+    if git_args[0] == "/commit":
+        commit_info(query="", llm=llm)
+
+    if git_args[0] == "/revert":
+        revert(project_root=project_root)
 
 
 def parse_args(input_args: Optional[List[str]] = None):
@@ -1238,11 +1251,17 @@ def main():
                     print_conf(memory["conf"])
                 else:
                     configure(conf)
-            elif user_input.startswith("/revert"):
-                revert(project_root=project_root)
-            elif user_input.startswith("/commit"):
-                query = user_input[len("/commit"):].strip()
-                commit_info(query, auto_llm)
+            elif user_input.startswith("/git"):
+                git_args = user_input[len("/git"):].strip().split()
+                if not git_args:
+                    printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
+                else:
+                    git_command(git_args, auto_llm)
+            # elif user_input.startswith("/revert"):
+            #     revert(project_root=project_root)
+            # elif user_input.startswith("/commit"):
+            #     query = user_input[len("/commit"):].strip()
+            #     commit_info(query, auto_llm)
             elif user_input.startswith("/rules"):
                 query_args = user_input[len("/rules"):].strip().split()
                 if not query_args:
