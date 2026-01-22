@@ -322,6 +322,14 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
     cmc.storage_path = os.path.join(project_root, ".auto-coder", "context")
     gcm = get_context_manager(config=cmc)
 
+    # 清理历史
+    _all_conversations = [i['conversation_id'] for i in gcm.list_conversations(sort_by='updated_at')]
+    if len(_all_conversations) > 20:
+        printer.print_text(f"历史会话已经超过 20 [{len(_all_conversations)}], 默认保留 20 个历史会话",
+                           style=COLOR_WARNING)
+        for _delete_conversation_id in _all_conversations[20:]:
+            gcm.delete_conversation(_delete_conversation_id)
+
     used_subagent_list = []
     if "/sub:reader" in query:
         query = query.replace("/sub:reader", "", 1).strip()

@@ -36,10 +36,10 @@ COMMANDS = {
         "/sub:agentic_rag": "",
         "/new": "",
         "/resume": ""},
-    "/editor": {"/rules.md": "", "/agents.md": "", "/share.md": ""},
+    # "/editor": {"/rules.md": "", "/agents.md": "", "/share.md": ""},
     # "/rules": {"/list": "", "/show": "", "/remove": "", "/analyze": "", "/commit": ""},
     "/rules": {"/show": "", "/analyze": "", "/clear": ""},
-    "/context": {"/list": "", "/remove": ""}
+    # "/context": {"/list": "", "/remove": ""}
 }
 
 
@@ -335,7 +335,7 @@ class CommandCompleter(Completer):
                     if mode.startswith(left_word.strip()):
                         yield Completion(mode, start_position=-len(left_word.strip()))
 
-            if words[0] in ("/add_files", "/editor"):
+            if words[0] == "/add_files":    # "/editor"
                 new_text = text[len(words[0]):]
                 parser = CommandTextParser(new_text, words[0])
                 parser.add_files()
@@ -560,7 +560,7 @@ class CommandCompleter(Completer):
                     if current_word and current_word in file_name:
                         yield Completion(file_name, start_position=-len(current_word))
 
-            elif words[0] in ["/index", "/git", "/models", "/help", "/rules", "/context", "/exclude_files"]:
+            elif words[0] in ["/index", "/git", "/models", "/help", "/rules", "/exclude_files"]:
                 new_text = text[len(words[0]):]
                 parser = CommandTextParser(new_text, words[0])
                 parser.add_files()

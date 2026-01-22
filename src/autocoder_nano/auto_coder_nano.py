@@ -9,15 +9,14 @@ import uuid
 from autocoder_nano.utils.file_utils import load_tokenizer
 from autocoder_nano.edit import run_edit
 from autocoder_nano.helper import show_help
-from autocoder_nano.index import (index_export, index_import, extract_symbols)
+from autocoder_nano.index import extract_symbols
 from autocoder_nano.rules import rules_from_active_files, get_rules_context
 from autocoder_nano.core import AutoLLM
 from autocoder_nano.actypes import *
 from autocoder_nano.acmodels import BUILTIN_MODELS
 from autocoder_nano.acrunner import (chat_command, new_index_command,
                                      execute_shell_command,
-                                     generate_shell_command, revert, auto_command, context_command,
-                                     editor_command)
+                                     generate_shell_command, revert, auto_command)
 from autocoder_nano.utils.completer_utils import CommandCompleter
 from autocoder_nano.version import __version__
 from autocoder_nano.templates import create_actions
@@ -54,10 +53,11 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 # /rag/build, /index/build 合并为 /index, 移除 /rag/query, /index/query
 # 移除 /mode
 # /revert, /commit, 合并为 /git
+# 移除 /shell, /editor, /context
 commands = [
-    "/add_files", "/remove_files", "/list_files", "/conf", "/coding", "/chat",
-    "/exclude_dirs", "/exclude_files", "/help", "/shell", "/exit", "/models",
-    "/rules", "/auto", "/editor", "/context", "/index", "/git"
+    "/add_files", "/remove_files", "/list_files", "/exclude_dirs", "/exclude_files",       # 文件管理
+    "/help", "/exit", "/models", "/conf", "/index", "/git", "/rules",                  # 辅助功能
+    "/coding", "/chat", "/auto"                                                        # 核心功能
 ]
 
 memory = {
@@ -1218,9 +1218,9 @@ def main():
             elif user_input.startswith("/remove_files"):
                 file_names = user_input[len("/remove_files"):].strip().split(",")
                 remove_files(file_names)
-            elif user_input.startswith("/editor"):
-                editor_files = user_input[len("/editor"):].strip().split()
-                editor_command(project_root, editor_files)
+            # elif user_input.startswith("/editor"):
+            #     editor_files = user_input[len("/editor"):].strip().split()
+            #     editor_command(project_root, editor_files)
             elif user_input.startswith("/index"):
                 index_args = user_input[len("/index"):].strip().split()
                 if not index_args:
@@ -1237,12 +1237,12 @@ def main():
             # elif user_input.startswith("/rag/query"):
             #     query = user_input[len("/rag/query"):].strip()
             #     rag_query_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
-            elif user_input.startswith("/index/export"):
-                export_path = user_input[len("/index/export"):].strip()
-                index_export(project_root, export_path)
-            elif user_input.startswith("/index/import"):
-                import_path = user_input[len("/index/import"):].strip()
-                index_import(project_root, import_path)
+            # elif user_input.startswith("/index/export"):
+            #     export_path = user_input[len("/index/export"):].strip()
+            #     index_export(project_root, export_path)
+            # elif user_input.startswith("/index/import"):
+            #     import_path = user_input[len("/index/import"):].strip()
+            #     index_import(project_root, import_path)
             elif user_input.startswith("/list_files"):
                 list_files()
             elif user_input.startswith("/conf"):
@@ -1285,12 +1285,12 @@ def main():
                     printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
                     continue
                 auto_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
-            elif user_input.startswith("/context"):
-                context_args = user_input[len("/context"):].strip().split()
-                if not context_args:
-                    printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
-                    continue
-                context_command(project_root, context_args)
+            # elif user_input.startswith("/context"):
+            #     context_args = user_input[len("/context"):].strip().split()
+            #     if not context_args:
+            #         printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
+            #         continue
+            #     context_command(project_root, context_args)
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:
@@ -1316,13 +1316,14 @@ def main():
                 query = user_input[len("/exclude_files"):].strip()
                 exclude_files(query)
             else:
-                command = user_input
-                if user_input.startswith("/shell"):
-                    command = user_input[len("/shell"):].strip()
-                if not command:
-                    printer.print_text(Text("Please enter a shell command to execute.", style=COLOR_ERROR))
-                else:
-                    execute_shell_command(command)
+                printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
+                # command = user_input
+                # if user_input.startswith("/shell"):
+                #     command = user_input[len("/shell"):].strip()
+                # if not command:
+                #     printer.print_text(Text("Please enter a shell command to execute.", style=COLOR_ERROR))
+                # else:
+                #     execute_shell_command(command)
         except KeyboardInterrupt:
             continue
         except EOFError:
