@@ -1269,8 +1269,7 @@ def main():
                     continue
                 rules(query_args=query_args, llm=auto_llm)
             elif user_input.startswith("/help"):
-                query = user_input[len("/help"):].strip()
-                show_help(query)
+                show_help()
             elif user_input.startswith("/exit"):
                 raise EOFError()
             elif user_input.startswith("/coding"):
