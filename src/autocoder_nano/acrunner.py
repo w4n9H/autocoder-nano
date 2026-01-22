@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 from datetime import datetime
+from typing import List
 
 from rich.text import Text
 from rich.live import Live
@@ -117,6 +118,18 @@ def chat_command(project_root: str, query: str, memory: dict, llm: AutoLLM):
         fp.write(json.dumps(chat_history, indent=2, ensure_ascii=False))
         sfp.write(assistant_response)
     return
+
+
+def new_index_command(index_args: List[str], project_root: str, memory: dict, llm: AutoLLM):
+    """
+      /index /code
+      /index /rag
+    """
+    if index_args[0] == "/code":
+        index_command(project_root, memory, llm)
+
+    if index_args[0] == "/rag":
+        rag_build_command(project_root, memory, llm)
 
 
 def index_command(project_root: str, memory: dict, llm: AutoLLM):
@@ -308,6 +321,14 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
     cmc = ContextManagerConfig()
     cmc.storage_path = os.path.join(project_root, ".auto-coder", "context")
     gcm = get_context_manager(config=cmc)
+
+    # 清理历史
+    _all_conversations = [i['conversation_id'] for i in gcm.list_conversations(sort_by='updated_at')]
+    if len(_all_conversations) > 20:
+        printer.print_text(f"历史会话已经超过 20 [{len(_all_conversations)}], 默认保留 20 个历史会话",
+                           style=COLOR_WARNING)
+        for _delete_conversation_id in _all_conversations[20:]:
+            gcm.delete_conversation(_delete_conversation_id)
 
     used_subagent_list = []
     if "/sub:reader" in query:
