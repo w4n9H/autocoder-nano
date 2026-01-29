@@ -51,11 +51,9 @@ class BaseAgent:
     def __init__(self, args: AutoCoderArgs, llm: AutoLLM):
         self.args = args
         self.llm = llm
-        # self.conversation_manager = get_context_manager()
-        # self.tool_resolver_map = {}  # 子类填充具体工具实现
 
         # main agent printer prefix
-        self.mapp = "* (main:agent) "
+        self.mapp = "* (agent) "
 
     @staticmethod
     def get_tool_display_message(tool: BaseTool) -> str:
@@ -457,14 +455,14 @@ class BaseAgent:
                     content=Markdown(result.content),
                     title="Todo List",
                     border_style=COLOR_INFO,
-                    center=True)
+                    center=False)
         if event.tool_name in ["CallSkillsTool"]:
             if result.content:
                 printer.print_panel(
                     content=JSON(result.content),
                     title="Skills Call",
                     border_style=COLOR_INFO,
-                    center=True)
+                    center=False)
 
         # 不在展示具体的代码，以展示 Agent 操作为主
         # content_str = self._format_tool_result_content(result.content)
@@ -600,31 +598,46 @@ class PromptManager:
 
     def __init__(self, args):
         self.args = args
-        self.prompts_dirs = resources.files("autocoder_nano").joinpath("agent/prompt").__str__()
+        self.subagent_define = None  # 新增，缓存加载的 subagent 定义
+        self._load_subagent_define()
+        # self.prompts_dirs = resources.files("autocoder_nano").joinpath("agent/prompt").__str__()
+        #
+        # if not os.path.exists(self.prompts_dirs):
+        #     raise Exception(f"{self.prompts_dirs} 提示词目录不存在")
 
-        if not os.path.exists(self.prompts_dirs):
-            raise Exception(f"{self.prompts_dirs} 提示词目录不存在")
+    # def load_prompt_file(self, agent_type, prompt_type) -> str:
+    #     _prompt_file_name = f"{agent_type}_{prompt_type}_prompt.md"
+    #     _prompt_file_path = os.path.join(self.prompts_dirs, _prompt_file_name)
+    #
+    #     if not os.path.exists(_prompt_file_path):
+    #         raise Exception(f"{_prompt_file_path} 提示词文件不存在")
+    #
+    #     with open(_prompt_file_path, 'r') as fp:
+    #         prompt_str = fp.read()
+    #     return prompt_str
+    def _load_subagent_define(self):
+        if self.subagent_define is None:
+            self.subagent_define = get_subagent_define()
+        return self.subagent_define
 
-    def load_prompt_file(self, agent_type, prompt_type) -> str:
-        _prompt_file_name = f"{agent_type}_{prompt_type}_prompt.md"
-        _prompt_file_path = os.path.join(self.prompts_dirs, _prompt_file_name)
-
-        if not os.path.exists(_prompt_file_path):
-            raise Exception(f"{_prompt_file_path} 提示词文件不存在")
-
-        with open(_prompt_file_path, 'r') as fp:
-            prompt_str = fp.read()
-        return prompt_str
+    def system_prompt(self, agent_type: str) -> str:
+        subagent = self.subagent_define
+        if agent_type not in subagent:
+            raise Exception(f"未找到 Agent 类型: {agent_type}")
+        prompt_list = subagent[agent_type].get("prompt", [])
+        if not prompt_list:
+            raise Exception(f"Agent {agent_type} 未配置提示词")
+        return "".join(prompt_list)  # 直接拼接列表
 
     @prompt()
-    def prompt_sysinfo(self):
+    def sysinfo_prompt(self):
         """
         # 系统信息
 
-        操作系统：{{os_distribution}}
-        默认 Shell：{{shell_type}}
-        主目录：{{home_dir}}
-        当前工作目录：{{current_project}}
+        - 操作系统：{{os_distribution}}
+        - 默认 Shell：{{shell_type}}
+        - 主目录：{{home_dir}}
+        - 当前工作目录：{{current_project}}
 
         {% if rules_context %}
         # RULES
@@ -643,12 +656,19 @@ class PromptManager:
             "rules_context": get_rules_context(self.args.source_dir)
         }
 
-    @staticmethod
-    def subagent_info(used_subagent: list[str]) -> str:
-        subagent_use_info = "## SubAgent 类型\n"
-        subagent_define = get_subagent_define()
+    def subagent_prompt(self, used_subagent: list[str]) -> str:
+        subagent_prompt_list = [
+            "# SubAgent 类型\n",
+            "\n"
+        ]
+        subagent_define = self.subagent_define
         for sub in used_subagent:
             if sub in subagent_define:
                 subagent = subagent_define[sub]
-                subagent_use_info += f"### {sub.title()}\n{subagent['description']}\n{subagent['call']}\n\n"
-        return subagent_use_info
+                # subagent_use_info += f"### {sub.title()}\n{subagent['description']}\n{subagent['call']}\n\n"
+                subagent_prompt_list.append(f"## {sub.title()}\n")
+                subagent_prompt_list.append(f"\n")
+                subagent_prompt_list.append(f"- 描述：{subagent['description']}\n")
+                subagent_prompt_list.append(f"- 调用时机：{subagent['call']}\n")
+                subagent_prompt_list.append(f"\n")
+        return "".join(subagent_prompt_list)

@@ -330,26 +330,6 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
         for _delete_conversation_id in _all_conversations[20:]:
             gcm.delete_conversation(_delete_conversation_id)
 
-    used_subagent_list = []
-    if "/sub:reader" in query:
-        query = query.replace("/sub:reader", "", 1).strip()
-        used_subagent_list.append("reader")
-    if "/sub:coding" in query:
-        query = query.replace("/sub:coding", "", 1).strip()
-        used_subagent_list.extend(["reader", "coding"])
-    if "/sub:research" in query:
-        query = query.replace("/sub:research", "", 1).strip()
-        used_subagent_list.append("research")
-    if "/sub:codereview" in query:
-        query = query.replace("/sub:codereview", "", 1).strip()
-        used_subagent_list.append("codereview")
-    if "/sub:agentic_rag" in query:
-        query = query.replace("/sub:agentic_rag", "", 1).strip()
-        used_subagent_list.append("agentic_rag")
-
-    if not used_subagent_list:
-        used_subagent_list.extend(["reader", "coding"])    # 默认只带 reader + coding subagent
-
     def _printer_resume_conversation(_conversation_id):
         printer.print_panel(
             Text(f"Agent 恢复对话[{_conversation_id}]", style=COLOR_SUCCESS),
@@ -407,7 +387,8 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
 
     run_main_agentic(llm=llm, args=args, conversation_config=conversation_config,
-                     used_subagent=list(set(used_subagent_list)))
+                     mainagent='coding',
+                     subagents=['reader', 'research', 'agentic_rag'])
 
 
 def context_command(project_root, context_args):
