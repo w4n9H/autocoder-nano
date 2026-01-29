@@ -69,40 +69,47 @@ class SubAgents(BaseAgent):
         3. 你要借助工具逐步完成给定任务，每个工具的使用都需依据前一个工具的使用结果。
         4. 使用工具时需要包含 开始和结束标签, 缺失结束标签会导致工具调用失败
         
-        # 工具使用格式
+        ## 工具使用格式
         
         工具使用采用 XML 风格标签进行格式化。工具名称包含在开始和结束标签内，每个参数同样包含在各自的标签中。其结构如下：
+        
         <tool_name>
         <parameter1_name>value1</parameter1_name>
         <parameter2_name>value2</parameter2_name>
         ...
         </tool_name>
+        
         例如：
+        
         <read_file>
         <path>src/main.js</path>
         </read_file>
         
         一定要严格遵循此工具使用格式，以确保正确解析和执行。
         
-        # 工具列表
+        ## 工具列表
         
         {guides}
         
-        # 错误处理
+        ## 错误处理
+        
         - 如果工具调用失败，你需要分析错误信息，并重新尝试，或者向用户报告错误并请求帮助
         
-        # 工具熔断机制
+        ## 工具熔断机制
+        
         - 工具连续失败3次时启动备选方案或直接结束任务
         - 自动标注行业惯例方案供用户确认
         
-        # 工具调用规范
+        ## 工具调用规范
+        
         - 调用前必须在 <think></think> 内分析：
             * 分析系统环境及目录结构
             * 根据目标选择合适工具
             * 必填参数检查（用户提供或可推断，否则用 `ask_followup_question` 询问）
         - 当所有必填参数齐备或可明确推断后，才关闭思考标签并调用工具
         
-        # 工具使用指南
+        ## 工具使用指南
+        
         1. 开始任务前务必进行全面搜索和探索
         2. 在 <think> 标签中评估已有和继续完成任务所需信息
         3. 根据任务选择合适工具，思考是否需其他信息来推进，以及用哪个工具收集
@@ -119,29 +126,29 @@ class SubAgents(BaseAgent):
         """
 
     def _get_system_prompt(self) -> str:
-        return self.prompt_manager.load_prompt_file(self.agent_type, "system")
+        return self.prompt_manager.system_prompt(self.agent_type)
 
     def _get_skills_pompt(self) -> str:
         _registry = SkillRegistry(args=self.args)
         _registry.scan_skills()
         return _registry.get_skills_summary()
 
+    def _get_sysinfo_prompt(self) -> str:
+        return self.prompt_manager.sysinfo_prompt.prompt()
+
     def _build_system_prompt(self) -> List[Dict[str, Any]]:
         """ 构建初始对话消息 """
         _system_prompt = (
             f""
-            f"{self._get_system_prompt()}\n\n\n"
-            f"=========="
-            f"{self._get_tools_prompt()}\n\n\n"
-            f"=========="
-            f"{self._get_skills_pompt() if self.tool_resolver_factory.has_resolver(CallSkillsTool) else ''}\n\n\n"
-            f"=========="
-            f"{self.prompt_manager.prompt_sysinfo.prompt()}")
+            f"{self._get_system_prompt()}\n"
+            f"----------\n"
+            f"{self._get_tools_prompt()}\n"
+            f"----------\n"
+            f"{self._get_skills_pompt() if self.tool_resolver_factory.has_resolver(CallSkillsTool) else ''}\n"
+            f"----------\n"
+            f"{self._get_sysinfo_prompt()}")
         system_prompt = [
             {"role": "system", "content": _system_prompt}
-            # {"role": "system", "content": self._get_system_prompt()},
-            # {"role": "system", "content": self._get_tools_prompt()},
-            # {"role": "system", "content": self.prompt_manager.prompt_sysinfo.prompt()}
         ]
 
         printer.print_text(f"系统提示词长度(token): {self._count_conversations_tokens(system_prompt)}",
