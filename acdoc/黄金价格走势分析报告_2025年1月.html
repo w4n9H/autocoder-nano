@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黄金价格走势分析报告 - 2025年1月</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Preline/2.0.0/preline.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gold: {
+                            50: '#fefce8',
+                            100: '#fef9c3',
+                            200: '#fef08a',
+                            300: '#fde047',
+                            400: '#facc15',
+                            500: '#eab308',
+                            600: '#ca8a04',
+                            700: '#a16207',
+                            800: '#854d0e',
+                            900: '#713f12',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .gold-gradient {
+            background: linear-gradient(135deg, #fde047 0%, #f59e0b 50%, #d97706 100%);
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-yellow-600 via-yellow-500 to-orange-500 text-white py-12 relative overflow-hidden">
+        <div class="absolute inset-0 opacity-20">
+            <div class="absolute top-4 left-10 text-6xl animate-float">✦</div>
+            <div class="absolute bottom-4 right-20 text-4xl animate-float" style="animation-delay: 1s;">✦</div>
+            <div class="absolute top-1/2 right-1/4 text-3xl animate-float" style="animation-delay: 2s;">✦</div>
+        </div>
+        <div class="container mx-auto px-4 relative z-10">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-4xl md:text-5xl font-bold mb-2">📊 黄金价格走势分析报告</h1>
+                    <p class="text-yellow-100 text-lg">2025年1月市场深度分析与投资策略</p>
+                </div>
+                <div class="hidden md:block text-right">
+                    <div class="text-3xl font-bold">$2,817.56</div>
+                    <div class="text-yellow-100">2025年1月31日收盘价</div>
+                    <div class="text-sm text-green-200 mt-1">↑ 月涨幅超7%</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8 -mt-6 relative z-20">
+        
+        <!-- Price Overview -->
+        <section class="mb-10">
+            <div class="bg-white rounded-2xl shadow-xl p-6 border border-yellow-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <i class="fas fa-chart-line text-yellow-500 mr-3"></i>
+                    一、金价走势概览
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-5 border border-yellow-200 card-hover transition-all duration-300">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-gray-600 text-sm">月初价格</span>
+                            <i class="fas fa-calendar text-yellow-400"></i>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-800">$2,626.23</div>
+                        <div class="text-sm text-gray-500">1月2日开盘</div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-200 card-hover transition-all duration-300">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-gray-600 text-sm">月末价格</span>
+                            <i class="fas fa-trophy text-green-500"></i>
+                        </div>
+                        <div class="text-2xl font-bold text-green-600">$2,817.56</div>
+                        <div class="text-sm text-gray-500">1月31日收盘</div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200 card-hover transition-all duration-300">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-gray-600 text-sm">月度涨幅</span>
+                            <i class="fas fa-arrow-trend-up text-blue-500"></i>
+                        </div>
+                        <div class="text-2xl font-bold text-blue-600">+7.29%</div>
+                        <div class="text-sm text-gray-500">约$191涨幅</div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-5 border border-purple-200 card-hover transition-all duration-300">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-gray-600 text-sm">月度波动区间</span>
+                            <i class="fas fa-wave-square text-purple-500"></i>
+                        </div>
+                        <div class="text-2xl font-bold text-purple-600">$2633-$2817</div>
+                        <div class="text-sm text-gray-500">约184美元波动</div>
+                    </div>
+                </div>
+
+                <!-- Monthly Trend Chart -->
+                <div class="bg-gray-50 rounded-xl p-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">2025年1月国际金价日度走势</h3>
+                    <div class="relative h-64 bg-white rounded-lg p-4 border border-gray-200">
+                        <div class="flex items-end justify-between h-full px-2">
+                            <!-- Simplified chart representation -->
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 20%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">2</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 18%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">3</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-red-400 rounded-t" style="height: 0%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">4</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 45%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">6</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 25%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">7</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 35%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">8</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 48%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">9</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-red-400 rounded-t" style="height: 10%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">10</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-red-400 rounded-t" style="height: 5%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">11</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-red-400 rounded-t" style="height: 8%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">12</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 30%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">13</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 28%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">14</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 42%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">15</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 48%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">16</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 55%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">17</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-red-400 rounded-t" style="height: 12%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">20</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 65%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">21</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 68%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">22</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 72%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">23</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 70%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">24</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-red-400 rounded-t" style="height: 8%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">27</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 35%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">28</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 60%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">29</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-yellow-400 rounded-t" style="height: 78%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">30</span>
+                            </div>
+                            <div class="flex flex-col items-center" style="width:3.5%">
+                                <div class="bg-green-500 rounded-t" style="height: 90%; width: 100%;"></div>
+                                <span class="text-xs text-gray-500 mt-1">31</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-3 text-center">注：图表为简化展示，柱状高度代表当日涨跌幅度</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Key Price Points -->
+        <section class="mb-10">
+            <div class="bg-white rounded-2xl shadow-xl p-6 border border-yellow-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <i class="fas fa-crosshairs text-red-500 mr-3"></i>
+                    二、关键价格节点
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-5 border border-red-200">
+                        <div class="flex items-center mb-3">
+                            <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                            <span class="text-gray-600">月度最高点</span>
+                        </div>
+                        <div class="text-3xl font-bold text-red-600 mb-1">$2,817.56</div>
+                        <div class="text-sm text-gray-500">1月31日 (周五)</div>
+                        <div class="text-xs text-red-400 mt-2">历史新高！突破2800美元</div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-5 border border-yellow-200">
+                        <div class="flex items-center mb-3">
+                            <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                            <span class="text-gray-600">关键突破日</span>
+                        </div>
+                        <div class="text-3xl font-bold text-yellow-600 mb-1">$2,700+</div>
+                        <div class="text-sm text-gray-500">1月16日突破2700</div>
+                        <div class="text-xs text-yellow-600 mt-2">技术性突破，确立涨势</div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-200">
+                        <div class="flex items-center mb-3">
+                            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span class="text-gray-600">月度最低点</span>
+                        </div>
+                        <div class="text-3xl font-bold text-green-600 mb-1">$2,633.25</div>
+                        <div class="text-sm text-gray-500">1月3日 (周五)</div>
+                        <div class="text-xs text-green-400 mt-2">月初短暂回调后持续上涨</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Price Drivers Analysis -->
+        <section class="mb-10">
+            <div class="bg-white rounded-2xl shadow-xl p-6 border border-yellow-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <i class="fas fa-sliders text-blue-500 mr-3"></i>
+                    三、影响金价波动的主要因素
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Factor 1 -->
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center text-white text-xl mr-4">
+                                <i class="fas fa-globe-americas"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-800">地缘政治风险</h3>
+                                <span class="text-blue-600 text-sm">影响力：⭐⭐⭐⭐⭐</span>
+                            </div>
+                        </div>
+                        <ul class="text-gray-600 text-sm space-y-2">
+                            <li><i class="fas fa-check text-blue-500 mr-2"></i>俄乌冲突持续胶着，欧洲地缘风险高企</li>
+                            <li><i class="fas fa-check text-blue-500 mr-2"></i>中东局势动荡，以巴冲突持续</li>
+                            <li><i class="fas fa-check text-blue-500 mr-2"></i>中美关系不确定性，贸易摩擦担忧</li>
+                            <li><i class="fas fa-check text-blue-500 mr-2"></i>避险需求推动资金持续流入黄金市场</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Factor 2 -->
+                    <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-5 border border-purple-200">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center text-white text-xl mr-4">
+                                <i class="fas fa-university"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-800">美联储货币政策</h3>
+                                <span class="text-purple-600 text-sm">影响力：⭐⭐⭐⭐⭐</span>
+                            </div>
+                        </div>
+                        <ul class="text-gray-600 text-sm space-y-2">
+                            <li><i class="fas fa-check text-purple-500 mr-2"></i>市场预期美联储将在2025年降息</li>
+                            <li><i class="fas fa-check text-purple-500 mr-2"></i>1月28日议息会议维持利率不变</li>
+                            <li><i class="fas fa-check text-purple-500 mr-2"></i>鲍威尔强调"数据驱动"，降息时间不确定</li>
+                            <li><i class="fas fa-check text-purple-500 mr-2"></i>降息预期推迟至5-6月，但方向未变</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Factor 3 -->
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-200">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center text-white text-xl mr-4">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-800">美元走势</h3>
+                                <span class="text-green-600 text-sm">影响力：⭐⭐⭐⭐</span>
+                            </div>
+                        </div>
+                        <ul class="text-gray-600 text-sm space-y-2">
+                            <li><i class="fas fa-check text-green-500 mr-2"></i>美元与黄金呈负相关关系</li>
+                            <li><i class="fas fa-check text-green-500 mr-2"></i>美元指数在103-104区间震荡</li>
+                            <li><i class="fas fa-check text-green-500 mr-2"></i>美元走弱将直接支撑金价</li>
+                            <li><i class="fas fa-check text-green-500 mr-2"></i>外汇储备多元化趋势利好黄金</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Factor 4 -->
+                    <div class="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-5 border border-yellow-200">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center text-white text-xl mr-4">
+                                <i class="fas fa-bank"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-800">央行购金需求</h3>
+                                <span class="text-yellow-600 text-sm">影响力：⭐⭐⭐⭐</span>
+                            </div>
+                        </div>
+                        <ul class="text-gray-600 text-sm space-y-2">
+                            <li><i class="fas fa-check text-yellow-500 mr-2"></i>全球央行持续增持黄金储备</li>
+                            <li><i class="fas fa-check text-yellow-500 mr-2"></i>2024年购金量创历史新高</li>
+                            <li><i class="fas fa-check text-yellow-500 mr-2"></i>新兴市场央行是主力买家</li>
+                            <li><i class="fas fa-check text-yellow-500 mr-2"></i>中国央行连续增持黄金储备</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Institutional Forecasts -->
+        <section class="mb-10">
+            <div class="bg-white rounded-2xl shadow-xl p-6 border border-yellow-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <i class="fas fa-building text-indigo-500 mr-3"></i>
+                    四、各大投行预测汇总
+                </h2>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[800px]">
+                        <thead>
+                            <tr class="bg-gradient-to-r from-yellow-400 to-orange-400 text-white">
+                                <th class="py-4 px-4 text-left rounded-tl-xl">投行机构</th>
+                                <th class="py-4 px-4 text-center">2025年预测</th>
+                                <th class="py-4 px-4 text-center">2026年预测</th>
+                                <th class="py-4 px-4 text-center rounded-tr-xl">核心观点</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-yellow-50 transition-colors">
+                                <td class="py-4 px-4">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold mr-3">高</div>
+                                        <div>
+                                            <div class="font-semibold">高盛</div>
+                                            <div class="text-xs text-gray-500">Goldman Sachs</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-red-100 text-red-600 px-3 py-1 rounded-full font-semibold">$4,000</span>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-red-100 text-red-600 px-3 py-1 rounded-full font-semibold">$4,500</span>
+                                </td>
+                                <td class="py-4 px-4 text-center text-sm text-gray-600">极端乐观，央行购金+降息周期</td>
+                            </tr>
+                            <tr class="hover:bg-yellow-50 transition-colors">
+                                <td class="py-4 px-4">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold mr-3">摩</div>
+                                        <div>
+                                            <div class="font-semibold">摩根大通</div>
+                                            <div class="text-xs text-gray-500">JPMorgan</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full font-semibold">$2,850</span>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-red-100 text-red-600 px-3 py-1 rounded-full font-semibold">$5,055</span>
+                                </td>
+                                <td class="py-4 px-4 text-center text-sm text-gray-600">ETF资金流入+零售投资者</td>
+                            </tr>
+                            <tr class="hover:bg-yellow-50 transition-colors">
+                                <td class="py-4 px-4">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-blue-800 rounded-lg flex items-center justify-center text-white font-bold mr-3">摩</div>
+                                        <div>
+                                            <div class="font-semibold">摩根士丹利</div>
+                                            <div class="text-xs text-gray-500">Morgan Stanley</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full font-semibold">$3,300-3,400</span>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-red-100 text-red-600 px-3 py-1 rounded-full font-semibold">$5,700</span>
+                                </td>
+                                <td class="py-4 px-4 text-center text-sm text-gray-600">实物需求+ETF资金流入</td>
+                            </tr>
+                            <tr class="hover:bg-yellow-50 transition-colors">
+                                <td class="py-4 px-4">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center text-white font-bold mr-3">花</div>
+                                        <div>
+                                            <div class="font-semibold">花旗银行</div>
+                                            <div class="text-xs text-gray-500">Citigroup</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full font-semibold">$3,200-3,500</span>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-yellow-100 text-yellow-600 px-3 py-1 rounded-full font-semibold">$3,250</span>
+                                </td>
+                                <td class="py-4 px-4 text-center text-sm text-gray-600">若美国经济转差可能达$3,500</td>
+                            </tr>
+                            <tr class="hover:bg-yellow-50 transition-colors">
+                                <td class="py-4 px-4">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-red-800 rounded-lg flex items-center justify-center text-white font-bold mr-3">瑞</div>
+                                        <div>
+                                            <div class="font-semibold">瑞银集团</div>
+                                            <div class="text-xs text-gray-500">UBS</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full font-semibold">$3,500</span>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-red-100 text-red-600 px-3 py-1 rounded-full font-semibold">$4,700</span>
+                                </td>
+                                <td class="py-4 px-4 text-center text-sm text-gray-600">建议逢低买入</td>
+                            </tr>
+                            <tr class="hover:bg-yellow-50 transition-colors">
+                                <td class="py-4 px-4">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-yellow-600 rounded-lg flex items-center justify-center text-white font-bold mr-3">德</div>
+                                        <div>
+                                            <div class="font-semibold">德商银行</div>
+                                            <div class="text-xs text-gray-500">Commerzbank</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full font-semibold">$3,400</span>
+                                </td>
+                                <td class="py-4 px-4 text-center">
+                                    <span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full font-semibold">$3,600</span>
+                                </td>
+                                <td class="py-4 px-4 text-center text-sm text-gray-600">地缘风险+经济放缓支撑</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Investment Recommendations -->
+        <section class="mb-10">
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-xl p-6 border border-green-200">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <i class="fas fa-lightbulb text-yellow-500 mr-3"></i>
+                    五、综合投资建议
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-xl p-6 shadow-lg border-t-4 border-green-500">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white text-xl mr-3">
+                                <i class="fas fa-thumbs-up"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-800">买入建议</h3>
+                                <span class="text-green-600 text-sm">长期持有型</span>
+                            </div>
+                        </div>
+                        <ul class="text-gray-600 text-sm space-y-2 mb-4">
+                            <li><i class="fas fa-star text-green-500 mr-2"></i>回调至2650-2750美元可分批建仓</li>
+                            <li><i class="fas fa-star text-green-500 mr-2"></i>中长期持有，止损位2600美元</li>
+                            <li><i class="fas fa-star text-green-500 mr-2"></i>仓位控制在10%-15%</li>
+                        </ul>
+                        <div class="text-xs text-gray-400">适合：风险承受能力强，看好长期趋势</div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl p-6 shadow-lg border-t-4 border-yellow-500">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-white text-xl mr-3">
+                                <i class="fas fa-hand-paper"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-800">持有建议</h3>
+                                <span class="text-yellow-600 text-sm">稳健型</span>
+                            </div>
+                        </div>
+                        <ul class="text-gray-600 text-sm space-y-2 mb-4">
+                            <li><i class="fas fa-circle text-yellow-500 mr-2"></i>已持仓者继续持有</li>
+                            <li><i class="fas fa-circle text-yellow-500 mr-2"></i>设置移动止盈，动态调整</li>
+                            <li><i class="fas fa-circle text-yellow-500 mr-2"></i>关注2800-2850美元阻力位</li>
+                        </ul>
+                        <div class="text-xs text-gray-400">适合：已有持仓，稳健操作</div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl p-6 shadow-lg border-t-4 border-red-500">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center text-white text-xl mr-3">
+                                <i class="fas fa-ban"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-800">观望/减持</h3>
+                                <span class="text-red-600 text-sm">谨慎型</span>
+                            </div>
+                        </div>
+                        <ul class="text-gray-600 text-sm space-y-2 mb-4">
+                            <li><i class="fas fa-times text-red-500 mr-2"></i>追高风险大，暂不追涨</li>
+                            <li><i class="fas fa-times text-red-500 mr-2"></i>金价突破3000美元可部分止盈</li>
+                            <li><i class="fas fa-times text-red-500 mr-2"></i>跌破2650美元考虑止损</li>
+                        </ul>
+                        <div class="text-xs text-gray-400">适合：风险厌恶型投资者</div>
+                    </div>
+                </div>
+
+                <!-- Investment Vehicles -->
+                <div class="bg-white rounded-xl p-6 shadow-md mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">推荐投资品种对比</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="font-semibold text-gray-800 mb-2">🏆 银行投资金条</div>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>溢价：低（+10-30元/克）</div>
+                                <div>流动性：好</div>
+                                <div>门槛：中等</div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="font-semibold text-gray-800 mb-2">📈 黄金ETF</div>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>溢价：低</div>
+                                <div>流动性：很好</div>
+                                <div>门槛：低</div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="font-semibold text-gray-800 mb-2">💍 黄金首饰</div>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>溢价：高（+50+元/克）</div>
+                                <div>流动性：差</div>
+                                <div>适合：刚需消费</div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="font-semibold text-gray-800 mb-2">📊 黄金期货</div>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <div>杠杆：高风险</div>
+                                <div>流动性：好</div>
+                                <div>门槛：专业</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Risk Warnings -->
+        <section class="mb-10">
+            <div class="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl shadow-xl p-6 border border-red-200">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+                    六、风险提示
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl p-5 shadow-md">
+                        <h3 class="text-lg font-semibold text-red-600 mb-3">
+                            <i class="fas fa-arrow-down mr-2"></i>下行风险
+                        </h3>
+                        <ul class="text-gray-600 text-sm space-y-2">
+                            <li>⚠️ 美联储推迟降息或转向鹰派</li>
+                            <li>⚠️ 地缘政治局势缓和</li>
+                            <li>⚠️ 全球经济强劲复苏，风险偏好上升</li>
+                            <li>⚠️ 美元指数大幅反弹</li>
+                            <li>⚠️ 央行购金需求放缓</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl p-5 shadow-md">
+                        <h3 class="text-lg font-semibold text-orange-600 mb-3">
+                            <i class="fas fa-wave-square mr-2"></i>波动风险
+                        </h3>
+                        <ul class="text-gray-600 text-sm space-y-2">
+                            <li>⚠️ 金价短期波动可能加剧</li>
+                            <li>⚠️ 快速上涨后可能有技术性回调</li>
+                            <li>⚠️ 关注月度非农、CPI等数据影响</li>
+                            <li>⚠️ 政策不确定性可能引发剧烈波动</li>
+                            <li>⚠️ 实物需求下降可能抑制涨幅</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="mt-6 p-4 bg-yellow-100 rounded-xl border border-yellow-300">
+                    <p class="text-yellow-800 text-sm">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <strong>重要提示：</strong>本报告仅供参考，不构成投资建议。黄金投资有风险，入市需谨慎。投资者应根据自身风险承受能力做出决策，并做好止损和风险管理。过去的表现不代表未来的收益。
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Sources -->
+        <section class="mb-10">
+            <div class="bg-white rounded-2xl shadow-xl p-6 border border-gray-200">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-database text-gray-500 mr-3"></i>
+                    数据来源
+                </h2>
+                <div class="text-sm text-gray-600 space-y-2">
+                    <p>📊 国际金价数据：上海黄金交易所、伦敦金银市场协会(LBMA)</p>
+                    <p>📈 投行预测：各大机构官方研报（高盛、摩根大通、摩根士丹利、花旗、瑞银、德商银行等）</p>
+                    <p>🌐 市场分析：新浪财经、汇通财经、世界黄金协会等专业财经媒体</p>
+                    <p>📅 报告生成时间：2025年1月</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <p class="text-lg font-semibold">黄金价格走势分析报告</p>
+                    <p class="text-gray-400 text-sm">专业、客观的市场分析</p>
+                </div>
+                <div class="text-gray-400 text-sm">
+                    <p>免责声明：本报告仅供参考，不构成投资建议</p>
+                    <p>© 2025 黄金市场分析</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Add smooth scroll behavior
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Add animation on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-fade-in');
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.card-hover').forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'all 0.5s ease-out';
+            observer.observe(card);
+        });
+    </script>
+</body>
+</html>
