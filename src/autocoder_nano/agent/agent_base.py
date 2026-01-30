@@ -4,6 +4,7 @@ import re
 import os
 import xml.sax.saxutils
 from importlib import resources
+from datetime import datetime
 
 from rich.markdown import Markdown
 from rich.text import Text
@@ -600,21 +601,7 @@ class PromptManager:
         self.args = args
         self.subagent_define = None  # 新增，缓存加载的 subagent 定义
         self._load_subagent_define()
-        # self.prompts_dirs = resources.files("autocoder_nano").joinpath("agent/prompt").__str__()
-        #
-        # if not os.path.exists(self.prompts_dirs):
-        #     raise Exception(f"{self.prompts_dirs} 提示词目录不存在")
 
-    # def load_prompt_file(self, agent_type, prompt_type) -> str:
-    #     _prompt_file_name = f"{agent_type}_{prompt_type}_prompt.md"
-    #     _prompt_file_path = os.path.join(self.prompts_dirs, _prompt_file_name)
-    #
-    #     if not os.path.exists(_prompt_file_path):
-    #         raise Exception(f"{_prompt_file_path} 提示词文件不存在")
-    #
-    #     with open(_prompt_file_path, 'r') as fp:
-    #         prompt_str = fp.read()
-    #     return prompt_str
     def _load_subagent_define(self):
         if self.subagent_define is None:
             self.subagent_define = get_subagent_define()
@@ -638,6 +625,7 @@ class PromptManager:
         - 默认 Shell：{{shell_type}}
         - 主目录：{{home_dir}}
         - 当前工作目录：{{current_project}}
+        - 当前时间：{{now_time}}
 
         {% if rules_context %}
         # RULES
@@ -653,7 +641,8 @@ class PromptManager:
             "home_dir": env_info.home_dir,
             "os_distribution": env_info.os_name,
             "shell_type": shell_type,
-            "rules_context": get_rules_context(self.args.source_dir)
+            "rules_context": get_rules_context(self.args.source_dir),
+            "now_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
 
     def subagent_prompt(self, used_subagent: list[str]) -> str:
