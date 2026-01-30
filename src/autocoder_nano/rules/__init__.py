@@ -55,16 +55,12 @@ def rules_from_active_files(files: list[str], llm: AutoLLM, args: AutoCoderArgs)
 
 def get_rules_context(project_root):
     rule_path = os.path.join(project_root, ".auto-coder", "RULES.md")
-    printer.print_text("已开启 Rules 模式", style="green")
-    context = ""
-    if os.path.exists(rule_path):
-        context += f"下面是我们对部分代码进行深入分析,提取具有通用价值的功能模式和设计模式,可在其他需求中复用的Rules\n"
-        context += "你在编写代码时可以参考以下Rules\n"
-        context += "<rules>\n"
+    context = []
+    if os.path.exists(rule_path) and os.path.getsize(rule_path) > 0:
+        printer.print_text(f"已开启 Rules 模式 ({os.path.getsize(rule_path)})", style="green")
         with open(rule_path, "r") as fp:
-            context += f"{fp.read()}\n"
-        context += "</rules>\n"
-    return context
+            context.extend(fp.readlines())
+    return ''.join(context)
 
 
 __all__ = ["get_rules_context", "rules_from_active_files"]
