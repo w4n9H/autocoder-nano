@@ -6,7 +6,7 @@ import json
 import time
 import uuid
 
-from autocoder_nano.utils.file_utils import load_tokenizer
+from autocoder_nano.utils.file_utils import load_tokenizer, auto_count_file_extensions
 from autocoder_nano.edit import run_edit
 from autocoder_nano.helper import show_help
 from autocoder_nano.index import extract_symbols
@@ -606,8 +606,14 @@ def initialize_system():
                         if not os.path.exists(base_persist_dir):
                             os.makedirs(base_persist_dir, exist_ok=True)
                             printer.print_text("创建目录：{}".format(base_persist_dir), style=COLOR_SUCCESS)
-                        project_type = configure_project_type()
+                        count_file_ext = auto_count_file_extensions(project_root)
+                        project_type = ".py"
+                        if len(count_file_ext) > 0:
+                            project_type = ",".join(count_file_ext.keys())
+                        printer.print_text(f"\n项目类型设置为： {project_type}", style=COLOR_SUCCESS)
                         init_project(project_type)
+                        printer.print_text(f"\n您可以稍后使用以下命令更改此设置:", style=COLOR_WARNING)
+                        printer.print_text("/conf project_type:<new_type>", style=COLOR_WARNING)
                     printer.print_text("项目初始化成功.", style=COLOR_SUCCESS)
                 except Exception as e:
                     printer.print_text(f"项目初始化失败, {str(e)}.", style=COLOR_ERROR)
@@ -1099,11 +1105,6 @@ def main():
         finally:
             return
 
-    # MODES = {
-    #     "normal": "正常模式",
-    #     "auto_detect": "自然语言模式",
-    # }
-
     kb = KeyBindings()
 
     @kb.add("c-c")
@@ -1115,17 +1116,6 @@ def main():
             event.app.current_buffer.reset()
         else:
             event.app.exit()
-
-    # @kb.add("c-k")    # 切换模式
-    # def _(event):
-    #     if "mode" not in memory:
-    #         memory["mode"] = "normal"
-    #     current_mode = memory["mode"]
-    #     if current_mode == "normal":
-    #         memory["mode"] = "auto_detect"
-    #     else:
-    #         memory["mode"] = "normal"
-    #     event.app.invalidate()
 
     @kb.add("c-t")  # 新增 Ctrl+T 切换主题
     def _(event):
