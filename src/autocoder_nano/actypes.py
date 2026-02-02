@@ -18,7 +18,7 @@ class AutoCoderArgs(BaseModel):
     index_filter_level: Optional[int] = 0  # 用于查找相关文件的过滤级别
     index_filter_file_num: Optional[int] = -1  #
     index_filter_workers: Optional[int] = 1  # 过滤文件的线程数量
-    index_model_max_input_length: Optional[int] = 6000  # 模型最大输入长度[废弃]
+    # index_model_max_input_length: Optional[int] = 6000  # 模型最大输入长度[废弃]
     filter_batch_size: Optional[int] = 10  #
     anti_quota_limit: Optional[int] = 1  # 请求模型时的间隔时间(s)
     skip_build_index: Optional[bool] = True  # 是否跳过索引构建(索引可以帮助您通过查询找到相关文件)
@@ -29,12 +29,12 @@ class AutoCoderArgs(BaseModel):
     editblock_similarity: Optional[float] = 0.9  # 编辑块相似性
     execute: Optional[bool] = None  # 模型是否生成代码
     context: Optional[str] = None  #
-    human_as_model: Optional[bool] = False  #
-    human_model_num: Optional[int] = 1  #
-    include_project_structure: Optional[bool] = False  # 在生成代码的提示中是否包含项目目录结构
+    # human_as_model: Optional[bool] = False  #
+    # human_model_num: Optional[int] = 1  #
+    # include_project_structure: Optional[bool] = False  # 在生成代码的提示中是否包含项目目录结构
     urls: Optional[Union[str, List[str]]] = ""  # 一些文档的URL/路径，可以帮助模型了解你当前的工作
     # model: Optional[str] = ""  # 您要驱动运行的模型
-    model_max_input_length: Optional[int] = 6000  # 模型最大输入长度[废弃]
+    # model_max_input_length: Optional[int] = 6000  # 模型最大输入长度[废弃]
     skip_confirm: Optional[bool] = False
     silence: Optional[bool] = False
     exclude_files: Optional[Union[str, List[str]]] = ""
@@ -52,7 +52,7 @@ class AutoCoderArgs(BaseModel):
     enable_hybrid_index: bool = False  # 开启混合索引
     disable_auto_window: bool = False
     hybrid_index_max_output_tokens: Optional[int] = 30000
-    rag_type: Optional[str] = "simple"
+    # rag_type: Optional[str] = "simple"
     tokenizer_path: Optional[str] = None
     enable_rag_search: Optional[Union[bool, str]] = False
     enable_rag_context: Optional[Union[bool, str]] = False
@@ -71,26 +71,26 @@ class AutoCoderArgs(BaseModel):
     skip_commit: Optional[bool] = False
 
     # Rules 相关参数
-    enable_rules: Optional[bool] = False
+    # enable_rules: Optional[bool] = False
 
     # Agent 相关参数
     generate_max_rounds: Optional[int] = 5
-    enable_agentic_ask: Optional[bool] = False
-    only_ask: Optional[bool] = False
+    # enable_agentic_ask: Optional[bool] = False
+    # only_ask: Optional[bool] = False
 
     # 模型相关参数
-    current_chat_model: Optional[str] = ""
-    current_code_model: Optional[str] = ""
+    # current_chat_model: Optional[str] = ""
+    # current_code_model: Optional[str] = ""
     model: Optional[str] = ""  # 默认模型
     chat_model: Optional[str] = ""  # AI Chat交互模型
-    index_model: Optional[str] = ""  # 代码索引生成模型
+    # index_model: Optional[str] = ""  # 代码索引生成模型
     code_model: Optional[str] = ""  # 编码模型
-    commit_model: Optional[str] = ""  # Git Commit 模型
+    # commit_model: Optional[str] = ""  # Git Commit 模型
     emb_model: Optional[str] = ""  # RAG Emb 模型
     recall_model: Optional[str] = ""  # RAG 召回阶段模型
     chunk_model: Optional[str] = ""  # 段落重排序模型
     qa_model: Optional[str] = ""  # RAG 提问模型
-    vl_model: Optional[str] = ""  # 多模态模型
+    # vl_model: Optional[str] = ""  # 多模态模型
 
     # 上下文管理相关参数
     conversation_prune_safe_zone_tokens: int = 76800  # 按照常见的 128k 窗口 60% 计算,最佳安全窗口为 76800
