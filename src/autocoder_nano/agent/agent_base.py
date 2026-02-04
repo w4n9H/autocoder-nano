@@ -9,6 +9,7 @@ from datetime import datetime
 from rich.markdown import Markdown
 from rich.text import Text
 from rich.json import JSON
+from prompt_toolkit import prompt as _toolkit_prompt
 
 from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
 from autocoder_nano.core import AutoLLM, prompt
@@ -355,7 +356,15 @@ class BaseAgent:
         changes = get_uncommitted_changes(self.args.source_dir)
 
         if changes != "No uncommitted changes found.":
-            # if not self.args.skip_commit:
+            if not self.args.skip_commit:
+                printer.print_panel(
+                    content=Markdown(changes),
+                    title="代码变更详情",
+                    border_style=COLOR_INFO,
+                    center=False)
+                _is_commit = _toolkit_prompt("是否提交(Commit)以上代码(y/n)：", default="y").strip()
+                if _is_commit != 'y':
+                    return
             # 有变更才进行下一步操作
             prepare_chat_yaml(self.args.source_dir)  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
 

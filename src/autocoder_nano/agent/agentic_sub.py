@@ -328,7 +328,7 @@ class SubAgents(BaseAgent):
         completion_text = ""
         completion_status = False
         try:
-            self._apply_pre_changes()  # 在开始 Agentic 之前先判断是否有未提交变更,有变更则直接退出
+            # self._apply_pre_changes()  # 在开始 Agentic 之前先判断是否有未提交变更,有变更则直接退出
             event_stream = self.analyze(request)
             for event in event_stream:
                 if isinstance(event, TokenUsageEvent):
@@ -370,7 +370,7 @@ class SubAgents(BaseAgent):
                         prefix=self.spp
                     )
                 elif isinstance(event, CompletionEvent):
-                    self._apply_changes(request)  # 在这里完成实际合并
+                    # self._apply_changes(request)  # 在这里完成实际合并
                     # 保存完成结果用于返回
                     completion_text = event.completion.result
                     completion_status = True
