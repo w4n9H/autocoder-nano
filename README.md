@@ -1,5 +1,7 @@
 ## 概述
 
+**版本**: 0.4.13
+
 AutoCoder Nano 是一款轻量级的编码助手, 利用大型语言模型（LLMs）帮助开发者编写, 理解和修改代码。
 
 它提供了一个功能丰富的交互式命令行界面，支持在软件开发场景中与LLMs互动，具备代码生成、Agent模式、文件管理、索引检索、RAG知识库、规则系统、Git集成等全方位功能。
@@ -30,6 +32,7 @@ Auto-Coder 主社区[点击跳转](https://github.com/allwefantasy/auto-coder)
 - **会话管理**：支持会话持久化、上下文切换和长文本处理
 - **知识库集成**：RAG文档检索增强代码理解和生成能力
 - **规则引擎**：基于代码分析自动生成设计模式和最佳实践
+- **主题支持**：内置多种主题，默认cyberpunk风格
 
 **nano/lite/pro 有什么区别？**
 
@@ -46,6 +49,7 @@ Auto-Coder 主社区[点击跳转](https://github.com/allwefantasy/auto-coder)
 - **Git集成**：无缝的版本控制集成，支持智能提交和回滚
 - **多模型支持**：灵活的模型管理系统，支持多供应商和故障切换
 - **会话持久化**：智能的上下文管理和长文本处理能力
+- **丰富工具生态**：内置多种Agent工具，包括文件操作、命令执行、联网搜索、子Agent调用等
 
 **autocoder-nano 的迭代方向：**
 
@@ -467,6 +471,32 @@ auto-coder.nano
 
 #### 6.5.LLM 配置
 
+AutoCoder Nano 支持多种LLM服务提供商，包括：
+
+**内置模型配置：**
+
+| 提供商 | 支持的模型 |
+|--------|-----------|
+| **Volcengine** | DeepSeek R1/V3, Doubao Seed, Kimi-K2 |
+| **iFlow** | Qwen3-Max, GLM-4.7 |
+| **OpenRouter** | Claude Opus/Sonnet, Gemini, GPT-5 |
+| **BigModel** | GLM-4.7 |
+| **MiniMax** | M2-Code |
+
+**配置示例：**
+
+```bash
+# Volcengine DeepSeek
+/models /add_model name=deepseek base_url=https://api.deepseek.com api_key=sk-xxx model=deepseek-r1
+
+# OpenRouter Claude
+/models /add_model name=claude base_url=https://openrouter.ai/api/v1 api_key=sk-xxx model=claude-opus-4
+
+# 使用内置模型配置
+/conf code_model:deepseek-r1
+/conf chat_model:deepseek-v3
+```
+
 #### 6.6.配置管理  
 
 初始设置完成后，可以使用 `/conf` 命令查看和修改配置：
@@ -549,7 +579,7 @@ deepseek-v3 | ✓     | 1.36s  |
 
 ```  
 ✓ 初始化完成。  
-AutoCoder Nano v0.1.5  
+AutoCoder Nano v0.4.13  
 输入 /help 可以查看可用的命令。  
 
 coding@auto-coder.nano:~$  
@@ -561,6 +591,7 @@ coding@auto-coder.nano:~$
 2. 使用 `/coding` 生成或修改代码  
 3. 使用 `/add_files`、`/remove_files` 等命令管理文件  
 4. 使用 `/help` 获取帮助
+5. 按 `Ctrl+T` 切换主题
 
 
 ### 7.使用示例
