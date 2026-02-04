@@ -1,5 +1,7 @@
 ## 概述
 
+**版本**: 0.4.13
+
 AutoCoder Nano 是一款轻量级的编码助手, 利用大型语言模型（LLMs）帮助开发者编写, 理解和修改代码。
 
 它提供了一个功能丰富的交互式命令行界面，支持在软件开发场景中与LLMs互动，具备代码生成、Agent模式、文件管理、索引检索、RAG知识库、规则系统、Git集成等全方位功能。
@@ -30,6 +32,7 @@ Auto-Coder 主社区[点击跳转](https://github.com/allwefantasy/auto-coder)
 - **会话管理**：支持会话持久化、上下文切换和长文本处理
 - **知识库集成**：RAG文档检索增强代码理解和生成能力
 - **规则引擎**：基于代码分析自动生成设计模式和最佳实践
+- **主题支持**：内置多种主题，默认cyberpunk风格
 
 **nano/lite/pro 有什么区别？**
 
@@ -46,6 +49,7 @@ Auto-Coder 主社区[点击跳转](https://github.com/allwefantasy/auto-coder)
 - **Git集成**：无缝的版本控制集成，支持智能提交和回滚
 - **多模型支持**：灵活的模型管理系统，支持多供应商和故障切换
 - **会话持久化**：智能的上下文管理和长文本处理能力
+- **丰富工具生态**：内置多种Agent工具，包括文件操作、命令执行、联网搜索、子Agent调用等
 
 **autocoder-nano 的迭代方向：**
 
@@ -128,15 +132,60 @@ CLI 支持多种命令类别：
 
 | 命令类别     | 示例命令                                         | 用途                  |
 |----------|----------------------------------------------|---------------------|
-| **对话**   | `/chat`, `/coding`, `/auto`                    | 与LLM交互，处理通用查询或代码生成/Agent模式 |
+| **核心功能** | `/auto`, `/coding`, `/chat`                  | Agent模式、代码生成、AI对话 |
 | **文件管理** | `/add_files`, `/remove_files`, `/list_files` | 管理当前上下文中的活动文件       |
-| **配置**   | `/conf`, `/mode`                             | 配置系统设置和行为           |
-| **模型管理** | `/models /add_model`, `/models /list`        | 管理LLM集成设置           |
-| **索引**   | `/index/build`, `/index/query`               | 构建和查询代码索引           |
-| **RAG**    | `/rag/build`, `/rag/query`                   | 构建和查询RAG文档索引        |
+| **配置**   | `/conf`                                      | 配置系统设置和行为           |
+| **模型管理** | `/models /list`, `/models /add`, `/models /check` | 管理LLM集成设置           |
+| **索引**   | `/index /code`, `/index /rag`                | 构建代码索引和RAG索引         |
 | **规则**   | `/rules`                                     | 生成和管理项目规则           |
-| **会话**   | `/context`, `/long_context_auto`             | 管理会话上下文和长上下文处理     |
-| **工具**   | `/help`, `/shell`, `/editor`, `/exit`        | 获取帮助、执行Shell命令、编辑文件或退出应用 |
+| **Git**   | `/git /commit`, `/git /revert`               | 代码提交和撤销             |
+| **帮助**   | `/help`, `/exit`                             | 获取帮助或退出应用           |
+
+**完整命令列表：**
+
+```
+支持的命令：
+  命令                - 描述
+  /auto <query>       - 使用Agent完成你的任务
+      /auto /new <query>      - 创建一个新的会话来完成任务
+      /auto /resume <query>   - 使用历史会话来继续完成任务
+  /chat <query>       - 与AI聊天，获取关于当前活动文件的见解
+      /chat /new <query>      - 开启一个新的AI会话,此时历史沟通记录会移除
+      /chat /history          - 显示你与AI最近几条沟通记录
+  /coding <query>     - 根据需求请求AI修改当前活动文件代码
+      /coding /apply <query>  - 会带上/chat历史记录与AI沟通
+  /help               - 显示此帮助消息
+  /models <subcommand> - 管理LLM模型(/models /list查看,/models /add添加)
+      /models /list           - 列出所有部署模型
+      /models /add            - 添加新的模型
+      /models /check          - 检查所有部署模型的可用性
+  /conf <key>:<value> - 使用/conf <args>:<type>设置你的AutoCoder配置
+  /index              - 与索引相关的操作
+      /index /code            - 触发构建项目代码索引
+      /index /rag             - 为/conf rag_url:<local_path> 设置的目录构建RAG索引
+  /git                - 与Git相关的操作
+      /git /revert            - 撤销上次由 /auto 或 /coding 提交的代码
+      /git /commit            - 根据用户人工修改的代码自动生成yaml文件并提交更改
+  /rules              - 基于当前活动文件或者Commit变更生成功能模式和设计模式
+  /add_files <file1> <file2> ... - 将文件添加到当前会话
+      /add_files /refresh     - 刷新文件，用于新增文件后但是通过/add_files无法添加时
+  /list_files         - 列出当前会话中的所有活跃文件
+  /remove_files <file1>,<file2> ... - 从当前会话中移除文件
+      /remove_files /all      - 移除当前会话中的全部活跃文件
+  /exclude_dirs <dir1>,<dir2> ... - 添加要从项目中排除的目录
+  /exclude_files <pattern>/<subcommand> - 排除文件(/exclude_files /list查看,/exclude_files /drop删除)
+  /exit               - 退出程序
+```
+
+**命令精简说明：**
+
+> **版本更新说明：** 为简化命令体系，近期对命令进行了以下精简：
+> - 移除 `/mode`、`/shell`、`/editor`、`/context` 命令
+> - `/rag/build`、`/index/build` 合并为 `/index`
+> - `/revert`、`/commit` 合并为 `/git`
+> - 新增 `/auto /new`、`/auto /resume` 用于Agent会话管理
+> - 新增 `/index /code`、`/index /rag` 分别处理代码索引和RAG索引
+> - 新增 `/chat /history` 用于查看聊天记录
 
 
 #### 3.2.内存系统
@@ -197,8 +246,8 @@ AutoCoder Nano 支持为聊天/索引和代码生成配置不同模型，以优�
 2. 对于现有项目，配置项目语言（`/conf project_type:py`） 
 3. 配置大语言模型（`/models /add_model`）后 
 4. 即可使用 `/coding` 生成修改代码
-5. `/coding/apply` 使用聊天历史记录
-6. `/index` 管理代码索引
+5. `/coding /apply` 使用聊天历史记录
+6. `/index` 管理代码索引和RAG索引
 7. `/models` 配置模型。
 
 #### 4.2.代码生成流程
@@ -251,19 +300,7 @@ coding@auto-coder.nano:~$ /add_files /group frontend
 /exclude_files /drop "*.log"
 ```
 
-#### 5.2.自然语言编程
-
-AutoCoder Nano 提供自然语言模式以生成和执行脚本：
-
-1. 通过 /mode auto_detect 或 Ctrl+K 切换模式 
-2. 输入自然语言指令 
-3. 系统生成对应脚本 
-4. 用户可审核并执行脚本
-
-此功能弥合了自然语言指令与可执行命令之间的差距。
-
-
-#### 5.3.代码索引与检索
+#### 5.2.代码索引与检索
 
 AutoCoder Nano 构建并维护项目中代码实体的索引：
 
@@ -272,7 +309,16 @@ AutoCoder Nano 构建并维护项目中代码实体的索引：
 - 识别相关文件以提供更好的上下文 
 - 索引系统有助于更有针对性和高效地理解和生成代码
 
-#### 5.4.RAG文档检索
+```bash
+# 构建项目代码索引
+/index /code
+
+# 构建RAG文档索引
+/conf rag_url:/path/to/docs
+/index /rag
+```
+
+#### 5.3.RAG文档检索
 
 支持本地文档的检索增强生成：
 
@@ -281,13 +327,13 @@ AutoCoder Nano 构建并维护项目中代码实体的索引：
 /conf rag_url:/path/to/docs
 
 # 构建RAG索引
-/rag/build
+/index /rag
 
-# 查询RAG文档
-/rag/query <query>
+# 查询RAG文档（通过/chat命令配合使用）
+/chat 基于RAG文档回答我的问题
 ```
 
-#### 5.5.Agent模式
+#### 5.4.Agent模式
 
 提供智能Agent模式处理复杂任务：
 
@@ -299,14 +345,19 @@ AutoCoder Nano 构建并维护项目中代码实体的索引：
 /auto /new <query>
 
 # 恢复Agent会话
-/auto /resume
+/auto /resume <query>
+```
 
-# 处理长上下文
-/long_context_auto
+#### 5.5.Git集成
 
-# 管理会话上下文
-/context /list
-/context /remove
+无缝的版本控制集成：
+
+```bash
+# 撤销上次由 /auto 或 /coding 提交的代码
+/git /revert
+
+# 根据用户人工修改的代码自动生成yaml文件并提交更改
+/git /commit
 ```
 
 #### 5.6.规则系统
@@ -317,22 +368,11 @@ AutoCoder Nano 构建并维护项目中代码实体的索引：
 # 分析当前文件生成规则
 /rules /analyze
 
-# 基于提交生成规则
-/rules /commit <commit_id>
+# 查看规则文件
+/rules /show
 
-# 管理规则文件
-/rules /list
-/rules /show <rule_name>
-/rules /remove <rule_name>
-```
-
-#### 5.7.编辑器集成
-
-直接在编辑器中编辑文件：
-
-```bash
-# 打开文件编辑器
-/editor <file_path>
+# 重置规则文件
+/rules /clear
 ```
 
 ### 6.安装与设置
@@ -371,13 +411,11 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-安装完成后，AutoCoder Nano 提供以下三个主要命令行工具：  
+安装完成后，AutoCoder Nano 提供以下主要命令行工具：  
 
 | 命令                  | 描述                           |  
 |---------------------|------------------------------|  
 | auto-coder.nano     | 代码生成和聊天交互的主界面                |  
-| auto-coder.nano.rag | 基于检索增强生成的上下文感知响应系统           |  
-| auto-coder.nano.ui  | AutoCoder Nano 的基于 Web 的用户界面 |  
 
 
 #### 6.3.项目初始化  
@@ -433,6 +471,32 @@ auto-coder.nano
 
 #### 6.5.LLM 配置
 
+AutoCoder Nano 支持多种LLM服务提供商，包括：
+
+**内置模型配置：**
+
+| 提供商 | 支持的模型 |
+|--------|-----------|
+| **Volcengine** | DeepSeek R1/V3, Doubao Seed, Kimi-K2 |
+| **iFlow** | Qwen3-Max, GLM-4.7 |
+| **OpenRouter** | Claude Opus/Sonnet, Gemini, GPT-5 |
+| **BigModel** | GLM-4.7 |
+| **MiniMax** | M2-Code |
+
+**配置示例：**
+
+```bash
+# Volcengine DeepSeek
+/models /add_model name=deepseek base_url=https://api.deepseek.com api_key=sk-xxx model=deepseek-r1
+
+# OpenRouter Claude
+/models /add_model name=claude base_url=https://openrouter.ai/api/v1 api_key=sk-xxx model=claude-opus-4
+
+# 使用内置模型配置
+/conf code_model:deepseek-r1
+/conf chat_model:deepseek-v3
+```
+
 #### 6.6.配置管理  
 
 初始设置完成后，可以使用 `/conf` 命令查看和修改配置：
@@ -444,30 +508,26 @@ coding@auto-coder.nano:~$ /conf
 | 键                | 值            |  
 |-------------------|---------------|  
 | auto_merge        | editblock     |  
-| chat_model| model-name    |  
-| code_model| model-name    |  
+| chat_model        | model-name    |  
+| code_model        | model-name    |  
 | project_type      | py            |  
 | skip_build_index  | false         |  
 ```
 
-### 关键配置选项  
+**常用配置项：**
 
-| 选项               | 描述         | 示例值              |  
-|------------------|------------|------------------|  
-| auto_merge       | 代码更改的合并策略  | editblock        |  
-| chat_model       | 用于聊天和索引的模型 | deepseek-v3      |  
-| code_model       | 用于代码生成的模型  | deepseek-v3      |  
-| project_type     | 项目语言类型     | py, ts, .py, .ts |  
-| skip_build_index | 跳过自动索引构建   | true, false      |  
-
-修改配置的示例：  
-
-```bash  
+```bash
 # 更改项目类型为 TypeScript  
 /conf project_type:ts  
 
 # 更改代码生成模型  
 /conf code_model:deepseek-r1
+
+# 设置RAG文档路径
+/conf rag_url:/path/to/docs
+
+# 删除配置项
+/conf /drop <key>
 ```
 
 #### 6.7.LLM 管理  
@@ -479,15 +539,6 @@ AutoCoder Nano 需要至少一个配置好的 LLM 才能运行。可以使用 `/
 ```bash  
 /models /list  
 ```  
-
-**显示已配置模型的表格：**
-
-```  
-模型  
-Name         | Model Name      | Base URL  
-------------------------------------------  
-| deepseek-v3 | deepseek-coder  | https://api.deepseek.com |  
-```
 
 **添加新模型**
 
@@ -528,7 +579,7 @@ deepseek-v3 | ✓     | 1.36s  |
 
 ```  
 ✓ 初始化完成。  
-AutoCoder Nano v0.1.5  
+AutoCoder Nano v0.4.13  
 输入 /help 可以查看可用的命令。  
 
 coding@auto-coder.nano:~$  
@@ -540,11 +591,12 @@ coding@auto-coder.nano:~$
 2. 使用 `/coding` 生成或修改代码  
 3. 使用 `/add_files`、`/remove_files` 等命令管理文件  
 4. 使用 `/help` 获取帮助
+5. 按 `Ctrl+T` 切换主题
 
 
-### 8.使用示例
+### 7.使用示例
 
-#### 8.1 基本使用流程
+#### 7.1 基本使用流程
 
 ```bash
 # 1. 启动AutoCoder Nano
@@ -567,10 +619,10 @@ auto-coder.nano
 /coding 添加错误处理逻辑
 
 # 7. 提交更改
-/commit
+/git /commit
 ```
 
-#### 8.2 文件组和排除管理
+#### 7.2 文件组和排除管理
 
 ```bash
 # 创建文件组
@@ -587,50 +639,52 @@ auto-coder.nano
 /exclude_files "*.log,*.tmp"
 ```
 
-#### 8.3 Agent模式使用
+#### 7.3 Agent模式使用
 
 ```bash
 # 使用Agent完成复杂任务
 /auto 重构这个模块，使其支持异步操作
 
-# 处理长上下文任务
-/long_context_auto
+# 创建新的Agent会话
+/auto /new 重构用户认证模块
 
-# 管理Agent会话
-/context /list
+# 恢复之前的Agent会话
+/auto /resume 继续上次的重构任务
 ```
 
-#### 8.4 索引和RAG使用
+#### 7.4 索引和RAG使用
 
 ```bash
-# 构建项目索引
-/index/build
-
-# 查询索引
-/index查询 用户认证相关代码
+# 构建项目代码索引
+/index /code
 
 # 配置和构建RAG
 /conf rag_url:/path/to/docs
-/rag/build
-/rag/query 如何实现用户认证
+/index /rag
+
+# 查看聊天记录
+/chat /history
+
+# 使用聊天历史记录进行代码修改
+/coding /apply 基于之前的讨论添加日志
 ```
 
-#### 8.5 规则系统使用
+#### 7.5 规则系统使用
 
 ```bash
 # 生成项目规则
 /rules /analyze
 
 # 查看规则
-/rules /show project_rules.md
+/rules /show
 
-# 基于提交生成规则
-/rules /commit abc123
+# 重置规则文件
+/rules /clear
 ```
 
-### 9.故障排除
+### 8.故障排除
 
-#### 9.1 常见问题
+#### 8.1 常见问题
 
 **1. 模型连接失败**
 ```bash
@@ -657,11 +711,7 @@ auto-coder.nano
 /add_files /refresh
 ```
 
-**4. 模式切换**
-- 使用 `Ctrl+K` 快速切换正常模式和自然语言模式
-- 使用 `/mode` 命令手动切换模式
-
-#### 9.2 调试模式与启动选项
+#### 8.2 调试模式与启动选项
 
 ```bash
 # 启用调试模式
@@ -702,7 +752,7 @@ auto-coder.nano --agent "重构用户认证模块，添加日志记录"
 auto-coder.nano --agent "更新API文档" --quick
 ```
 
-### 10.总结
+### 9.总结
 
 AutoCoder Nano 通过命令行界面提供轻量级, 多功能的AI辅助编码工具。通过将LLM与文件管理, 代码索引和上下文理解相结合, 它实现了自然语言指令与代码修改的无缝衔接。
 
@@ -712,8 +762,8 @@ AutoCoder Nano 通过命令行界面提供轻量级, 多功能的AI辅助编码�
 - 支持多种编程语言和项目类型 
 - 灵活的配置和模型管理 
 - 上下文感知的代码理解与生成 
-- 自然语言编程能力
 - Agent模式支持复杂任务处理
 - 规则系统辅助代码设计
 - RAG文档检索增强
 - 完整的会话管理
+- Git集成支持版本控制

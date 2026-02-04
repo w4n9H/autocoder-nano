@@ -6,44 +6,36 @@ from pydantic import BaseModel, Field, SkipValidation
 
 
 class AutoCoderArgs(BaseModel):
+    # 核心参数
     request_id: Optional[str] = None  #
     file: Optional[str] = ''  #
     source_dir: Optional[str] = None  # 项目的路径
-    git_url: Optional[str] = None  #
     target_file: Optional[str] = None  # 用于存储 提示词/生成代码 或其他信息的目标文件
     query: Optional[str] = None  # 你想让模型做什么
-    template: Optional[str] = 'common'  #
     project_type: Optional[str] = None  # 项目的类型
+    anti_quota_limit: Optional[int] = 1  # 请求模型时的间隔时间(s)
+    skip_confirm: Optional[bool] = False
+    exclude_files: Optional[Union[str, List[str]]] = ""
+    # /chat,/coding,索引构建
     index_build_workers: Optional[int] = 2  # 构建索引的线程数量
     index_filter_level: Optional[int] = 0  # 用于查找相关文件的过滤级别
     index_filter_file_num: Optional[int] = -1  #
     index_filter_workers: Optional[int] = 1  # 过滤文件的线程数量
-    index_model_max_input_length: Optional[int] = 6000  # 模型最大输入长度[废弃]
     filter_batch_size: Optional[int] = 10  #
-    anti_quota_limit: Optional[int] = 1  # 请求模型时的间隔时间(s)
     skip_build_index: Optional[bool] = True  # 是否跳过索引构建(索引可以帮助您通过查询找到相关文件)
     skip_filter_index: Optional[bool] = True  #
     verify_file_relevance_score: Optional[int] = 6  #
+    template: Optional[str] = 'common'  #
     auto_merge: Optional[Union[bool, str]] = False  # 自动合并代码 True or False, 'editblock'
     enable_multi_round_generate: Optional[bool] = False  # 启用多轮生成
     editblock_similarity: Optional[float] = 0.9  # 编辑块相似性
     execute: Optional[bool] = None  # 模型是否生成代码
     context: Optional[str] = None  #
-    human_as_model: Optional[bool] = False  #
-    human_model_num: Optional[int] = 1  #
-    include_project_structure: Optional[bool] = False  # 在生成代码的提示中是否包含项目目录结构
     urls: Optional[Union[str, List[str]]] = ""  # 一些文档的URL/路径，可以帮助模型了解你当前的工作
-    # model: Optional[str] = ""  # 您要驱动运行的模型
-    model_max_input_length: Optional[int] = 6000  # 模型最大输入长度[废弃]
-    skip_confirm: Optional[bool] = False
-    silence: Optional[bool] = False
-    exclude_files: Optional[Union[str, List[str]]] = ""
-
     # RAG 相关参数
     rag_url: Optional[str] = ""
     rag_doc_filter_relevance: int = 6  # 文档过滤相关性阈值,高于该值才会被认为高度相关
     rag_context_window_limit: Optional[int] = 30000  # RAG上下文窗口大小 120k 60k 30k
-    rag_params_max_tokens: Optional[int] = 4096
     full_text_ratio: Optional[float] = 0.7
     segment_ratio: Optional[float] = 0.2
     buff_ratio: Optional[float] = 0.1
@@ -52,52 +44,33 @@ class AutoCoderArgs(BaseModel):
     enable_hybrid_index: bool = False  # 开启混合索引
     disable_auto_window: bool = False
     hybrid_index_max_output_tokens: Optional[int] = 30000
-    rag_type: Optional[str] = "simple"
     tokenizer_path: Optional[str] = None
     enable_rag_search: Optional[Union[bool, str]] = False
     enable_rag_context: Optional[Union[bool, str]] = False
     disable_segment_reorder: bool = False
-    disable_inference_enhance: bool = False
     duckdb_vector_dim: Optional[int] = 1024  # DuckDB 向量化存储的维度
     duckdb_query_similarity: Optional[float] = 0.7  # DuckDB 向量化检索 相似度 阈值
     duckdb_query_top_k: Optional[int] = 50  # DuckDB 向量化检索 返回 TopK个结果(且大于相似度)
-
     # Web search 相关参数
     search_bocha_key: Optional[str] = None
     search_metaso_key: Optional[str] = None
     search_size: Optional[int] = 10
-
     # Git 相关参数
     skip_commit: Optional[bool] = False
-
-    # Rules 相关参数
-    enable_rules: Optional[bool] = False
-
-    # Agent 相关参数
-    generate_max_rounds: Optional[int] = 5
-    enable_agentic_ask: Optional[bool] = False
-    only_ask: Optional[bool] = False
-
     # 模型相关参数
-    current_chat_model: Optional[str] = ""
-    current_code_model: Optional[str] = ""
     model: Optional[str] = ""  # 默认模型
     chat_model: Optional[str] = ""  # AI Chat交互模型
-    index_model: Optional[str] = ""  # 代码索引生成模型
     code_model: Optional[str] = ""  # 编码模型
-    commit_model: Optional[str] = ""  # Git Commit 模型
     emb_model: Optional[str] = ""  # RAG Emb 模型
     recall_model: Optional[str] = ""  # RAG 召回阶段模型
     chunk_model: Optional[str] = ""  # 段落重排序模型
     qa_model: Optional[str] = ""  # RAG 提问模型
-    vl_model: Optional[str] = ""  # 多模态模型
-
-    # 上下文管理相关参数
+    # Agent 相关参数
+    generate_max_rounds: Optional[int] = 5
     conversation_prune_safe_zone_tokens: int = 76800  # 按照常见的 128k 窗口 60% 计算,最佳安全窗口为 76800
     conversation_prune_ratio: float = 0.7
     conversation_prune_group_size: Optional[int] = 4
     conversation_prune_strategy: Optional[str] = "tool_output_cleanup"
-
     context_prune_strategy: Optional[str] = "extract"
     context_prune: Optional[bool] = True
     context_prune_safe_zone_tokens: Optional[int] = 20000

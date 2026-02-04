@@ -15,7 +15,14 @@ default_exclude_dirs = [
     "actions",
     ".vscode",
     ".idea",
-    ".hg"
+    ".hg",
+    "target",
+    "venv",
+    ".env",
+    "vendor",
+    "bin",
+    "obj",
+    "packages"
 ]
 
 

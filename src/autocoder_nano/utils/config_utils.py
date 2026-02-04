@@ -94,7 +94,8 @@ def convert_yaml_to_config(yaml_file: str | dict | AutoCoderArgs):
             if isinstance(value, str) and value.startswith("ENV"):
                 template = Template(value.removeprefix("ENV").strip())
                 value = template.render(os.environ)
-            setattr(args, key, value)
+            if hasattr(args, key):
+                setattr(args, key, value)
     return args
 
 

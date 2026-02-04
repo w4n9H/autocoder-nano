@@ -4,10 +4,12 @@ import re
 import os
 import xml.sax.saxutils
 from importlib import resources
+from datetime import datetime
 
 from rich.markdown import Markdown
 from rich.text import Text
 from rich.json import JSON
+from prompt_toolkit import prompt as _toolkit_prompt
 
 from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
 from autocoder_nano.core import AutoLLM, prompt
@@ -354,7 +356,15 @@ class BaseAgent:
         changes = get_uncommitted_changes(self.args.source_dir)
 
         if changes != "No uncommitted changes found.":
-            # if not self.args.skip_commit:
+            if not self.args.skip_commit:
+                printer.print_panel(
+                    content=Markdown(changes),
+                    title="代码变更详情",
+                    border_style=COLOR_INFO,
+                    center=False)
+                _is_commit = _toolkit_prompt("是否提交(Commit)以上代码(y/n)：", default="y").strip()
+                if _is_commit != 'y':
+                    return
             # 有变更才进行下一步操作
             prepare_chat_yaml(self.args.source_dir)  # 复制上一个序号的 yaml 文件, 生成一个新的聊天 yaml 文件
 
@@ -600,21 +610,7 @@ class PromptManager:
         self.args = args
         self.subagent_define = None  # 新增，缓存加载的 subagent 定义
         self._load_subagent_define()
-        # self.prompts_dirs = resources.files("autocoder_nano").joinpath("agent/prompt").__str__()
-        #
-        # if not os.path.exists(self.prompts_dirs):
-        #     raise Exception(f"{self.prompts_dirs} 提示词目录不存在")
 
-    # def load_prompt_file(self, agent_type, prompt_type) -> str:
-    #     _prompt_file_name = f"{agent_type}_{prompt_type}_prompt.md"
-    #     _prompt_file_path = os.path.join(self.prompts_dirs, _prompt_file_name)
-    #
-    #     if not os.path.exists(_prompt_file_path):
-    #         raise Exception(f"{_prompt_file_path} 提示词文件不存在")
-    #
-    #     with open(_prompt_file_path, 'r') as fp:
-    #         prompt_str = fp.read()
-    #     return prompt_str
     def _load_subagent_define(self):
         if self.subagent_define is None:
             self.subagent_define = get_subagent_define()
@@ -638,6 +634,7 @@ class PromptManager:
         - 默认 Shell：{{shell_type}}
         - 主目录：{{home_dir}}
         - 当前工作目录：{{current_project}}
+        - 当前时间：{{now_time}}
 
         {% if rules_context %}
         # RULES
@@ -653,7 +650,8 @@ class PromptManager:
             "home_dir": env_info.home_dir,
             "os_distribution": env_info.os_name,
             "shell_type": shell_type,
-            "rules_context": get_rules_context(self.args.source_dir)
+            "rules_context": get_rules_context(self.args.source_dir),
+            "now_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
 
     def subagent_prompt(self, used_subagent: list[str]) -> str:

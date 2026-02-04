@@ -6,7 +6,7 @@ import json
 import time
 import uuid
 
-from autocoder_nano.utils.file_utils import load_tokenizer
+from autocoder_nano.utils.file_utils import load_tokenizer, auto_count_file_extensions
 from autocoder_nano.edit import run_edit
 from autocoder_nano.helper import show_help
 from autocoder_nano.index import extract_symbols
@@ -605,9 +605,15 @@ def initialize_system():
                     if first_time:  # 首次启动,配置项目类型
                         if not os.path.exists(base_persist_dir):
                             os.makedirs(base_persist_dir, exist_ok=True)
-                            printer.print_text("创建目录：{}".format(base_persist_dir), style=COLOR_SUCCESS)
-                        project_type = configure_project_type()
+                            # printer.print_text("创建目录：{}".format(base_persist_dir), style=COLOR_SUCCESS)
+                        count_file_ext = auto_count_file_extensions(project_root)
+                        project_type = ".py"
+                        if len(count_file_ext) > 0:
+                            project_type = ",".join(count_file_ext.keys())
+                        printer.print_text(f"项目类型设置为： {project_type}", style=COLOR_SUCCESS)
                         init_project(project_type)
+                        printer.print_text(f"您可以稍后使用以下命令更改此设置:", style=COLOR_WARNING)
+                        printer.print_text("/conf project_type:<new_type>", style=COLOR_WARNING)
                     printer.print_text("项目初始化成功.", style=COLOR_SUCCESS)
                 except Exception as e:
                     printer.print_text(f"项目初始化失败, {str(e)}.", style=COLOR_ERROR)
@@ -1099,11 +1105,6 @@ def main():
         finally:
             return
 
-    MODES = {
-        "normal": "正常模式",
-        "auto_detect": "自然语言模式",
-    }
-
     kb = KeyBindings()
 
     @kb.add("c-c")
@@ -1115,17 +1116,6 @@ def main():
             event.app.current_buffer.reset()
         else:
             event.app.exit()
-
-    @kb.add("c-k")
-    def _(event):
-        if "mode" not in memory:
-            memory["mode"] = "normal"
-        current_mode = memory["mode"]
-        if current_mode == "normal":
-            memory["mode"] = "auto_detect"
-        else:
-            memory["mode"] = "normal"
-        event.app.invalidate()
 
     @kb.add("c-t")  # 新增 Ctrl+T 切换主题
     def _(event):
@@ -1149,9 +1139,11 @@ def main():
             memory["mode"] = "normal"
         if "theme" not in memory:
             memory["theme"] = "cyberpunk"
-        mode = memory["mode"]
+        current_mode = memory["mode"]
         theme_name = theme.get_theme_name(memory["theme"])
-        return f" 当前模式: {MODES[mode]} (ctl+k 切换模式) | 主题: {theme_name} (ctl+t 切换) | 当前项目: {project_root}"
+        current_project = os.path.basename(project_root)
+        current_model = memory["conf"]["chat_model"]
+        return f" 当前项目: {current_project} | 主题: {theme_name} (ctl+t 切换) | 当前模型: {current_model}"
 
     current_theme_name = memory.get("theme", "cyberpunk")
     current_style = theme.get_theme(current_theme_name)
@@ -1218,31 +1210,12 @@ def main():
             elif user_input.startswith("/remove_files"):
                 file_names = user_input[len("/remove_files"):].strip().split(",")
                 remove_files(file_names)
-            # elif user_input.startswith("/editor"):
-            #     editor_files = user_input[len("/editor"):].strip().split()
-            #     editor_command(project_root, editor_files)
             elif user_input.startswith("/index"):
                 index_args = user_input[len("/index"):].strip().split()
                 if not index_args:
                     printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
                 else:
                     new_index_command(index_args=index_args, project_root=project_root, memory=memory, llm=auto_llm)
-            # elif user_input.startswith("/index/build"):
-            #     index_command(project_root=project_root, memory=memory, llm=auto_llm)
-            # elif user_input.startswith("/index/query"):
-            #     query = user_input[len("/index/query"):].strip()
-            #     index_query_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
-            # elif user_input.startswith("/rag/build"):
-            #     rag_build_command(project_root=project_root, memory=memory, llm=auto_llm)
-            # elif user_input.startswith("/rag/query"):
-            #     query = user_input[len("/rag/query"):].strip()
-            #     rag_query_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
-            # elif user_input.startswith("/index/export"):
-            #     export_path = user_input[len("/index/export"):].strip()
-            #     index_export(project_root, export_path)
-            # elif user_input.startswith("/index/import"):
-            #     import_path = user_input[len("/index/import"):].strip()
-            #     index_import(project_root, import_path)
             elif user_input.startswith("/list_files"):
                 list_files()
             elif user_input.startswith("/conf"):
@@ -1257,11 +1230,6 @@ def main():
                     printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
                 else:
                     git_command(git_args, auto_llm)
-            # elif user_input.startswith("/revert"):
-            #     revert(project_root=project_root)
-            # elif user_input.startswith("/commit"):
-            #     query = user_input[len("/commit"):].strip()
-            #     commit_info(query, auto_llm)
             elif user_input.startswith("/rules"):
                 query_args = user_input[len("/rules"):].strip().split()
                 if not query_args:
@@ -1284,12 +1252,6 @@ def main():
                     printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
                     continue
                 auto_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
-            # elif user_input.startswith("/context"):
-            #     context_args = user_input[len("/context"):].strip().split()
-            #     if not context_args:
-            #         printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
-            #         continue
-            #     context_command(project_root, context_args)
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:
@@ -1302,12 +1264,6 @@ def main():
                     printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
                 else:
                     manage_models(models_args, memory["models"], auto_llm)
-            # elif user_input.startswith("/mode"):
-            #     conf = user_input[len("/mode"):].strip()
-            #     if not conf:
-            #         printer.print_text(f"{memory['mode']} [{MODES[memory['mode']]}]", style=COLOR_SUCCESS)
-            #     else:
-            #         memory["mode"] = conf
             elif user_input.startswith("/exclude_dirs"):
                 dir_names = user_input[len("/exclude_dirs"):].strip().split(",")
                 exclude_dirs(dir_names)
@@ -1316,13 +1272,6 @@ def main():
                 exclude_files(query)
             else:
                 printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
-                # command = user_input
-                # if user_input.startswith("/shell"):
-                #     command = user_input[len("/shell"):].strip()
-                # if not command:
-                #     printer.print_text(Text("Please enter a shell command to execute.", style=COLOR_ERROR))
-                # else:
-                #     execute_shell_command(command)
         except KeyboardInterrupt:
             continue
         except EOFError:
