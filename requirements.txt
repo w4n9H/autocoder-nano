@@ -16,3 +16,4 @@ numpy
 psutil
 cutword
 pandas
+antlr4-python3-runtime==4.7.1
