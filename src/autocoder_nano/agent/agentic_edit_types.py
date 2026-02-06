@@ -140,6 +140,10 @@ class CallSkillsTool(BaseTool):
     )
 
 
+class QueryDataTool(BaseTool):
+    xql: str  # 需要具体执行的SQL语句
+
+
 class CallCusAgentTool(BaseTool):
     """调用自定义代理处理专项任务"""
     task: str  # 子代理处理的具体任务
@@ -229,5 +233,6 @@ TOOL_MODEL_MAP: Dict[str, Type[BaseTool]] = {
     "call_subagent": CallSubAgentTool,
     "use_rag_tool": UseRAGTool,
     "call_skill": CallSkillsTool,
-    "web_reader": WebReaderTool
+    "web_reader": WebReaderTool,
+    "query_data": QueryDataTool
 }

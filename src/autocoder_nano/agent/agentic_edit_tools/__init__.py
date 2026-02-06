@@ -17,6 +17,7 @@ from .call_subagent_tool import CallSubAgentToolResolver
 from .use_rag_tool import UseRAGToolResolver
 from .call_skills_tool import CallSkillsToolResolver
 from .web_reader_tool import WebReaderToolResolver
+from .query_data_tool import QueryDataToolResolver
 
 __all__ = [
     "BaseToolResolver",
@@ -36,5 +37,6 @@ __all__ = [
     "CallSubAgentToolResolver",
     "UseRAGToolResolver",
     "CallSkillsToolResolver",
-    "WebReaderToolResolver"
+    "WebReaderToolResolver",
+    "QueryDataToolResolver"
 ]
