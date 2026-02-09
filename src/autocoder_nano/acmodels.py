@@ -53,14 +53,14 @@ BUILTIN_MODELS = {
         "output_price": 0.0,
         "context": 200000
     },
-    "(OpenRouter)anthropic/claude-opus-4.5": {
+    "(OpenRouter)anthropic/claude-opus-4.6": {
         "id": "7",
         "base_url": "https://openrouter.ai/api/v1",
-        "model_name": "anthropic/claude-opus-4.5",
+        "model_name": "anthropic/claude-opus-4.6",
         "description": "擅长深度编程与复杂工作流",
         "input_price": 0.0,
         "output_price": 0.0,
-        "context": 200000
+        "context": 1000000
     },
     "(OpenRouter)anthropic/claude-sonnet-4.5": {
         "id": "8",
@@ -80,10 +80,10 @@ BUILTIN_MODELS = {
         "output_price": 0.0,
         "context": 1000000
     },
-    "(OpenRouter)openai/gpt-5": {
+    "(OpenRouter)openai/gpt-5.2": {
         "id": "10",
         "base_url": "https://openrouter.ai/api/v1",
-        "model_name": "openai/gpt-5",
+        "model_name": "openai/gpt-5.2",
         "description": "全能型模型，综合能力领先",
         "input_price": 0.0,
         "output_price": 0.0,
