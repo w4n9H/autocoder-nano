@@ -388,7 +388,7 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
 
     run_main_agentic(llm=llm, args=args, conversation_config=conversation_config,
                      mainagent='coding',
-                     subagents=['reader', 'research', 'agentic_rag'])
+                     subagents=['reader', 'research', 'agentic_rag', 'data_analysis'])
 
 
 def context_command(project_root, context_args):
