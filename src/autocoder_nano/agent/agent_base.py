@@ -3,10 +3,10 @@ import json
 import re
 import os
 import xml.sax.saxutils
-from importlib import resources
 from datetime import datetime
 
 from rich.markdown import Markdown
+from rich.syntax import Syntax
 from rich.text import Text
 from rich.json import JSON
 from prompt_toolkit import prompt as _toolkit_prompt
@@ -44,7 +44,8 @@ TOOL_RESOLVER_MAP: Dict[Type[BaseTool], Type[BaseToolResolver]] = {
     CallSubAgentTool: CallSubAgentToolResolver,
     UseRAGTool: UseRAGToolResolver,
     CallSkillsTool: CallSkillsToolResolver,
-    WebReaderTool: WebReaderToolResolver
+    WebReaderTool: WebReaderToolResolver,
+    QueryDataTool: QueryDataToolResolver
 }
 
 
@@ -96,6 +97,8 @@ class BaseAgent:
             context = f"Skill调用: {tool.skill_name}"
         elif isinstance(tool, WebReaderTool):
             context = f"正在读取页面: {tool.url}"
+        elif isinstance(tool, QueryDataTool):
+            context = f"{tool.xql}"
         else:
             context = ""
 
@@ -428,14 +431,21 @@ class BaseAgent:
             return
 
         tool_name = type(event.tool).__name__
-        display_content = self.get_tool_display_message(event.tool)
-        printer.print_text(
-            Text.assemble(
-                (f"{tool_name}: ", COLOR_SYSTEM),
-                (f"{display_content}", COLOR_INFO)
-            ),
-            prefix=self.mapp
-        )
+        if isinstance(event.tool, QueryDataTool):
+            printer.print_panel(
+                content=Syntax(
+                    f"{self.get_tool_display_message(event.tool)}", "sql", theme="monokai", line_numbers=True),
+                border_style=COLOR_INFO,
+                title=f"{tool_name}"
+            )
+        else:
+            printer.print_text(
+                Text.assemble(
+                    (f"{tool_name}: ", COLOR_SYSTEM),
+                    (f"{self.get_tool_display_message(event.tool)}", COLOR_INFO)
+                ),
+                prefix=self.mapp
+            )
 
     def _handle_tool_result_event(self, event):
         """处理工具结果事件"""
@@ -443,14 +453,6 @@ class BaseAgent:
             return
 
         result = event.result
-        # if result.success:
-        #     title = f"工具返回: {event.tool_name}"
-        # else:
-        #     title = f"工具返回: {event.tool_name}"
-        # base_content = f"状态: {'成功' if result.success else '失败'}, 信息: {result.message}"
-
-        # 打印基础信息面板
-        # printer.print_text(f"{title}, {base_content}", style=COLOR_INFO, prefix=self.mapp)
         printer.print_text(
             Text.assemble(
                 (f"{event.tool_name} Result: ", COLOR_SYSTEM),
