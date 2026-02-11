@@ -548,7 +548,8 @@ class BaseAgent:
 class ToolResolverFactory:
     """工具解析器工厂"""
 
-    def __init__(self):
+    def __init__(self, agent_define):
+        self.agent_define = agent_define
         self._resolvers: Dict[Type[BaseTool], Type[BaseToolResolver]] = {}
 
     def register_resolver(self, tool_type: Type[BaseTool], resolver_class: Type[BaseToolResolver]) -> None:
@@ -565,7 +566,7 @@ class ToolResolverFactory:
         # printer.print_text(f"✅ 注册工具解析器: {tool_type.__name__} -> {resolver_class.__name__}", style="green")
 
     def register_dynamic_resolver(self, agent_type):
-        subagent = get_subagent_define()
+        subagent = self.agent_define
         if agent_type not in subagent:
             raise Exception(f"未内置该[{agent_type}] Agent 类型")
 
@@ -608,18 +609,12 @@ class ToolResolverFactory:
 class PromptManager:
     """ 提示词管理器 - 集中管理所有提示词模板 """
 
-    def __init__(self, args):
+    def __init__(self, args, agent_define):
         self.args = args
-        self.subagent_define = None  # 新增，缓存加载的 subagent 定义
-        self._load_subagent_define()
-
-    def _load_subagent_define(self):
-        if self.subagent_define is None:
-            self.subagent_define = get_subagent_define()
-        return self.subagent_define
+        self.agent_define = agent_define
 
     def system_prompt(self, agent_type: str) -> str:
-        subagent = self.subagent_define
+        subagent = self.agent_define
         if agent_type not in subagent:
             raise Exception(f"未找到 Agent 类型: {agent_type}")
         prompt_list = subagent[agent_type].get("prompt", [])
@@ -661,7 +656,7 @@ class PromptManager:
             "# SubAgent 类型\n",
             "\n"
         ]
-        subagent_define = self.subagent_define
+        subagent_define = self.agent_define
         for sub in used_subagent:
             if sub in subagent_define:
                 subagent = subagent_define[sub]

@@ -54,11 +54,11 @@ def _generate_agent_type(user_input: str):
 
 
 def run_main_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig,
-                     mainagent: str, subagents: list[str]):
+                     agent_define: dict):
     llm.setup_default_model_name(args.chat_model)
     sources = SourceCodeList([])
     agentic_runner = AgenticRuntime(
-        args=args, llm=llm, agent_type=mainagent, subagents=subagents,
+        args=args, llm=llm, agent_define=agent_define,
         files=sources, history_conversation=[], conversation_config=conversation_config,
     )
     request = AgenticEditRequest(user_input=args.query)

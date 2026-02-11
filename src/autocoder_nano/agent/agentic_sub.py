@@ -22,10 +22,11 @@ printer = Printer()
 
 class SubAgents(BaseAgent):
     def __init__(
-            self, args: AutoCoderArgs, llm: AutoLLM, agent_type: str, files: SourceCodeList,
+            self, args: AutoCoderArgs, llm: AutoLLM, agent_type: str, agent_define: dict, files: SourceCodeList,
             history_conversation: List[Dict[str, Any]]
     ):
         super().__init__(args, llm)
+        self.agent_define = agent_define
         self.agent_type = agent_type
         self.files = files
         self.history_conversation = history_conversation
@@ -35,11 +36,11 @@ class SubAgents(BaseAgent):
         self.agentic_pruner = ConversationsPruner(args=args, llm=self.llm)
 
         # Tools 管理
-        self.tool_resolver_factory = ToolResolverFactory()
+        self.tool_resolver_factory = ToolResolverFactory(self.agent_define)
         self.tool_resolver_factory.register_dynamic_resolver(self.agent_type)
 
         # prompt 管理
-        self.prompt_manager = PromptManager(args=self.args)
+        self.prompt_manager = PromptManager(args=self.args, agent_define=self.agent_define)
 
         # subagent printer prefix
         self.spp = f"* (sub:{self.agent_type}) "

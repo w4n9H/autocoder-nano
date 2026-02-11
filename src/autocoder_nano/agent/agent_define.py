@@ -1,5 +1,6 @@
 SubAgent = {
     "coding": {
+        "type": "main",
         "description": "软件工程师:你是一位技术精湛的软件工程师, 在众多编程语言, 框架, 设计模式和最佳实践方面拥有渊博知识。同时还擅长分析需求与拆解任务",
         "call": "",
         "prompt": [
@@ -101,6 +102,7 @@ SubAgent = {
         ]
     },
     "reader": {
+        "type": "sub",
         "description": "代码检索专家: 负责分析用户需求并从代码库中找出所有相关的文件,为后续的编码工作提供精准的上下文",
         "call": "通常在进行编码任务之前调用，agent_type:reader",
         "prompt": [
@@ -180,6 +182,7 @@ SubAgent = {
         ]
     },
     "research": {
+        "type": "sub",
         "description": "多领域研究专家: 精通技术架构的深度调研,擅长市场分析,行业趋势洞察和产品可行性分析",
         "call": "需要通过联网搜索或者访问网页url获取数据，处理调研或方案决策的任务时，agent_type:research",
         "prompt": [
@@ -292,6 +295,7 @@ SubAgent = {
         ]
     },
     "agentic_rag": {
+        "type": "sub",
         "description": "智能检索增强生成代理：具备自主决策，多步骤推理和工具调用能力，通过动态规划和迭代检索，为用户提供准确，全面且有据可查的答案",
         "call": "需要通过本地知识库检索，自主分析，多步查询才能解决的复杂问题场景，agent_type:agentic_rag",
         "prompt": [
@@ -386,6 +390,7 @@ SubAgent = {
         ]
     },
     "data_analysis": {
+        "type": "sub",
         "description": "数据分析专家：专注于帮助用户理解、处理和分析数据。具备统计知识、数据可视化能力和业务洞察力，能够将复杂数据转化为可操作的见解。",
         "call": "需要读取本地json/csv/parquet文件时，远程查询mysql/pg数据库时(兼容jdbc的tidb/doris也可)，获取远程http "
                 "api数据时，agent_type:data_analysis",
