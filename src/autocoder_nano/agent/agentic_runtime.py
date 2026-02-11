@@ -24,14 +24,16 @@ printer = Printer()
 
 class AgenticRuntime(BaseAgent):
     def __init__(
-            self, args: AutoCoderArgs, llm: AutoLLM, agent_type: str, subagents: list[str],
+            self, args: AutoCoderArgs, llm: AutoLLM,
+            agent_define: dict,
             files: SourceCodeList,
             history_conversation: List[Dict[str, Any]],
             conversation_config: Optional[AgenticEditConversationConfig] = None
     ):
         super().__init__(args, llm)
-        self.agent_type = agent_type
-        self.subagents = subagents
+        self.agent_define = agent_define
+        self.agent_type = self.get_keys_by_type('main')[0]
+        self.subagents = self.get_keys_by_type('sub')
         self.files = files
         self.history_conversation = history_conversation
         self.current_conversations = []
@@ -46,11 +48,11 @@ class AgenticRuntime(BaseAgent):
         self.agentic_pruner = ConversationsPruner(args=args, llm=self.llm)
 
         # Tools 管理
-        self.tool_resolver_factory = ToolResolverFactory()
+        self.tool_resolver_factory = ToolResolverFactory(self.agent_define)
         self.tool_resolver_factory.register_dynamic_resolver(self.agent_type)
 
         # prompt 管理
-        self.prompt_manager = PromptManager(args=self.args)
+        self.prompt_manager = PromptManager(args=self.args, agent_define=self.agent_define)
 
         if self.conversation_config.action == "new":
             conversation_id = self.conversation_manager.create_conversation(
@@ -59,6 +61,14 @@ class AgenticRuntime(BaseAgent):
             self.conversation_manager.set_current_conversation(conversation_id)
         if self.conversation_config.action == "resume" and self.conversation_config.conversation_id:
             self.conversation_manager.set_current_conversation(self.conversation_config.conversation_id)
+
+    def get_keys_by_type(self, target_type):
+        result = []
+        for key, value in self.agent_define.items():
+            # 检查当前项是否包含type字段且等于目标type
+            if isinstance(value, dict) and value.get("type") == target_type:
+                result.append(key)
+        return result
 
     def _reinforce_guidelines(self, conversations, interval=5):
         """ 每N轮对话强化指导原则 """
@@ -142,7 +152,7 @@ class AgenticRuntime(BaseAgent):
         """
 
     def _get_system_prompt(self) -> str:
-        return self.prompt_manager.system_prompt("coding")
+        return self.prompt_manager.system_prompt(self.agent_type)
 
     def _get_subagent_prompt(self) -> str:
         return self.prompt_manager.subagent_prompt(self.subagents)

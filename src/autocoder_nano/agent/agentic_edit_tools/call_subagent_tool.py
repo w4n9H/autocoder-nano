@@ -26,6 +26,7 @@ class CallSubAgentToolResolver(BaseToolResolver):
                 args=self.agent.args,
                 llm=self.agent.llm,  # 复用父代理的LLM
                 agent_type=self.tool.agent_type,
+                agent_define=self.agent.agent_define,
                 files=self.agent.files,  # 共享文件列表
                 history_conversation=[],  # 子代理使用干净的历史
             )

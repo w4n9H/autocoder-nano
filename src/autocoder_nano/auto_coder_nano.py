@@ -5,7 +5,9 @@ import os
 import json
 import time
 import uuid
+import yaml
 
+from autocoder_nano.agent.agent_define import get_subagent_define
 from autocoder_nano.utils.file_utils import load_tokenizer, auto_count_file_extensions
 from autocoder_nano.edit import run_edit
 from autocoder_nano.helper import show_help
@@ -502,7 +504,8 @@ def parse_args(input_args: Optional[List[str]] = None):
     parser.add_argument("--debug", action="store_true", help="开启 debug 模式")
     parser.add_argument("--quick", action="store_true", help="进入 auto-coder.nano 无需初始化系统")
     # 新增 --agent 参数
-    parser.add_argument("--agent", type=str, help="指定要执行的代理指令")
+    parser.add_argument("--agent-define", type=str, help="定义要运行的Agent/SubAgent")
+    parser.add_argument("--agent-query", type=str, help="指定Agent要执行的指令")
 
     if input_args:
         _args = parser.parse_args(input_args)
@@ -1088,10 +1091,16 @@ def main():
     if memory["conf"]["code_model"] not in memory["models"].keys():
         printer.print_text("首选 Code 模型与部署模型不一致, 请使用 /conf code_model:& 设置", style=COLOR_ERROR)
 
-    if _raw_args and _raw_args.agent:
-        instruction = _raw_args.agent
+    if _raw_args and _raw_args.agent_query:
+        _agent_query = f'/new {_raw_args.agent_query}'  # 默认使用新
+        if _raw_args.agent_define:
+            with open(_raw_args.agent_define, 'r', encoding='utf-8') as file:
+                _agent_define = yaml.safe_load(file)
+        else:
+            _agent_define = get_subagent_define()
         try:
-            auto_command(project_root=project_root, memory=memory, query=instruction, llm=auto_llm)
+            auto_command(project_root=project_root, memory=memory, query=_agent_query, llm=auto_llm,
+                         agent_define=_agent_define)
         except Exception as e:
             printer.print_text(
                 Text.assemble(
@@ -1251,7 +1260,8 @@ def main():
                 if not query:
                     printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
                     continue
-                auto_command(project_root=project_root, memory=memory, query=query, llm=auto_llm)
+                auto_command(project_root=project_root, memory=memory, query=query, llm=auto_llm,
+                             agent_define=get_subagent_define())
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:

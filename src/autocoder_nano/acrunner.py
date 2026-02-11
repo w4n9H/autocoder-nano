@@ -314,7 +314,7 @@ def printer_conversation_table(_conversation_list):
     )
 
 
-def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
+def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM, agent_define: dict):
     # args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
     conversation_config = AgenticEditConversationConfig()
     # 获取上下文管理器实例
@@ -386,9 +386,7 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM):
 
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
 
-    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config,
-                     mainagent='coding',
-                     subagents=['reader', 'research', 'agentic_rag', 'data_analysis'])
+    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config, agent_define=agent_define)
 
 
 def context_command(project_root, context_args):
