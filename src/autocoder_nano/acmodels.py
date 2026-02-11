@@ -115,7 +115,17 @@ BUILTIN_MODELS = {
         "input_price": 0.0,
         "output_price": 0.0,
         "context": 256000
+    },
+    "(DeepSeek)deepseek/deepseek-reasoner-v3.2": {
+        "id": "14",
+        "base_url": "https://api.deepseek.com/v1",
+        "model_name": "deepseek-reasoner",
+        "description": "基于DSA稀疏注意力机制，Agent能力强化，擅长数据分析",
+        "input_price": 0.0,
+        "output_price": 0.0,
+        "context": 128000
     }
+
 }
 
 
