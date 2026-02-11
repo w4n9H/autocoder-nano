@@ -1092,7 +1092,7 @@ def main():
         printer.print_text("首选 Code 模型与部署模型不一致, 请使用 /conf code_model:& 设置", style=COLOR_ERROR)
 
     if _raw_args and _raw_args.agent_query:
-        _agent_query = _raw_args.agent_query
+        _agent_query = f'/new {_raw_args.agent_query}'  # 默认使用新
         if _raw_args.agent_define:
             with open(_raw_args.agent_define, 'r', encoding='utf-8') as file:
                 _agent_define = yaml.safe_load(file)

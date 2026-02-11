@@ -152,7 +152,7 @@ class AgenticRuntime(BaseAgent):
         """
 
     def _get_system_prompt(self) -> str:
-        return self.prompt_manager.system_prompt("coding")
+        return self.prompt_manager.system_prompt(self.agent_type)
 
     def _get_subagent_prompt(self) -> str:
         return self.prompt_manager.subagent_prompt(self.subagents)
