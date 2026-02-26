@@ -76,6 +76,10 @@ class AutoCoderArgs(BaseModel):
     context_prune_safe_zone_tokens: Optional[int] = 20000
     context_prune_sliding_window_size: Optional[int] = 1000
     context_prune_sliding_window_overlap: Optional[int] = 100
+    # web 端相关参数
+    web_queue_db_path: Optional[str] = None
+    web_client_id: Optional[str] = None
+    web_message_id: Optional[str] = None
 
     class Config:
         protected_namespaces = ()

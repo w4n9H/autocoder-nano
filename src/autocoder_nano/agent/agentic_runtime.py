@@ -492,3 +492,79 @@ class AgenticRuntime(BaseAgent):
         finally:
             self._delete_old_todo_file()
             printer.print_text(f"Agentic {self.agent_type} 结束", style=COLOR_SUCCESS, prefix=self.mapp)
+
+    def run_in_web(self, request: AgenticEditRequest):
+        from autocoder_nano.core.queue import sqlite_queue
+        project_name = os.path.basename(os.path.abspath(self.args.source_dir))
+
+        try:
+            self._apply_pre_changes()  # 在开始 Agentic 之前先判断是否有未提交变更,有变更则直接退出
+            event_stream = self.analyze(request)
+            for event in event_stream:
+                if isinstance(event, TokenUsageEvent):
+                    pass
+                elif isinstance(event, LLMThinkingEvent):
+                    thinking_steps = [f"{event.text}"]
+                    sqlite_queue.insert_agent_response(
+                        self.args.web_queue_db_path,
+                        self.args.web_client_id,
+                        self.args.web_message_id,
+                        "thinking", thinking_steps)
+                elif isinstance(event, LLMOutputEvent):
+                    output_steps = [f"{event.text}"]
+                    sqlite_queue.insert_agent_response(
+                        self.args.web_queue_db_path,
+                        self.args.web_client_id,
+                        self.args.web_message_id,
+                        "output", output_steps)
+                elif isinstance(event, ToolCallEvent):
+                    tool_name = type(event.tool).__name__
+                    tool_call = {
+                        "name": f"{tool_name}",
+                        "params": f"{event.tool_xml}",
+                        "status": "",
+                        "result": ""
+                    }
+                    sqlite_queue.insert_agent_response(
+                        self.args.web_queue_db_path,
+                        self.args.web_client_id,
+                        self.args.web_message_id,
+                        "tool_call", tool_call)
+                elif isinstance(event, ToolResultEvent):
+                    tool_name = event.tool_name
+                    result = event.result
+                    tool_result = {
+                        "name": f"{tool_name}",
+                        "params": f"{result.message}",
+                        "status": f"{'success' if result.success else 'error'}",
+                        "result": f"{result.content if result.content else ''}"
+                    }
+                    sqlite_queue.insert_agent_response(
+                        self.args.web_queue_db_path,
+                        self.args.web_client_id,
+                        self.args.web_message_id,
+                        "tool_result", tool_result)
+                elif isinstance(event, CompletionEvent):
+                    final_reply = [f"{event.completion.result}"]
+                    sqlite_queue.insert_agent_response(
+                        self.args.web_queue_db_path,
+                        self.args.web_client_id,
+                        self.args.web_message_id,
+                        "final", final_reply)
+                elif isinstance(event, ErrorEvent):
+                    error_message = [f"{event.message}"]
+                    sqlite_queue.insert_agent_response(
+                        self.args.web_queue_db_path,
+                        self.args.web_client_id,
+                        self.args.web_message_id,
+                        "error", error_message)
+                time.sleep(self.args.anti_quota_limit)
+        except Exception as err:
+            error_message = [f"{err}"]
+            sqlite_queue.insert_agent_response(
+                self.args.web_queue_db_path,
+                self.args.web_client_id,
+                self.args.web_message_id,
+                "error", error_message)
+        finally:
+            self._delete_old_todo_file()

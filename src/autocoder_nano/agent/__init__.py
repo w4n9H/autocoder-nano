@@ -1,4 +1,5 @@
 import json
+import os.path
 
 from autocoder_nano.agent.agentic_runtime import AgenticRuntime
 from autocoder_nano.agent.agentic_edit_types import AgenticEditRequest, AgenticEditConversationConfig
@@ -65,4 +66,30 @@ def run_main_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: Age
     agentic_runner.run_in_terminal(request)
 
 
-__all__ = ["AgenticEditConversationConfig", "run_main_agentic"]
+def run_web_agentic(llm: AutoLLM, args: AutoCoderArgs, conversation_config: AgenticEditConversationConfig,
+                    agent_define: dict):
+    # 定制 web 模式相关参数
+    args.web_queue_db_path = os.path.join(args.source_dir, '.auto-coder', 'chat-bot.db')
+
+    from autocoder_nano.core.queue import sqlite_queue
+    messages = sqlite_queue.fetch_pending_user_messages(args.web_queue_db_path)
+    if len(messages) == 1:
+        msg = messages[0]
+        args.web_client_id = msg["client_id"]
+        args.web_message_id = msg["message_id"]
+        args.query = msg["content"]
+        sqlite_queue.mark_user_message_done(args.web_queue_db_path, msg["id"])
+    else:
+        raise Exception(f"当前暂时不支持同时处理多个Agent任务")
+
+    llm.setup_default_model_name(args.chat_model)
+    sources = SourceCodeList([])
+    agentic_runner = AgenticRuntime(
+        args=args, llm=llm, agent_define=agent_define,
+        files=sources, history_conversation=[], conversation_config=conversation_config,
+    )
+    request = AgenticEditRequest(user_input=args.query)
+    agentic_runner.run_in_web(request)
+
+
+__all__ = ["AgenticEditConversationConfig", "run_main_agentic", "run_web_agentic"]
