@@ -3,6 +3,7 @@ import time
 import xml.sax.saxutils
 from copy import deepcopy
 from typing import Generator, Union
+from datetime import datetime
 
 from rich.text import Text
 
@@ -159,7 +160,10 @@ class SubAgents(BaseAgent):
 
     def analyze(self, request: AgenticEditRequest) -> Generator[Union[Any] | None, None, None]:
         self.current_conversations.extend(self._build_system_prompt())
-        self.current_conversations.append({"role": "user", "content": request.user_input})
+        self.current_conversations.append({
+            "role": "user",
+            "content": f"{request.user_input} \n Current Time:{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        })
 
         yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(self.current_conversations))
 
@@ -391,6 +395,6 @@ class SubAgents(BaseAgent):
         except Exception as err:
             printer.print_text(f"SubAgent 执行失败", style=COLOR_ERROR, prefix=self.spp)
             printer.print_llm_output(f"{err}")
-            completion_text = f"SubAgent {self.agent_type.title()} 执行失败: {str(err)}"
+            completion_text = f"SubAgent {self.agent_type} 执行失败: {str(err)}"
 
         return completion_status, completion_text

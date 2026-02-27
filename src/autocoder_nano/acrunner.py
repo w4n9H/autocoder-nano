@@ -10,7 +10,7 @@ from rich.live import Live
 from rich.panel import Panel
 
 from autocoder_nano.actypes import AutoCoderArgs
-from autocoder_nano.agent import AgenticEditConversationConfig, run_main_agentic
+from autocoder_nano.agent import AgenticEditConversationConfig, run_main_agentic, run_web_agentic
 from autocoder_nano.chat import stream_chat_display
 from autocoder_nano.context import ContextManagerConfig, get_context_manager
 from autocoder_nano.core import AutoLLM, prompt, extract_code
@@ -314,7 +314,7 @@ def printer_conversation_table(_conversation_list):
     )
 
 
-def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM, agent_define: dict):
+def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM, agent_define: dict, is_web: bool = False):
     # args = get_final_config(project_root, memory, query=query.strip(), delete_execute_file=True)
     conversation_config = AgenticEditConversationConfig()
     # 获取上下文管理器实例
@@ -386,7 +386,10 @@ def auto_command(project_root: str, memory: dict, query: str, llm: AutoLLM, agen
 
     args = get_final_config(project_root, memory, query=query, delete_execute_file=True)
 
-    run_main_agentic(llm=llm, args=args, conversation_config=conversation_config, agent_define=agent_define)
+    if is_web:
+        run_web_agentic(llm=llm, args=args, conversation_config=conversation_config, agent_define=agent_define)
+    else:
+        run_main_agentic(llm=llm, args=args, conversation_config=conversation_config, agent_define=agent_define)
 
 
 def context_command(project_root, context_args):

@@ -384,23 +384,3 @@ class SkillExecutor:
             })
 
         return results
-
-
-if __name__ == '__main__':
-    _args = AutoCoderArgs(source_dir="/Users/moofs/Code/autocoder-nano")
-    _args.chat_model = "minimax-m2.1"
-    _llm = AutoLLM()
-    _llm.setup_sub_client(
-        client_name="minimax-m2.1",
-        api_key="sk-cp-b-q0ilQQeIi0Q2CR22NQN9PlRhsLYtLFn4DyJ7KM4gc1Z6uEsx0XvwnQ5kijWjxIjo8wb3nYz2wvflxeILPE8J8RdKd8tXg-uBlSax_N3OOYfwhJA0fnWzg",
-        base_url="https://api.minimaxi.com/v1",
-        model_name="MiniMax-M2.1"
-    )
-    _llm.setup_default_model_name("minimax-m2.1")
-    _registry = SkillRegistry(args=_args)
-    _registry.scan_skills()
-    _loader = SkillLoader()
-    _executor = SkillExecutor(_registry, _loader, _llm)
-    print(_executor.execute_skill(
-        skill_name="wttr", request="我想查询上海,深圳,北京的简化天气"
-    ))

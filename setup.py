@@ -34,6 +34,7 @@ setup(
     entry_points={
         'console_scripts': [
             'auto-coder.nano = autocoder_nano.auto_coder_nano:main',
+            'auto-coder.bot = autocoder_nano.auto_coder_web:main',
         ],
     },
     package_dir={"": "src"},
@@ -41,7 +42,8 @@ setup(
     package_data={
         "autocoder_nano": [
             "data/**/*",
-            'agent/prompt/**/*'
+            'app/static/**/*',
+            'app/templates/**/*'
         ],
     },
     install_requires=install_requires,

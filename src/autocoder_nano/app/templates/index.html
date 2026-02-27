@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- 左侧会话列表 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3Z"/>
+                            <path d="M12 12L20 7.5"/>
+                            <path d="M12 12V21"/>
+                            <path d="M12 12L4 7.5"/>
+                        </svg>
+                    </div>
+                    <span class="logo-text">AI Agent</span>
+                </div>
+                <button class="sidebar-close" id="sidebarClose" aria-label="关闭侧边栏">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <button class="new-chat-btn" id="newChatBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                <span>新建会话</span>
+            </button>
+            
+            <div class="chat-list" id="chatList">
+                <!-- 会话列表将通过JS动态生成 -->
+            </div>
+            
+            <div class="sidebar-footer">
+                <span>AI Agent © 2026</span>
+            </div>
+        </aside>
+
+        <!-- 遮罩层（移动端） -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- 主内容区 -->
+        <main class="main">
+            <!-- 移动端头部 -->
+            <header class="mobile-header">
+                <button class="menu-btn" id="menuBtn" aria-label="打开菜单">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 12h18M3 6h18M3 18h18"/>
+                    </svg>
+                </button>
+                <span class="mobile-title">AI Agent</span>
+                <div class="mobile-spacer"></div>
+            </header>
+
+            <!-- 消息输出区 -->
+            <div class="chat-output" id="chatOutput">
+                <!-- 消息将通过JS动态生成 -->
+            </div>
+
+            <!-- 输入区 -->
+            <div class="input-area">
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <textarea 
+                            class="chat-input" 
+                            id="chatInput" 
+                            placeholder="输入你的问题，AI Agent 将为你解答..."
+                            rows="1"
+                        ></textarea>
+                        <div class="input-actions">
+                            <div class="selector" id="modelSelector">
+                                <button class="selector-btn">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="4" y="4" width="16" height="16" rx="2"/>
+                                        <path d="M9 9h6v6H9z"/>
+                                    </svg>
+                                    <span class="selector-text" id="modelText">K2.5</span>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="selector-arrow">
+                                        <path d="M6 9l6 6 6-6"/>
+                                    </svg>
+                                </button>
+                                <div class="selector-dropdown" id="modelDropdown">
+                                    <div class="dropdown-item active" data-value="k2.5">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="4" y="4" width="16" height="16" rx="2"/>
+                                            <path d="M9 9h6v6H9z"/>
+                                        </svg>
+                                        <span>K2.5</span>
+                                    </div>
+                                    <div class="dropdown-item" data-value="gpt4">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <path d="M12 6v6l4 2"/>
+                                        </svg>
+                                        <span>GPT-4</span>
+                                    </div>
+                                    <div class="dropdown-item" data-value="claude">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                            <path d="M2 17l10 5 10-5"/>
+                                            <path d="M2 12l10 5 10-5"/>
+                                        </svg>
+                                        <span>Claude</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="selector" id="agentSelector">
+                                <button class="selector-btn">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 2a3 3 0 013 3v14a3 3 0 01-3 3 3 3 0 01-3-3V5a3 3 0 013-3z"/>
+                                        <path d="M12 8v8"/>
+                                    </svg>
+                                    <span class="selector-text" id="agentText">通用助手</span>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="selector-arrow">
+                                        <path d="M6 9l6 6 6-6"/>
+                                    </svg>
+                                </button>
+                                <div class="selector-dropdown" id="agentDropdown">
+                                    <div class="dropdown-item active" data-value="general">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <path d="M12 16v-4M12 8h.01"/>
+                                        </svg>
+                                        <span>通用助手</span>
+                                    </div>
+                                    <div class="dropdown-item" data-value="code">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="16 18 22 12 16 6"/>
+                                            <polyline points="8 6 2 12 8 18"/>
+                                        </svg>
+                                        <span>代码专家</span>
+                                    </div>
+                                    <div class="dropdown-item" data-value="writing">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 20h9"/>
+                                            <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                        </svg>
+                                        <span>写作助手</span>
+                                    </div>
+                                    <div class="dropdown-item" data-value="analysis">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M3 3v18h18"/>
+                                            <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/>
+                                        </svg>
+                                        <span>数据分析</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="input-btn" id="voiceBtn" title="语音输入">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+                                    <path d="M12 19v4M8 23h8"/>
+                                </svg>
+                            </button>
+                            <!-- 发送按钮（移至此处） -->
+                            <button class="send-btn" id="sendBtn">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                                </svg>
+                                <span>发送</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-hint">
+                    <span>AI 生成内容仅供参考，请仔细甄别</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="static/app.js"></script>
+</body>
+</html>
