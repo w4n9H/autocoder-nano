@@ -3,7 +3,6 @@ import json
 import re
 import os
 import xml.sax.saxutils
-from datetime import datetime
 
 from rich.markdown import Markdown
 from rich.syntax import Syntax
@@ -631,7 +630,6 @@ class PromptManager:
         - 默认 Shell：{{shell_type}}
         - 主目录：{{home_dir}}
         - 当前工作目录：{{current_project}}
-        - 当前时间：{{now_time}}
 
         {% if rules_context %}
         # RULES
@@ -647,8 +645,7 @@ class PromptManager:
             "home_dir": env_info.home_dir,
             "os_distribution": env_info.os_name,
             "shell_type": shell_type,
-            "rules_context": get_rules_context(self.args.source_dir),
-            "now_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            "rules_context": get_rules_context(self.args.source_dir)
         }
 
     def subagent_prompt(self, used_subagent: list[str]) -> str:

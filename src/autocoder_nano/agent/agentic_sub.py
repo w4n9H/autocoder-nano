@@ -3,6 +3,7 @@ import time
 import xml.sax.saxutils
 from copy import deepcopy
 from typing import Generator, Union
+from datetime import datetime
 
 from rich.text import Text
 
@@ -159,7 +160,10 @@ class SubAgents(BaseAgent):
 
     def analyze(self, request: AgenticEditRequest) -> Generator[Union[Any] | None, None, None]:
         self.current_conversations.extend(self._build_system_prompt())
-        self.current_conversations.append({"role": "user", "content": request.user_input})
+        self.current_conversations.append({
+            "role": "user",
+            "content": f"{request.user_input} \n Current Time:{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        })
 
         yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(self.current_conversations))
 

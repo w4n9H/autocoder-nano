@@ -4,8 +4,7 @@ import time
 import xml.sax.saxutils
 from copy import deepcopy
 from typing import Generator, Union
-
-from rich.text import Text
+from datetime import datetime
 
 from autocoder_nano.agent.agent_base import BaseAgent, ToolResolverFactory, PromptManager
 from autocoder_nano.agent.agentic_skills import SkillRegistry
@@ -216,7 +215,8 @@ class AgenticRuntime(BaseAgent):
         self.conversation_manager.set_current_conversation(self.conversation_manager.get_current_conversation_id())
 
         conversations.append({
-            "role": "user", "content": request.user_input
+            "role": "user",
+            "content": f"{request.user_input} \n Current Time:{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         })
         self.conversation_manager.append_message_to_current(
             role="user",
