@@ -660,8 +660,7 @@ class PromptManager:
         for sub in used_subagent:
             if sub in subagent_define:
                 subagent = subagent_define[sub]
-                # subagent_use_info += f"### {sub.title()}\n{subagent['description']}\n{subagent['call']}\n\n"
-                subagent_prompt_list.append(f"## {sub.title()}\n")
+                subagent_prompt_list.append(f"## {sub}\n")
                 subagent_prompt_list.append(f"\n")
                 subagent_prompt_list.append(f"- 描述：{subagent['description']}\n")
                 subagent_prompt_list.append(f"- 调用时机：{subagent['call']}\n")

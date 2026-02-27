@@ -391,6 +391,6 @@ class SubAgents(BaseAgent):
         except Exception as err:
             printer.print_text(f"SubAgent 执行失败", style=COLOR_ERROR, prefix=self.spp)
             printer.print_llm_output(f"{err}")
-            completion_text = f"SubAgent {self.agent_type.title()} 执行失败: {str(err)}"
+            completion_text = f"SubAgent {self.agent_type} 执行失败: {str(err)}"
 
         return completion_status, completion_text

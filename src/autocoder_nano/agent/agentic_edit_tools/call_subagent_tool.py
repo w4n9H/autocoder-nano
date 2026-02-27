@@ -36,15 +36,15 @@ class CallSubAgentToolResolver(BaseToolResolver):
             if completion_status:
                 if completion_text:
                     return ToolResult(success=True,
-                                      message=f"SubAgent({self.tool.agent_type.title()}) 执行成功",
+                                      message=f"SubAgent({self.tool.agent_type}) 执行成功",
                                       content=completion_text)
                 else:
                     return ToolResult(success=False,
-                                      message=f"SubAgent({self.tool.agent_type.title()}) 未返回任何内容",
+                                      message=f"SubAgent({self.tool.agent_type}) 未返回任何内容",
                                       content=None)
             else:
                 return ToolResult(success=False,
-                                  message=f"SubAgent({self.tool.agent_type.title()}) 执行失败",
+                                  message=f"SubAgent({self.tool.agent_type}) 执行失败",
                                   content=completion_text)
         except Exception as e:
             return ToolResult(success=False, message=f"SubAgent 执行失败: {str(e)}",
