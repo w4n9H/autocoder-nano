@@ -257,7 +257,7 @@ function createNewConversation() {
             timestamp: new Date(),
             steps: [{
                 type: 'final',
-                content: '你好！我是AI Agent，有什么可以帮助你的吗？',
+                content: '你好！我是专属 AI 助手(Agent)，有什么可以帮助你的吗？',
                 timestamp: new Date()
             }]
         }],
@@ -286,35 +286,6 @@ function renderMessages() {
     if (!chatOutput) return;
     const conversation = conversations.find(c => c.id === currentConversationId);
     if (!conversation) return;
-
-    // 兼容旧数据结构：如果消息没有 steps 但有旧字段，则转换为 steps
-    conversation.messages.forEach(msg => {
-        if (!msg.steps && msg.role === 'assistant') {
-            msg.steps = [];
-            // 转换 thinking
-            if (Array.isArray(msg.thinking) && msg.thinking.length) {
-                msg.thinking.forEach(content => msg.steps.push({ type: 'thinking', content, timestamp: msg.timestamp }));
-            }
-            // 转换 output
-            if (Array.isArray(msg.output) && msg.output.length) {
-                msg.output.forEach(content => msg.steps.push({ type: 'output', content, timestamp: msg.timestamp }));
-            }
-            // 转换 toolCalls
-            if (Array.isArray(msg.toolCalls)) {
-                msg.toolCalls.forEach(content => msg.steps.push({ type: 'tool_call', content, timestamp: msg.timestamp }));
-            }
-            // 转换 toolResults
-            if (Array.isArray(msg.toolResults)) {
-                msg.toolResults.forEach(content => msg.steps.push({ type: 'tool_result', content, timestamp: msg.timestamp }));
-            }
-            // 转换 final
-            if (msg.finalContent) {
-                msg.steps.push({ type: 'final', content: msg.finalContent, timestamp: msg.timestamp });
-            } else if (msg.content) {
-                msg.steps.push({ type: 'final', content: msg.content, timestamp: msg.timestamp });
-            }
-        }
-    });
 
     const messagesHtml = conversation.messages.map(msg => {
         if (msg.role === 'user') {
@@ -568,19 +539,6 @@ function formatContent(content) {
 function autoResizeTextarea() {
     if (!chatInput) return;
 
-    chatInput.style.height = 'auto';
-    chatInput.style.height = Math.min(chatInput.scrollHeight, 200) + 'px';
-}
-
-function handleInputKeydown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-}
-
-function autoResizeTextarea() {
-    if (!chatInput) return;
     chatInput.style.height = 'auto';
     chatInput.style.height = Math.min(chatInput.scrollHeight, 200) + 'px';
 }

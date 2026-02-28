@@ -193,7 +193,7 @@ button {
     align-items: center;
     gap: var(--space-md);
     padding: var(--space-md) var(--space-lg);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     cursor: pointer;
     transition: all var(--transition-fast);
     margin-bottom: var(--space-xs);
@@ -202,6 +202,7 @@ button {
 
 .chat-item:hover {
     background-color: var(--bg-tertiary);
+    transform: translateX(4px);  /* 悬停时轻微右移 */
 }
 
 .chat-item.active {
@@ -336,7 +337,7 @@ button {
 }
 
 .chat-output::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
 }
 
 .chat-output::-webkit-scrollbar-track {
@@ -358,7 +359,7 @@ button {
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--space-xl);
+    gap: var(--space-lg);
 }
 
 /* Message */
@@ -371,11 +372,11 @@ button {
 @keyframes messageEnter {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(16px) scale(0.98);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
     }
 }
 
@@ -426,13 +427,14 @@ button {
 .message-bubble {
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-light);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xl);
     padding: var(--space-lg);
     font-size: 0.8375rem;
     line-height: 1.0;
     color: var(--text-primary);
     white-space: pre-wrap;
     word-wrap: break-word;  /* 确保长单词也能换行 */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05),0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .message-bubble.user {
@@ -441,6 +443,8 @@ button {
     border: none;
     white-space: pre-line;
     word-wrap: break-word;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    border-radius: var(--radius-xl) var(--radius-xl) 4px var(--radius-xl);  /* 用户消息左下角更尖锐 */
 }
 
 /* ===== Thinking Process ===== */
@@ -673,7 +677,7 @@ button {
 .input-area {
     background-color: var(--bg-primary);
     border-top: 1px solid var(--border-light);
-    padding: var(--space-lg) var(--space-2xl);
+    padding: var(--space-lg) var(--space-2xl) var(--space-lg);
 }
 
 .input-container {
@@ -692,7 +696,7 @@ button {
 
 .input-wrapper:focus-within {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1),0 4px 12px rgba(79, 70, 229, 0.15);
 }
 
 .chat-input {
@@ -765,21 +769,6 @@ button {
 .input-btn:hover {
     background-color: var(--bg-hover);
     color: var(--text-secondary);
-}
-
-/* Input Toolbar */
-.input-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: var(--space-md);
-    padding-top: var(--space-md);
-    border-top: 1px solid var(--border-light);
-}
-
-.toolbar-left {
-    display: flex;
-    gap: var(--space-md);
 }
 
 /* Selector */
@@ -877,7 +866,7 @@ button {
 }
 
 .send-btn:hover {
-    transform: translateY(-1px);
+    transform: translateY(-2px) scale(1.02);
     box-shadow: var(--shadow-md), var(--shadow-glow);
 }
 
@@ -963,15 +952,6 @@ button {
         font-size: 0.9375rem;
     }
     
-    .input-toolbar {
-        flex-wrap: wrap;
-        gap: var(--space-md);
-    }
-    
-    .toolbar-left {
-        flex-wrap: wrap;
-    }
-    
     .selector-btn {
         padding: var(--space-xs) var(--space-sm);
         font-size: 0.8125rem;
@@ -995,15 +975,6 @@ button {
         padding: var(--space-md);
     }
     
-    .input-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .toolbar-left {
-        justify-content: center;
-    }
-    
     .send-btn {
         width: 100%;
         justify-content: center;
@@ -1019,19 +990,6 @@ button {
     display: none !important;
 }
 
-.sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-
-/* 新增 */
 /* 步骤块通用样式 */
 .step-block {
     margin: 12px 0;
