@@ -330,8 +330,7 @@ button {
 
 /* ===== Chat Output ===== */
 .chat-output {
-    flex: 1;                 /* ⭐核心 */
-    display: flex;
+    flex: 1;
     flex-direction: column;
     gap: var(--space-lg);
     overflow-y: auto;        /* 可滚动 */

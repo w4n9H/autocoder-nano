@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026年3月2日黄金价格行情</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e2e8f0;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+        }
+        
+        .price-up {
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        
+        .price-down {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        
+        .gold-icon {
+            background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section-delay-1 { animation-delay: 0.1s; }
+        .section-delay-2 { animation-delay: 0.2s; }
+        .section-delay-3 { animation-delay: 0.3s; }
+        .section-delay-4 { animation-delay: 0.4s; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-8 animate-fade-in">
+            <div class="flex items-center justify-center gap-3 mb-2">
+                <i class="fas fa-coins text-4xl gold-icon"></i>
+                <h1 class="text-3xl md:text-4xl font-bold">2026年3月2日 黄金价格行情</h1>
+            </div>
+            <p class="text-gray-400">黄金现货、期货、足金饰品、回收价格一览</p>
+        </header>
+
+        <!-- International Gold Price -->
+        <section class="glass-card p-6 mb-6 animate-fade-in section-delay-1">
+            <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <i class="fas fa-globe-americas text-yellow-400"></i>
+                国际黄金价格
+            </h2>
+            <div class="grid md:grid-cols-2 gap-4">
+                <div class="bg-gray-800/50 rounded-lg p-4">
+                    <div class="text-sm text-gray-400 mb-1">伦敦金现货</div>
+                    <div class="text-2xl font-bold text-yellow-400">$5,380.41 <span class="text-sm font-normal">/ 盎司</span></div>
+                    <div class="price-up mt-2"><i class="fas fa-arrow-up"></i> +1.95%</div>
+                </div>
+                <div class="bg-gray-800/50 rounded-lg p-4">
+                    <div class="text-sm text-gray-400 mb-1">COMEX黄金期货</div>
+                    <div class="text-2xl font-bold text-yellow-400">$5,395.10 <span class="text-sm font-normal">/ 盎司</span></div>
+                    <div class="price-up mt-2"><i class="fas fa-arrow-up"></i> +1.86%</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Domestic Exchange Price -->
+        <section class="glass-card p-6 mb-6 animate-fade-in section-delay-2">
+            <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <i class="fas fa-university text-yellow-400"></i>
+                上海黄金交易所
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="text-left text-gray-400 border-b border-gray-700">
+                            <th class="pb-3 font-medium">交易品种</th>
+                            <th class="pb-3 font-medium text-right">最新价</th>
+                            <th class="pb-3 font-medium text-right">涨跌</th>
+                            <th class="pb-3 font-medium text-right">涨跌幅</th>
+                            <th class="pb-3 font-medium text-right">最高价</th>
+                            <th class="pb-3 font-medium text-right">最低价</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3">黄金T+D</td>
+                            <td class="py-3 text-right font-semibold">1,159.98 元/克</td>
+                            <td class="py-3 text-right text-green-400">+15.02</td>
+                            <td class="py-3 text-right"><span class="price-up">+1.31%</span></td>
+                            <td class="py-3 text-right">1,160.00</td>
+                            <td class="py-3 text-right">1,142.00</td>
+                        </tr>
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3">黄金9999</td>
+                            <td class="py-3 text-right font-semibold">1,192.30 元/克</td>
+                            <td class="py-3 text-right text-green-400">+49.33</td>
+                            <td class="py-3 text-right"><span class="price-up">+4.32%</span></td>
+                            <td class="py-3 text-right">1,193.80</td>
+                            <td class="py-3 text-right">1,144.20</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3">黄金9995</td>
+                            <td class="py-3 text-right font-semibold">1,190.00 元/克</td>
+                            <td class="py-3 text-right text-green-400">+57.00</td>
+                            <td class="py-3 text-right"><span class="price-up">+5.03%</span></td>
+                            <td class="py-3 text-right">1,195.00</td>
+                            <td class="py-3 text-right">1,175.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Jewelry Brand Price -->
+        <section class="glass-card p-6 mb-6 animate-fade-in section-delay-3">
+            <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <i class="fas fa-gem text-yellow-400"></i>
+                品牌足金饰品价格
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="text-left text-gray-400 border-b border-gray-700">
+                            <th class="pb-3 font-medium">品牌</th>
+                            <th class="pb-3 font-medium text-right">足金饰品</th>
+                            <th class="pb-3 font-medium text-right">铂金饰品</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">周大福</td>
+                            <td class="py-3 text-right text-yellow-400 font-semibold">1,629.00 元/克</td>
+                            <td class="py-3 text-right">931.00 元/克</td>
+                        </tr>
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">老凤祥</td>
+                            <td class="py-3 text-right text-yellow-400 font-semibold">1,620.00 元/克</td>
+                            <td class="py-3 text-right">960.00 元/克</td>
+                        </tr>
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">周生生</td>
+                            <td class="py-3 text-right text-yellow-400 font-semibold">1,622.00 元/克</td>
+                            <td class="py-3 text-right">931.00 元/克</td>
+                        </tr>
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">六福珠宝</td>
+                            <td class="py-3 text-right text-yellow-400 font-semibold">1,624.00 元/克</td>
+                            <td class="py-3 text-right">931.00 元/克</td>
+                        </tr>
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">周六福</td>
+                            <td class="py-3 text-right text-yellow-400 font-semibold">1,624.00 元/克</td>
+                            <td class="py-3 text-right">951.00 元/克</td>
+                        </tr>
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">老庙黄金</td>
+                            <td class="py-3 text-right text-yellow-400 font-semibold">1,620.00 元/克</td>
+                            <td class="py-3 text-right">931.00 元/克</td>
+                        </tr>
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">金至尊</td>
+                            <td class="py-3 text-right text-yellow-400 font-semibold">1,624.00 元/克</td>
+                            <td class="py-3 text-right">931.00 元/克</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 font-medium">菜百</td>
+                            <td class="py-3 text-right text-yellow-400 font-semibold">1,585.00 元/克</td>
+                            <td class="py-3 text-right">775.00 元/克</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Gold Recycling Price -->
+        <section class="glass-card p-6 animate-fade-in section-delay-4">
+            <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <i class="fas fa-recycle text-yellow-400"></i>
+                黄金回收价格
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="text-left text-gray-400 border-b border-gray-700">
+                            <th class="pb-3 font-medium">品种</th>
+                            <th class="pb-3 font-medium text-right">纯度</th>
+                            <th class="pb-3 font-medium text-right">回收价格</th>
+                            <th class="pb-3 font-medium text-right">涨跌</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">999足金</td>
+                            <td class="py-3 text-right">99.9%以上</td>
+                            <td class="py-3 text-right text-green-400 font-semibold">1,140.00 元/克</td>
+                            <td class="py-3 text-right"><span class="price-up"><i class="fas fa-arrow-up"></i> 上涨</span></td>
+                        </tr>
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">22K金</td>
+                            <td class="py-3 text-right">91.6%</td>
+                            <td class="py-3 text-right text-green-400">1,010.00 元/克</td>
+                            <td class="py-3 text-right">-</td>
+                        </tr>
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">18K金</td>
+                            <td class="py-3 text-right">75%</td>
+                            <td class="py-3 text-right text-green-400">832.00 元/克</td>
+                            <td class="py-3 text-right">-</td>
+                        </tr>
+                        <tr class="border-b border-gray-700/50">
+                            <td class="py-3 font-medium">14K金</td>
+                            <td class="py-3 text-right">58.5%</td>
+                            <td class="py-3 text-right text-green-400">643.00 元/克</td>
+                            <td class="py-3 text-right">-</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 font-medium">铂金999</td>
+                            <td class="py-3 text-right">99.9%</td>
+                            <td class="py-3 text-right">495.00 元/克</td>
+                            <td class="py-3 text-right">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="mt-8 text-center text-gray-500 text-sm">
+            <p>数据来源：金投网 | 更新时间：2026年3月2日</p>
+            <p class="mt-1">以上价格仅供参考，请以实际交易价格为准</p>
+        </footer>
+    </div>
+</body>
+</html>
