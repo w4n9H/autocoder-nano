@@ -444,7 +444,40 @@ button {
     white-space: pre-line;
     word-wrap: break-word;
     box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-    border-radius: var(--radius-xl) var(--radius-xl) 4px var(--radius-xl);  /* 用户消息左下角更尖锐 */
+    border-radius: var(--radius-xl);
+}
+
+.message-bubble.generating {
+    display: flex;
+    gap: 6px;
+    padding: 12px 16px;
+    width: fit-content;
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #9ca3af;
+    animation: blink 1.4s infinite;
+}
+
+.dot:nth-child(2) {
+    animation-delay: .2s;
+}
+
+.dot:nth-child(3) {
+    animation-delay: .4s;
+}
+
+@keyframes blink {
+    0%,80%,100% { opacity:.2 }
+    40% { opacity:1 }
+}
+
+.send-btn.disabled {
+    opacity: .5;
+    pointer-events: none;
 }
 
 /* ===== Thinking Process ===== */
@@ -732,7 +765,7 @@ button {
     margin-left: auto;
     flex-shrink: 0;
     /* 保留原有内边距，可根据需要微调 */
-    padding: 8px 18px;
+    /*padding: 8px 18px;*/
 }
 
 /* 缩小内部图标 */
@@ -852,13 +885,16 @@ button {
 
 /* Send Button */
 .send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-md) var(--space-xl);
+    justify-content: center;
+    /*gap: var(--space-sm);*/
+    /*padding: var(--space-md) var(--space-xl);*/
     background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
     color: white;
-    border-radius: var(--radius-md);
     font-size: 0.875rem;
     font-weight: 500;
     transition: all var(--transition-fast);
@@ -1001,6 +1037,16 @@ button {
     line-height: 1.6;
 }
 
+.step-block.thinking-step, .step-block.output-step {
+  border-left: 3px solid #eab308;
+  background: linear-gradient(90deg, rgba(234, 179, 8, 0.05) 0%, transparent 100%);
+}
+
+.step-block.tool-call, .step-block.tool-result {
+  border-left: 3px solid #22c55e;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.05) 0%, transparent 100%);
+}
+
 .step-header {
     display: flex;
     align-items: center;
@@ -1026,6 +1072,7 @@ button {
 .step-icon {
     width: 16px;
     height: 16px;
+    padding: 4px;
     stroke: currentColor;
     stroke-width: 2;
     fill: none;
@@ -1037,7 +1084,7 @@ button {
     stroke: currentColor;
     stroke-width: 2;
     fill: none;
-    transition: transform 0.2s;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .step-toggle.expanded {
@@ -1177,3 +1224,81 @@ button {
     margin-bottom: 0;
 }
 
+/* =====================
+   Timeline Expandable
+===================== */
+
+.timeline-row {
+    display: flex;
+    gap: 10px;
+    cursor: pointer;
+    padding: 2px 0;
+    user-select: none;
+}
+
+.timeline-dot {
+    width: 6px;
+    height: 6px;
+    margin-top: 7px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+}
+
+.timeline-main {
+    flex: 1;
+}
+
+.timeline-label {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+/* hidden by default */
+.timeline-detail {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: all .2s ease;
+}
+
+/* expanded */
+.timeline-detail.open {
+    max-height: 400px;
+    opacity: 1;
+    margin-top: 6px;
+}
+
+.timeline-detail pre {
+    background: #f6f7f9;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    overflow-x: auto;
+}
+
+.step-running {
+    width:10px;
+    height:10px;
+    border:2px solid #d1d5db;
+    border-top:2px solid var(--accent-primary);
+    border-radius:50%;
+    display:inline-block;
+    margin-right:6px;
+    animation:spin .8s linear infinite;
+}
+
+@keyframes spin {
+    from { transform:rotate(0deg); }
+    to { transform:rotate(360deg); }
+}
+
+.step-done {
+    color:#10b981;
+    font-weight:600;
+    margin-right:6px;
+}
+
+.timeline-row:has(.step-running) {
+    color:#111;
+    font-weight:500;
+}

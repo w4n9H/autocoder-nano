@@ -1,5 +1,133 @@
 // ===== Data =====
-let conversations = [];
+let conversationsX = []
+let conversations = [
+    {
+        id: '1',
+        title: '示例对话 - 多步骤演示',
+        updatedAt: new Date(),
+        messages: [
+            {
+                id: 'user-example-1',
+                role: 'user',
+                content: '请帮我分析一下今天的天气，并推荐出行方案。',
+                timestamp: new Date(Date.now() - 3600000) // 1小时前
+            },
+            {
+                id: 'assistant-example-1',
+                role: 'assistant',
+                timestamp: new Date(Date.now() - 3500000),
+                steps: [
+                    {
+                        type: 'thinking',
+                        content: ['用户询问天气和出行建议，需要先获取实时天气数据。'],
+                        timestamp: new Date(Date.now() - 3490000),
+                        status: "running"
+                    },
+                    {
+                        type: 'thinking',
+                        content: '考虑调用天气API，参数需要城市名称，默认为用户所在城市。',
+                        timestamp: new Date(Date.now() - 3480000),
+                        status: "running"
+                    },
+                    {
+                        type: 'output',
+                        content: '正在连接天气服务...',
+                        timestamp: new Date(Date.now() - 3470000),
+                        status: "running"
+                    },
+                    {
+                        type: 'tool_call',
+                        content: {
+                            name: 'get_weather',
+                            params: JSON.stringify({ city: '北京', units: 'metric' }, null, 2)
+                        },
+                        timestamp: new Date(Date.now() - 3460000),
+                        status: "running"
+                    },
+                    {
+                        type: 'tool_result',
+                        content: {
+                            name: 'get_weather',
+                            status: 'success',
+                            params: JSON.stringify({ city: '北京', units: 'metric' }, null, 2),
+                            result: JSON.stringify({
+                                temperature: 22,
+                                condition: '晴',
+                                humidity: 45,
+                                wind: '3级'
+                            }, null, 2)
+                        },
+                        timestamp: new Date(Date.now() - 3450000),
+                        status: "running"
+                    },
+                    {
+                        type: 'thinking',
+                        content: '根据天气数据，建议用户适合户外活动，但注意防晒。',
+                        timestamp: new Date(Date.now() - 3440000),
+                        status: "running"
+                    },
+                    {
+                        type: 'output',
+                        content: '天气晴朗，温度22°C，适合出行。',
+                        timestamp: new Date(Date.now() - 3430000),
+                        status: "running"
+                    },
+                    {
+                        type: 'final',
+                        content: '北京今天天气晴朗，温度22°C，湿度45%，风力3级。非常适合户外活动，建议您带上遮阳帽和太阳镜。如果计划长时间在户外，记得涂抹防晒霜。',
+                        timestamp: new Date(Date.now() - 3420000),
+                        status: "running"
+                    }
+                ]
+            },
+            {
+                id: 'user-example-2',
+                role: 'user',
+                content: '那明天呢？',
+                timestamp: new Date(Date.now() - 3400000)
+            },
+            {
+                id: 'assistant-example-2',
+                role: 'assistant',
+                timestamp: new Date(Date.now() - 3300000),
+                steps: [
+                    {
+                        type: 'thinking',
+                        content: '用户询问明天的天气，需要重新调用API。',
+                        timestamp: new Date(Date.now() - 3290000),
+                        status: "running"
+                    },
+                    {
+                        type: 'tool_call',
+                        content: {
+                            name: 'get_weather_forecast',
+                            params: JSON.stringify({ city: '北京', days: 1 }, null, 2)
+                        },
+                        timestamp: new Date(Date.now() - 3280000),
+                        status: "running"
+                    },
+                    {
+                        type: 'tool_result',
+                        content: {
+                            name: 'get_weather_forecast',
+                            status: 'error',
+                            params: JSON.stringify({ city: '北京', days: 1 }, null, 2),
+                            result: 'API 调用失败，服务暂时不可用'
+                        },
+                        timestamp: new Date(Date.now() - 3270000),
+                        status: "running"
+                    },
+                    {
+                        type: 'error',
+                        content: '抱歉，获取明日天气数据失败，请稍后重试。',
+                        timestamp: new Date(Date.now() - 3260000),
+                        status: "running"
+                    }
+                ]
+            }
+        ]
+    }
+];
 
 let currentConversationId = '1';
 let selectedModel = 'k2.5';
@@ -7,6 +135,8 @@ let selectedAgentType = 'general';
 
 // WebSocket 相关
 let socket = null;
+// 全局状态
+let isGenerating = false;
 let reconnectTimer = null;
 const WS_RECONNECT_INTERVAL = 3000; // 重连间隔（毫秒）
 
@@ -116,10 +246,28 @@ function handleIncomingMessage(data) {
     console.log(step);
 
     // 追加到 steps 数组
+    step.status = "running";
     targetMsg.steps.push(step);
+
+    const steps = targetMsg.steps;
+
+    if (steps.length > 1) {
+        steps[steps.length - 2].status = "done";
+    }
 
     // 更新会话时间
     conversation.updatedAt = new Date();
+
+    if (data.type === 'final' || data.type === 'error') {
+        targetMsg.steps.forEach(s => s.status = "done");
+
+        isGenerating = false;
+        sendBtn?.classList.remove('disabled');
+
+        if (targetMsg) {
+            targetMsg.generating = false;
+        }
+    }
 
     // 重新渲染
     renderMessages();
@@ -307,7 +455,9 @@ function renderMessages() {
         });
     });
 
-    chatOutput.scrollTop = chatOutput.scrollHeight;
+    requestAnimationFrame(() => {
+        chatOutput.scrollTop = chatOutput.scrollHeight;
+    });
 }
 
 function renderUserMessage(msg) {
@@ -345,6 +495,15 @@ function renderAssistantMessage(msg) {
                     <span class="message-time">${formatTime(msg.timestamp)}</span>
                 </div>
     `;
+    if (msg.generating) {
+        html += `
+            <div class="message-bubble generating">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+            </div>
+        `;
+    }
 
     // 按顺序渲染每一步
     if (msg.steps && msg.steps.length > 0) {
@@ -360,22 +519,64 @@ function renderAssistantMessage(msg) {
 
 // 根据步骤类型渲染不同的块
 function renderStep(step, index) {
+    let label = "";
+    let detail = "";
+    let statusIcon = "";
+    if (step.status === "running") {
+        statusIcon = `<span class="step-running"></span>`;
+    } else if (step.status === "done") {
+        statusIcon = `<span class="step-done">✓</span>`;
+    }
+
     switch (step.type) {
         case 'thinking':
-            return renderThinkingStep(step, index);
+            // return renderThinkingStep(step, index);
+            label = "Thinking";
+            detail = step.content || "";
+            break;
         case 'output':
-            return renderOutputStep(step, index);
+            // return renderOutputStep(step, index);
+            label = "Output";
+            detail = step.content || "";
+            break;
         case 'tool_call':
-            return renderToolCallStep(step, index);
+            // return renderToolCallStep(step, index);
+            label = "Tool Call";
+            detail = typeof step.content === "string"
+                ? step.content
+                : JSON.stringify(step.content, null, 2);
+            break;
         case 'tool_result':
-            return renderToolResultStep(step, index);
+            // return renderToolResultStep(step, index);
+            label = "Tool Finished";
+            detail = typeof step.content === "string"
+                ? step.content
+                : JSON.stringify(step.content, null, 2);
+            break;
         case 'final':
             return renderFinalStep(step, index);
         case 'error':
-            return renderErrorStep(step, index);
+            // return renderErrorStep(step, index);
+            label = "Error";
+            detail = step.content || "";
+            break;
         default:
             return '';
     }
+
+    return `
+        <div class="timeline-row" onclick="toggleStep(${index}, this)">
+            <div class="timeline-dot"></div>
+
+            <div class="timeline-main">
+                <div class="timeline-label">${statusIcon} ${label}</div>
+
+                <div class="timeline-detail">
+                    <pre>${escapeHtml(detail)}</pre>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 function renderThinkingStep(step, index) {
@@ -574,7 +775,13 @@ function sendMessage() {
     };
 
     conversation.messages.push(userMessage);
+
+    assistantMessage.generating = true; // 新增
     conversation.messages.push(assistantMessage);
+
+    isGenerating = true;
+    sendBtn?.classList.add('disabled');
+
     conversation.updatedAt = new Date();
 
     chatInput.value = '';
@@ -634,6 +841,15 @@ function copyCode(btn) {
         btn.textContent = '已复制';
         setTimeout(() => btn.textContent = '复制', 2000);
     });
+}
+
+function toggleStep(index, el) {
+
+    const detail = el.querySelector(".timeline-detail");
+
+    if (!detail) return;
+
+    detail.classList.toggle("open");
 }
 
 // ===== Start =====
