@@ -330,10 +330,9 @@ button {
 
 /* ===== Chat Output ===== */
 .chat-output {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-2xl);
-    scroll-behavior: smooth;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
 }
 
 .chat-output::-webkit-scrollbar {
@@ -438,13 +437,13 @@ button {
 }
 
 .message-bubble.user {
-    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
-    color: white;
-    border: none;
-    white-space: pre-line;
-    word-wrap: break-word;
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-    border-radius: var(--radius-xl);
+    background: #eef3ff;
+    color: #1f2a44;
+    border: 1px solid #d6e2ff;
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: 0.8375rem;
+    line-height: 1.0;
 }
 
 .message-bubble.generating {
@@ -1215,13 +1214,24 @@ button {
 
 /* 最终回答气泡包装器，保持与步骤块一致的上下间距 */
 .final-step-wrapper {
-    margin: 12px 0;
+    margin-top: 16px;
+    padding: 18px 20px;
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e6e9f2;
+    box-shadow:0 6px 18px rgba(20,30,60,0.06);
+    color: #1c2434;
+    line-height: 1.5;
+    font-size: 0.9rem;
+    margin-top: var(--space-lg);
 }
-.final-step-wrapper:first-child {
-    margin-top: 0;
-}
-.final-step-wrapper:last-child {
-    margin-bottom: 0;
+.final-step-wrapper::before {
+    content: "Final Result";
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 10px;
 }
 
 /* =====================
@@ -1230,22 +1240,29 @@ button {
 
 .timeline-row {
     display: flex;
-    gap: 10px;
-    cursor: pointer;
-    padding: 2px 0;
+    align-items: flex-start;
+    font-size: 13px;
     user-select: none;
+    opacity: 0.85;
+    margin-bottom: var(--space-xs);
 }
 
-.timeline-dot {
-    width: 6px;
-    height: 6px;
-    margin-top: 7px;
-    border-radius: 50%;
-    background: var(--accent-primary);
+/* 左侧树结构 */
+.timeline-tree {
+    width: 24px;
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* |-- branch */
+.tree-branch {
+    font-family: monospace;
+    color: #9ca3af;
 }
 
 .timeline-main {
     flex: 1;
+    padding-bottom: 6px;
 }
 
 .timeline-label {
@@ -1301,4 +1318,38 @@ button {
 .timeline-row:has(.step-running) {
     color:#111;
     font-weight:500;
+}
+
+.timeline-row.running .timeline-label {
+    color: #111;
+    font-weight: 500;
+}
+
+.timeline-row.running .tree-branch {
+    animation: branchPulse 1.2s ease infinite;
+}
+
+@keyframes branchPulse {
+    0%,100% { opacity:.4 }
+    50% { opacity:1 }
+}
+
+#scrollBtn {
+    position: absolute;
+    right: 24px;
+    bottom: 110px;
+
+    z-index: 20;
+
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: none;
+
+    background: #252b3b;
+    color: white;
+    cursor: pointer;
+
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    overflow: visible;
 }

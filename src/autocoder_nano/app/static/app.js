@@ -1,137 +1,10 @@
 // ===== Data =====
-let conversationsX = []
-let conversations = [
-    {
-        id: '1',
-        title: '示例对话 - 多步骤演示',
-        updatedAt: new Date(),
-        messages: [
-            {
-                id: 'user-example-1',
-                role: 'user',
-                content: '请帮我分析一下今天的天气，并推荐出行方案。',
-                timestamp: new Date(Date.now() - 3600000) // 1小时前
-            },
-            {
-                id: 'assistant-example-1',
-                role: 'assistant',
-                timestamp: new Date(Date.now() - 3500000),
-                steps: [
-                    {
-                        type: 'thinking',
-                        content: ['用户询问天气和出行建议，需要先获取实时天气数据。'],
-                        timestamp: new Date(Date.now() - 3490000),
-                        status: "running"
-                    },
-                    {
-                        type: 'thinking',
-                        content: '考虑调用天气API，参数需要城市名称，默认为用户所在城市。',
-                        timestamp: new Date(Date.now() - 3480000),
-                        status: "running"
-                    },
-                    {
-                        type: 'output',
-                        content: '正在连接天气服务...',
-                        timestamp: new Date(Date.now() - 3470000),
-                        status: "running"
-                    },
-                    {
-                        type: 'tool_call',
-                        content: {
-                            name: 'get_weather',
-                            params: JSON.stringify({ city: '北京', units: 'metric' }, null, 2)
-                        },
-                        timestamp: new Date(Date.now() - 3460000),
-                        status: "running"
-                    },
-                    {
-                        type: 'tool_result',
-                        content: {
-                            name: 'get_weather',
-                            status: 'success',
-                            params: JSON.stringify({ city: '北京', units: 'metric' }, null, 2),
-                            result: JSON.stringify({
-                                temperature: 22,
-                                condition: '晴',
-                                humidity: 45,
-                                wind: '3级'
-                            }, null, 2)
-                        },
-                        timestamp: new Date(Date.now() - 3450000),
-                        status: "running"
-                    },
-                    {
-                        type: 'thinking',
-                        content: '根据天气数据，建议用户适合户外活动，但注意防晒。',
-                        timestamp: new Date(Date.now() - 3440000),
-                        status: "running"
-                    },
-                    {
-                        type: 'output',
-                        content: '天气晴朗，温度22°C，适合出行。',
-                        timestamp: new Date(Date.now() - 3430000),
-                        status: "running"
-                    },
-                    {
-                        type: 'final',
-                        content: '北京今天天气晴朗，温度22°C，湿度45%，风力3级。非常适合户外活动，建议您带上遮阳帽和太阳镜。如果计划长时间在户外，记得涂抹防晒霜。',
-                        timestamp: new Date(Date.now() - 3420000),
-                        status: "running"
-                    }
-                ]
-            },
-            {
-                id: 'user-example-2',
-                role: 'user',
-                content: '那明天呢？',
-                timestamp: new Date(Date.now() - 3400000)
-            },
-            {
-                id: 'assistant-example-2',
-                role: 'assistant',
-                timestamp: new Date(Date.now() - 3300000),
-                steps: [
-                    {
-                        type: 'thinking',
-                        content: '用户询问明天的天气，需要重新调用API。',
-                        timestamp: new Date(Date.now() - 3290000),
-                        status: "running"
-                    },
-                    {
-                        type: 'tool_call',
-                        content: {
-                            name: 'get_weather_forecast',
-                            params: JSON.stringify({ city: '北京', days: 1 }, null, 2)
-                        },
-                        timestamp: new Date(Date.now() - 3280000),
-                        status: "running"
-                    },
-                    {
-                        type: 'tool_result',
-                        content: {
-                            name: 'get_weather_forecast',
-                            status: 'error',
-                            params: JSON.stringify({ city: '北京', days: 1 }, null, 2),
-                            result: 'API 调用失败，服务暂时不可用'
-                        },
-                        timestamp: new Date(Date.now() - 3270000),
-                        status: "running"
-                    },
-                    {
-                        type: 'error',
-                        content: '抱歉，获取明日天气数据失败，请稍后重试。',
-                        timestamp: new Date(Date.now() - 3260000),
-                        status: "running"
-                    }
-                ]
-            }
-        ]
-    }
-];
+let conversations = []
 
 let currentConversationId = '1';
 let selectedModel = 'k2.5';
 let selectedAgentType = 'general';
+let autoScroll = true;
 
 // WebSocket 相关
 let socket = null;
@@ -148,9 +21,33 @@ const menuBtn = document.getElementById('menuBtn');
 const newChatBtn = document.getElementById('newChatBtn');
 const chatList = document.getElementById('chatList');
 const chatOutput = document.getElementById('chatOutput');
+chatOutput.addEventListener("scroll", () => {
+    const threshold = 40;
+    const atBottom =
+        chatOutput.scrollHeight -
+        chatOutput.scrollTop -
+        chatOutput.clientHeight
+        < threshold;
+    autoScroll = atBottom;
+});
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
 const voiceBtn = document.getElementById('voiceBtn');
+const scrollBtn = document.getElementById("scrollBtn");
+chatOutput.addEventListener("scroll", () => {
+    const atBottom =
+        chatOutput.scrollHeight -
+        chatOutput.scrollTop -
+        chatOutput.clientHeight < 40;
+    autoScroll = atBottom;
+    scrollBtn.style.display =
+        atBottom ? "none" : "block";
+});
+
+scrollBtn.onclick = () => {
+    autoScroll = true;
+    smartScroll();
+};
 
 // Model Selector
 const modelSelector = document.getElementById('modelSelector');
@@ -455,9 +352,7 @@ function renderMessages() {
         });
     });
 
-    requestAnimationFrame(() => {
-        chatOutput.scrollTop = chatOutput.scrollHeight;
-    });
+    smartScroll();
 }
 
 function renderUserMessage(msg) {
@@ -474,7 +369,7 @@ function renderUserMessage(msg) {
                     <span class="message-time">${formatTime(msg.timestamp)}</span>
                 </div>
                 <div class="message-bubble user">
-                    ${escapeHtml(msg.content)}
+                    ${escapeHtml(msg.content.trim())}
                 </div>
             </div>
         </div>
@@ -508,8 +403,8 @@ function renderAssistantMessage(msg) {
     // 按顺序渲染每一步
     if (msg.steps && msg.steps.length > 0) {
         msg.steps.forEach((step, index) => {
-            console.log(step)
-            html += renderStep(step, index);
+            const isLast = index === msg.steps.length - 1;
+            html += renderStep(step, index, isLast);
         });
     }
 
@@ -518,7 +413,7 @@ function renderAssistantMessage(msg) {
 }
 
 // 根据步骤类型渲染不同的块
-function renderStep(step, index) {
+function renderStep(step, index, isLast) {
     let label = "";
     let detail = "";
     let statusIcon = "";
@@ -527,6 +422,7 @@ function renderStep(step, index) {
     } else if (step.status === "done") {
         statusIcon = `<span class="step-done">✓</span>`;
     }
+    const branch = isLast ? "`--" : "|--";
 
     switch (step.type) {
         case 'thinking':
@@ -553,20 +449,22 @@ function renderStep(step, index) {
                 ? step.content
                 : JSON.stringify(step.content, null, 2);
             break;
-        case 'final':
-            return renderFinalStep(step, index);
         case 'error':
             // return renderErrorStep(step, index);
             label = "Error";
             detail = step.content || "";
             break;
+        case 'final':
+            return renderFinalStep(step, index);
         default:
             return '';
     }
 
     return `
-        <div class="timeline-row" onclick="toggleStep(${index}, this)">
-            <div class="timeline-dot"></div>
+        <div class="timeline-row ${step.status}" onclick="toggleStep(${index}, this)">
+            <div class="timeline-tree">
+                <span class="tree-branch">${branch}</span>
+            </div>
 
             <div class="timeline-main">
                 <div class="timeline-label">${statusIcon} ${label}</div>
@@ -702,7 +600,7 @@ function renderFinalStepOld(step, index) {
 function renderFinalStep(step, index) {
     return `
         <div class="final-step-wrapper">
-            <div class="message-bubble">${escapeHtml(step.content)}</div>
+            ${escapeHtml(step.content)}
         </div>
     `;
 }
@@ -850,6 +748,16 @@ function toggleStep(index, el) {
     if (!detail) return;
 
     detail.classList.toggle("open");
+}
+
+function smartScroll() {
+
+    if (!autoScroll) return;
+
+    requestAnimationFrame(() => {
+        chatOutput.scrollTop =
+            chatOutput.scrollHeight;
+    });
 }
 
 // ===== Start =====
