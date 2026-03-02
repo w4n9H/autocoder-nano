@@ -790,7 +790,35 @@ button {
         background-color: var(--border-medium);
         border-radius: var(--radius-full);
     }
-    /* 移动端发送按钮文字隐藏（原有样式已定义，此处保留） */
+    .send-btn {
+        width: 36px;          /* 设置按钮的宽度 */
+        height: 36px;         /* 设置按钮的高度，确保宽高相等 */
+        border-radius: 50%;   /* 设置圆形边框 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        color: white;
+        font-size: 0.875rem;
+        box-shadow: var(--shadow-sm);
+        padding: 0;           /* 删除内边距，确保按钮是圆形 */
+    }
+
+    /* 移动端发送按钮按下时的样式 */
+    .send-btn:hover {
+        transform: translateY(-2px) scale(1.02);  /* 悬停时稍微上移并放大 */
+    }
+
+    .send-btn:active {
+        transform: translateY(0);  /* 按下时恢复正常位置 */
+    }
+
+    /* 发送按钮不可用时的样式 */
+    .send-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
 }
 
 .input-btn {
@@ -1013,12 +1041,33 @@ button {
     }
     
     .send-btn {
-        width: 100%;
+        width: 36px;          /* 设置按钮的宽度 */
+        height: 36px;         /* 设置按钮的高度，确保宽高相等 */
+        border-radius: 50%;   /* 设置圆形边框 */
+        display: flex;
+        align-items: center;
         justify-content: center;
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        color: white;
+        font-size: 0.875rem;
+        box-shadow: var(--shadow-sm);
+        padding: 0;           /* 删除内边距，确保按钮是圆形 */
     }
-    
-    .send-btn span {
-        display: inline;
+
+    /* 移动端发送按钮按下时的样式 */
+    .send-btn:hover {
+        transform: translateY(-2px) scale(1.02);  /* 悬停时稍微上移并放大 */
+    }
+
+    .send-btn:active {
+        transform: translateY(0);  /* 按下时恢复正常位置 */
+    }
+
+    /* 发送按钮不可用时的样式 */
+    .send-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        box-shadow: none;
     }
 }
 
