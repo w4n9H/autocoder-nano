@@ -1,12 +1,15 @@
 // ===== Data =====
-let conversations = [];
+let conversations = []
 
 let currentConversationId = '1';
 let selectedModel = 'k2.5';
 let selectedAgentType = 'general';
+let autoScroll = true;
 
 // WebSocket 相关
 let socket = null;
+// 全局状态
+let isGenerating = false;
 let reconnectTimer = null;
 const WS_RECONNECT_INTERVAL = 3000; // 重连间隔（毫秒）
 
@@ -18,26 +21,46 @@ const menuBtn = document.getElementById('menuBtn');
 const newChatBtn = document.getElementById('newChatBtn');
 const chatList = document.getElementById('chatList');
 const chatOutput = document.getElementById('chatOutput');
+chatOutput.addEventListener("scroll", () => {
+    const threshold = 40;
+    const atBottom =
+        chatOutput.scrollHeight -
+        chatOutput.scrollTop -
+        chatOutput.clientHeight
+        < threshold;
+    autoScroll = atBottom;
+});
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
 const voiceBtn = document.getElementById('voiceBtn');
+const scrollBtn = document.getElementById("scrollBtn");
+scrollBtn.style.opacity = "0";
+scrollBtn.style.pointerEvents = "none";
+chatOutput.addEventListener("scroll", () => {
+    const atBottom =
+        chatOutput.scrollHeight -
+        chatOutput.scrollTop -
+        chatOutput.clientHeight < 40;
+    autoScroll = atBottom;
+    scrollBtn.style.opacity = atBottom ? "0" : "1";
+    scrollBtn.style.pointerEvents = atBottom ? "none" : "auto";
+});
 
-// Model Selector
-const modelSelector = document.getElementById('modelSelector');
-const modelDropdown = document.getElementById('modelDropdown');
-const modelText = document.getElementById('modelText');
+scrollBtn.onclick = () => {
+    autoScroll = true;
+    smartScroll();
+};
 
-// Agent Selector
-const agentSelector = document.getElementById('agentSelector');
-const agentDropdown = document.getElementById('agentDropdown');
-const agentText = document.getElementById('agentText');
+marked.setOptions({
+    breaks: true,      // 支持换行
+    gfm: true,         // GitHub 风格
+});
 
 // ===== Initialization =====
 function init() {
     renderChatList();
     renderMessages();
     setupEventListeners();
-    setupSelectors();
     initWebSocket(); // 建立 WebSocket 连接
 }
 
@@ -113,13 +136,31 @@ function handleIncomingMessage(data) {
         content: data.content,
         timestamp: new Date()
     };
-    console.log(step);
 
     // 追加到 steps 数组
+    step.status = "running";
     targetMsg.steps.push(step);
+
+    const steps = targetMsg.steps;
+
+    if (steps.length > 1) {
+        steps[steps.length - 2].status = "done";
+    }
 
     // 更新会话时间
     conversation.updatedAt = new Date();
+
+    if (data.type === 'final' || data.type === 'error') {
+        targetMsg.steps.forEach(s => s.status = "done");
+
+        isGenerating = false;
+        sendBtn.disabled = false;
+        sendBtn?.classList.remove('disabled');
+
+        if (targetMsg) {
+            targetMsg.generating = false;
+        }
+    }
 
     // 重新渲染
     renderMessages();
@@ -140,56 +181,6 @@ function setupEventListeners() {
     chatInput?.addEventListener('input', autoResizeTextarea);
     chatInput?.addEventListener('keydown', handleInputKeydown);
     sendBtn?.addEventListener('click', sendMessage);
-
-    // Close selectors when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!modelSelector?.contains(e.target)) {
-            modelSelector?.classList.remove('active');
-        }
-        if (!agentSelector?.contains(e.target)) {
-            agentSelector?.classList.remove('active');
-        }
-    });
-}
-
-function setupSelectors() {
-    // Model selector
-    modelSelector?.querySelector('.selector-btn')?.addEventListener('click', () => {
-        modelSelector.classList.toggle('active');
-        agentSelector?.classList.remove('active');
-    });
-
-    modelDropdown?.querySelectorAll('.dropdown-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const value = item.dataset.value;
-            const text = item.querySelector('span').textContent;
-            selectedModel = value;
-            modelText.textContent = text;
-
-            modelDropdown.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-            modelSelector.classList.remove('active');
-        });
-    });
-
-    // Agent selector
-    agentSelector?.querySelector('.selector-btn')?.addEventListener('click', () => {
-        agentSelector.classList.toggle('active');
-        modelSelector?.classList.remove('active');
-    });
-
-    agentDropdown?.querySelectorAll('.dropdown-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const value = item.dataset.value;
-            const text = item.querySelector('span').textContent;
-            selectedAgentType = value;
-            agentText.textContent = text;
-
-            agentDropdown.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-            agentSelector.classList.remove('active');
-        });
-    });
 }
 
 // ===== Sidebar Functions =====
@@ -257,7 +248,7 @@ function createNewConversation() {
             timestamp: new Date(),
             steps: [{
                 type: 'final',
-                content: '你好！我是AI Agent，有什么可以帮助你的吗？',
+                content: '你好！我是你的专属 AI 助手(Agent)，有什么可以帮助你的吗？',
                 timestamp: new Date()
             }]
         }],
@@ -287,35 +278,6 @@ function renderMessages() {
     const conversation = conversations.find(c => c.id === currentConversationId);
     if (!conversation) return;
 
-    // 兼容旧数据结构：如果消息没有 steps 但有旧字段，则转换为 steps
-    conversation.messages.forEach(msg => {
-        if (!msg.steps && msg.role === 'assistant') {
-            msg.steps = [];
-            // 转换 thinking
-            if (Array.isArray(msg.thinking) && msg.thinking.length) {
-                msg.thinking.forEach(content => msg.steps.push({ type: 'thinking', content, timestamp: msg.timestamp }));
-            }
-            // 转换 output
-            if (Array.isArray(msg.output) && msg.output.length) {
-                msg.output.forEach(content => msg.steps.push({ type: 'output', content, timestamp: msg.timestamp }));
-            }
-            // 转换 toolCalls
-            if (Array.isArray(msg.toolCalls)) {
-                msg.toolCalls.forEach(content => msg.steps.push({ type: 'tool_call', content, timestamp: msg.timestamp }));
-            }
-            // 转换 toolResults
-            if (Array.isArray(msg.toolResults)) {
-                msg.toolResults.forEach(content => msg.steps.push({ type: 'tool_result', content, timestamp: msg.timestamp }));
-            }
-            // 转换 final
-            if (msg.finalContent) {
-                msg.steps.push({ type: 'final', content: msg.finalContent, timestamp: msg.timestamp });
-            } else if (msg.content) {
-                msg.steps.push({ type: 'final', content: msg.content, timestamp: msg.timestamp });
-            }
-        }
-    });
-
     const messagesHtml = conversation.messages.map(msg => {
         if (msg.role === 'user') {
             return renderUserMessage(msg);
@@ -326,17 +288,65 @@ function renderMessages() {
 
     chatOutput.innerHTML = `<div class="messages-container">${messagesHtml}</div>`;
 
-    // 为所有步骤块绑定展开/折叠事件（使用事件委托或直接绑定，这里采用直接绑定）
-    chatOutput.querySelectorAll('.step-header').forEach(header => {
-        header.addEventListener('click', () => {
-            const content = header.nextElementSibling;
-            const toggle = header.querySelector('.step-toggle');
-            content.classList.toggle('hidden');
-            toggle.classList.toggle('expanded');
-        });
-    });
+    wrapExecutionBlocks();
 
-    chatOutput.scrollTop = chatOutput.scrollHeight;
+    smartScroll();
+}
+
+function wrapExecutionBlocks() {
+
+    document.querySelectorAll('.message-content').forEach(container => {
+
+        const rows = Array.from(
+            container.querySelectorAll(':scope > .timeline-row')
+        );
+
+        if (rows.length === 0) return;
+
+        const isGenerating = container.dataset.generating === "true";
+
+        const panel = document.createElement('div');
+        panel.className = 'execution-panel';
+
+        const header = document.createElement('div');
+        header.className = 'execution-header';
+
+        header.innerHTML = `
+            <span class="execution-title">
+                ${isGenerating ? '- 执行中...' : '✓ 执行完成'}
+                (${rows.length} steps)
+            </span>
+            <span class="arrow">▼</span>
+        `;
+
+        const body = document.createElement('div');
+        body.className = 'execution-body';
+
+        rows.forEach(r => body.appendChild(r));
+
+        // 点击折叠
+        header.onclick = () => {
+            body.classList.toggle('collapsed');
+            header.querySelector('.arrow').classList.toggle('rotated');
+        };
+
+        panel.appendChild(header);
+        panel.appendChild(body);
+
+        const final = container.querySelector('.final-step-wrapper');
+
+        if (final) {
+            container.insertBefore(panel, final);
+        } else {
+            container.appendChild(panel);
+        }
+
+        // 🔥 自动折叠逻辑
+        if (!isGenerating) {
+            body.classList.add('collapsed');
+            header.querySelector('.arrow').classList.add('rotated');
+        }
+    });
 }
 
 function renderUserMessage(msg) {
@@ -353,7 +363,7 @@ function renderUserMessage(msg) {
                     <span class="message-time">${formatTime(msg.timestamp)}</span>
                 </div>
                 <div class="message-bubble user">
-                    ${escapeHtml(msg.content)}
+                    ${escapeHtml(msg.content.trim())}
                 </div>
             </div>
         </div>
@@ -368,7 +378,7 @@ function renderAssistantMessage(msg) {
                     <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                 </svg>
             </div>
-            <div class="message-content">
+            <div class="message-content" data-generating="${msg.generating ? 'true' : 'false'}">
                 <div class="message-header">
                     <span class="message-name">AI Agent</span>
                     <span class="message-time">${formatTime(msg.timestamp)}</span>
@@ -378,9 +388,13 @@ function renderAssistantMessage(msg) {
     // 按顺序渲染每一步
     if (msg.steps && msg.steps.length > 0) {
         msg.steps.forEach((step, index) => {
-            console.log(step)
-            html += renderStep(step, index);
+            const isLast = index === msg.steps.length - 1;
+            html += renderStep(step, index, isLast);
         });
+    }
+    const hasFinal = msg.steps?.some(s => s.type === 'final');
+    if (msg.generating && !hasFinal) {
+        html += renderFinalPlaceholder();
     }
 
     html += `</div></div>`;
@@ -388,180 +402,79 @@ function renderAssistantMessage(msg) {
 }
 
 // 根据步骤类型渲染不同的块
-function renderStep(step, index) {
+function renderStep(step, index, isLast) {
+    let label = "";
+    let detail = "";
+    let statusIcon = "";
+    if (step.status === "running") {
+        statusIcon = `<span class="step-running"></span>`;
+    } else if (step.status === "done") {
+        statusIcon = `<span class="step-done">✓</span>`;
+    }
+    const branch = isLast ? "`--" : "|--";
+
     switch (step.type) {
         case 'thinking':
-            return renderThinkingStep(step, index);
+            label = "Thinking";
+            detail = step.content || "";
+            break;
         case 'output':
-            return renderOutputStep(step, index);
+            label = "Output";
+            detail = step.content || "";
+            break;
         case 'tool_call':
-            return renderToolCallStep(step, index);
+            label = "Tool Call";
+            detail = typeof step.content === "string"
+                ? step.content
+                : JSON.stringify(step.content, null, 2);
+            break;
         case 'tool_result':
-            return renderToolResultStep(step, index);
+            label = "Tool Finished";
+            detail = typeof step.content === "string"
+                ? step.content
+                : JSON.stringify(step.content, null, 2);
+            break;
+        case 'error':
+            label = "Error";
+            detail = step.content || "";
+            break;
         case 'final':
             return renderFinalStep(step, index);
-        case 'error':
-            return renderErrorStep(step, index);
         default:
             return '';
     }
-}
 
-function renderThinkingStep(step, index) {
     return `
-        <div class="step-block thinking-step">
-            <div class="step-header">
-                <div class="step-title">
-                    <svg class="step-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
-                    </svg>
-                    <span>LLM 思考过程(Thinking)</span>
-                </div>
-                <svg class="step-toggle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 9l6 6 6-6"/>
-                </svg>
+        <div class="timeline-row ${step.status}" onclick="toggleStep(${index}, this)">
+            <div class="timeline-tree">
+                <span class="tree-branch">${branch}</span>
             </div>
-            <div class="step-content hidden">
-                <div class="step-text">${escapeHtml(step.content)}</div>
-            </div>
-        </div>
-    `;
-}
 
-function renderOutputStep(step, index) {
-    return `
-        <div class="step-block output-step">
-            <div class="step-header">
-                <div class="step-title">
-                    <svg class="step-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/><path d="M12 8v8"/>
-                    </svg>
-                    <span>LLM 输出(Output)</span>
-                </div>
-                <svg class="step-toggle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 9l6 6 6-6"/>
-                </svg>
-            </div>
-            <div class="step-content hidden">
-                <div class="step-text">${escapeHtml(step.content)}</div>
-            </div>
-        </div>
-    `;
-}
+            <div class="timeline-main">
+                <div class="timeline-label">${statusIcon} ${label}</div>
 
-function renderToolCallStep(step, index) {
-    const tool = step.content; // 假设 content 包含 { name, params }
-    return `
-        <div class="step-block tool-call">
-            <div class="step-header">
-                <div class="step-title">
-                    <svg class="step-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/>
-                    </svg>
-                    <span>工具调用: ${tool?.name || '未知'}</span>
-                </div>
-                <svg class="step-toggle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 9l6 6 6-6"/>
-                </svg>
-            </div>
-            <div class="step-content hidden">
-                <div class="tool-section">
-                    <div class="tool-section-label">调用参数</div>
-                    <pre class="tool-code">${escapeHtml(tool?.params || '')}</pre>
+                <div class="timeline-detail">
+                    <pre>${escapeHtml(detail)}</pre>
                 </div>
             </div>
         </div>
     `;
 }
 
-function renderToolResultStep(step, index) {
-    const tool = step.content; // 假设 content 包含 { name, status, result }
+function renderFinalPlaceholder() {
     return `
-        <div class="step-block tool-result">
-            <div class="step-header">
-                <div class="step-title">
-                    <svg class="step-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/>
-                    </svg>
-                    <span>工具返回: ${tool?.name || '未知'}</span>
-                </div>
-                <div class="step-status">
-                    <span class="status-badge ${tool?.status === 'success' ? 'success' : 'error'}">${tool?.status || ''}</span>
-                    <svg class="step-toggle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M6 9l6 6 6-6"/>
-                    </svg>
-                </div>
-            </div>
-            <div class="step-content hidden">
-                <div class="tool-section">
-                    <div class="tool-section-label">返回消息</div>
-                    <pre class="tool-code">${escapeHtml(tool?.params || '')}</pre>
-                </div>
-                <div class="tool-section">
-                    <div class="tool-section-label">返回结果</div>
-                    <div class="tool-result-text">${escapeHtml(tool?.result || '')}</div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function renderFinalStepOld(step, index) {
-    return `
-        <div class="step-block final-step">
-            <div class="step-header">
-                <div class="step-title">
-                    <svg class="step-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20 6L9 17l-5-5"/>
-                    </svg>
-                    <span></span>
-                </div>
-                <svg class="step-toggle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 9l6 6 6-6"/>
-                </svg>
-            </div>
-            <div class="step-content hidden">
-                <div class="message-bubble">${escapeHtml(step.content)}</div>
-            </div>
-        </div>
+        <div class="final-step-wrapper final-placeholder">正在生成最终回答...</div>
     `;
 }
 
 function renderFinalStep(step, index) {
-    return `
-        <div class="final-step-wrapper">
-            <div class="message-bubble">${escapeHtml(step.content)}</div>
-        </div>
-    `;
-}
+    const rawContent = Array.isArray(step.content)
+        ? step.content.join("\n")
+        : step.content;
 
-function renderErrorStep(step, index) {
     return `
-        <div class="step-block error-step">
-            <div class="step-header">
-                <div class="step-title">
-                    <svg class="step-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
-                    </svg>
-                    <span>错误</span>
-                </div>
-                <svg class="step-toggle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 9l6 6 6-6"/>
-                </svg>
-            </div>
-            <div class="step-content hidden">
-                <div class="message-bubble error">${escapeHtml(step.content)}</div>
-            </div>
-        </div>
+        <div class="final-step-wrapper">${marked.parse(rawContent)}</div>
     `;
-}
-
-function formatContent(content) {
-    return content
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/`(.+?)`/g, '<code style="background:#e5e7eb;padding:2px 6px;border-radius:4px;">$1</code>')
-        .replace(/\n/g, '<br>');
 }
 
 // ===== Input Functions =====
@@ -573,19 +486,7 @@ function autoResizeTextarea() {
 }
 
 function handleInputKeydown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-}
-
-function autoResizeTextarea() {
-    if (!chatInput) return;
-    chatInput.style.height = 'auto';
-    chatInput.style.height = Math.min(chatInput.scrollHeight, 200) + 'px';
-}
-
-function handleInputKeydown(e) {
+    if (isGenerating) return;   // 防止回车发送
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         sendMessage();
@@ -616,7 +517,14 @@ function sendMessage() {
     };
 
     conversation.messages.push(userMessage);
+
+    assistantMessage.generating = true; // 新增
     conversation.messages.push(assistantMessage);
+
+    isGenerating = true;
+    sendBtn.disabled = true;
+    sendBtn?.classList.add('disabled');
+
     conversation.updatedAt = new Date();
 
     chatInput.value = '';
@@ -675,6 +583,25 @@ function copyCode(btn) {
     navigator.clipboard.writeText(code).then(() => {
         btn.textContent = '已复制';
         setTimeout(() => btn.textContent = '复制', 2000);
+    });
+}
+
+function toggleStep(index, el) {
+
+    const detail = el.querySelector(".timeline-detail");
+
+    if (!detail) return;
+
+    detail.classList.toggle("open");
+}
+
+function smartScroll() {
+
+    if (!autoScroll) return;
+
+    requestAnimationFrame(() => {
+        chatOutput.scrollTop =
+            chatOutput.scrollHeight;
     });
 }
 
