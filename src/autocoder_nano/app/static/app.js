@@ -58,6 +58,7 @@ marked.setOptions({
 
 // ===== Initialization =====
 function init() {
+    initTheme();   // 先加载主题
     renderChatList();
     renderMessages();
     setupEventListeners();
@@ -181,6 +182,15 @@ function setupEventListeners() {
     chatInput?.addEventListener('input', autoResizeTextarea);
     chatInput?.addEventListener('keydown', handleInputKeydown);
     sendBtn?.addEventListener('click', sendMessage);
+
+    document
+        .querySelectorAll(".theme-switcher button")
+        .forEach(btn => {
+            btn.addEventListener("click", () => {
+                const theme = btn.dataset.theme;
+                setTheme(theme);
+            });
+        });
 }
 
 // ===== Sidebar Functions =====
@@ -819,6 +829,27 @@ function smartScroll() {
         chatOutput.scrollTop =
             chatOutput.scrollHeight;
     });
+}
+
+// ===== Theme =====
+function initTheme() {
+    const saved = localStorage.getItem("theme") || "light";
+    if (saved !== "light") {
+        document.documentElement.setAttribute("data-theme", saved);
+    }
+    const switcher = document.querySelector(".theme-switcher");
+    if (switcher) {
+        switcher.setAttribute("data-theme", saved);
+    }
+}
+
+function setTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+    const switcher = document.querySelector(".theme-switcher");
+    if (switcher) {
+        switcher.setAttribute("data-theme", theme);
+    }
 }
 
 // ===== Start =====
