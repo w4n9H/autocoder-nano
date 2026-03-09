@@ -106,16 +106,15 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 today_user_messages_size = sqlite_queue.fetch_user_messages_size_bytime(
                     queue_db_path, datetime.now().strftime("%Y-%m-%d"))
+                print(today_user_messages_size)
                 agent_start_command = ['auto-coder.nano', '--agent-model', '--agent-query', f'{content}']
-                if today_user_messages_size > 0:
-                    process = subprocess.Popen(agent_start_command,
-                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                else:
-                    print("正在以 --agent-new-session 模式启动 agent", )
+                if today_user_messages_size == 1:
                     # todo 开启新 session 前，将前一天的数据总结后形成 memory 文件
-                    agent_start_command.add('--agent-new-session')
-                    process = subprocess.Popen(agent_start_command,
-                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    agent_start_command.append('--agent-new-session')
+
+                print(' '.join(agent_start_command))
+                process = subprocess.Popen(agent_start_command,
+                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 print("子进程已启动，PID:", process.pid)
     except WebSocketDisconnect:
         active_connections.pop(client_id, None)

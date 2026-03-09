@@ -1106,7 +1106,7 @@ def main():
             _agent_define = get_subagent_define()
         try:
             auto_command(project_root=project_root, memory=memory, query=_agent_query, llm=auto_llm,
-                         agent_define=_agent_define, is_web=_raw_args.web_model)
+                         agent_define=_agent_define, is_web=_raw_args.agent_model)
         except Exception as e:
             printer.print_text(
                 Text.assemble(
