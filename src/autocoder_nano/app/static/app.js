@@ -1,9 +1,7 @@
 // ===== Data =====
 let conversations = []
 
-let currentConversationId = '1';
-let selectedModel = 'k2.5';
-let selectedAgentType = 'general';
+let currentConversationId = null;
 let autoScroll = true;
 
 // WebSocket 相关
@@ -59,6 +57,7 @@ marked.setOptions({
 // ===== Initialization =====
 function init() {
     initTheme();   // 先加载主题
+    loadConversations();
     renderChatList();
     renderMessages();
     setupEventListeners();
@@ -161,6 +160,7 @@ function handleIncomingMessage(data) {
         if (targetMsg) {
             targetMsg.generating = false;
         }
+        saveConversations();
     }
 
     // 重新渲染
@@ -209,6 +209,10 @@ function closeSidebar() {
 // ===== Chat List Functions =====
 function renderChatList() {
     if (!chatList) return;
+    // 排序
+    const sorted = [...conversations].sort(
+        (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+    );
     chatList.innerHTML = conversations.map(conv => `
         <div class="chat-item ${conv.id === currentConversationId ? 'active' : ''}" data-id="${conv.id}">
             <div class="chat-item-icon">
@@ -269,6 +273,7 @@ function createNewConversation() {
     renderChatList();
     renderMessages();
     closeSidebar();
+    saveConversations();
 }
 
 function deleteConversation(id) {
@@ -279,6 +284,7 @@ function deleteConversation(id) {
         }
         renderChatList();
         renderMessages();
+        saveConversations();
     }
 }
 
@@ -849,6 +855,32 @@ function setTheme(theme) {
     const switcher = document.querySelector(".theme-switcher");
     if (switcher) {
         switcher.setAttribute("data-theme", theme);
+    }
+}
+
+// ===== Data =====
+function saveConversations() {
+    localStorage.setItem(
+        "conversations",
+        JSON.stringify(conversations)
+    );
+}
+
+function loadConversations() {
+    const saved = localStorage.getItem("conversations");
+    if (!saved) return;
+
+    conversations = JSON.parse(saved);
+    // 恢复当前会话
+    if (conversations.length > 0) {
+        currentConversationId = conversations[0].id;
+        // 转换时间
+        conversations.forEach(conv => {
+            conv.updatedAt = new Date(conv.updatedAt);
+            conv.messages.forEach(msg => {
+                msg.timestamp = new Date(msg.timestamp);
+            });
+        });
     }
 }
 
