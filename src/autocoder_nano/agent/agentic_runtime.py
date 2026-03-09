@@ -498,7 +498,7 @@ class AgenticRuntime(BaseAgent):
         project_name = os.path.basename(os.path.abspath(self.args.source_dir))
 
         try:
-            self._apply_pre_changes()  # 在开始 Agentic 之前先判断是否有未提交变更,有变更则直接退出
+            # self._apply_pre_changes()  # web模式下，在开始 Agentic 之前不再判断是否有未提交变更
             event_stream = self.analyze(request)
             for event in event_stream:
                 if isinstance(event, TokenUsageEvent):
@@ -545,6 +545,12 @@ class AgenticRuntime(BaseAgent):
                         self.args.web_message_id,
                         "tool_result", tool_result)
                 elif isinstance(event, CompletionEvent):
+                    try:
+                        self.args.skip_commit = True  # 临时设置参数
+                        self._apply_changes(request)  # 在这里完成实际变更
+                    except Exception as e:
+                        printer.print_text(f"合并变更失败: {e}", style=COLOR_ERROR, prefix=self.mapp)
+
                     final_reply = [f"{event.completion.result}"]
                     sqlite_queue.insert_agent_response(
                         self.args.web_queue_db_path,

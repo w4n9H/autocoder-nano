@@ -67,6 +67,17 @@ def fetch_pending_user_messages(queue_db_path: str) -> List[Dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
+def fetch_user_messages_size_bytime(queue_db_path: str, query_time: str) -> int:
+    with get_connection(queue_db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(id) FROM user_messages WHERE created_at >= ?",
+            (query_time,)
+        )
+        count = cursor.fetchone()[0]
+        return count
+
+
 def mark_user_message_done(queue_db_path: str, msg_id: int):
     """将指定 ID 的用户消息状态标记为 done"""
     with get_connection(queue_db_path) as conn:

@@ -507,7 +507,7 @@ def parse_args(input_args: Optional[List[str]] = None):
     parser.add_argument("--agent-define", type=str, help="定义要运行的Agent/SubAgent")
     parser.add_argument("--agent-query", type=str, help="指定Agent要执行的指令")
     parser.add_argument("--agent-new-session", action="store_true", help="是否以New Session启动Agent")
-    parser.add_argument("--web-model", action="store_true", help="是否以Web模式启动Agent")
+    parser.add_argument("--agent-model", action="store_true", help="是否以Web模式启动Agent")
 
     if input_args:
         _args = parser.parse_args(input_args)
@@ -1106,7 +1106,7 @@ def main():
             _agent_define = get_subagent_define()
         try:
             auto_command(project_root=project_root, memory=memory, query=_agent_query, llm=auto_llm,
-                         agent_define=_agent_define, is_web=_raw_args.web_model)
+                         agent_define=_agent_define, is_web=_raw_args.agent_model)
         except Exception as e:
             printer.print_text(
                 Text.assemble(

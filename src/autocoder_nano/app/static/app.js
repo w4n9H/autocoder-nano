@@ -1,9 +1,7 @@
 // ===== Data =====
 let conversations = []
 
-let currentConversationId = '1';
-let selectedModel = 'k2.5';
-let selectedAgentType = 'general';
+let currentConversationId = null;
 let autoScroll = true;
 
 // WebSocket 相关
@@ -58,6 +56,8 @@ marked.setOptions({
 
 // ===== Initialization =====
 function init() {
+    initTheme();   // 先加载主题
+    loadConversations();
     renderChatList();
     renderMessages();
     setupEventListeners();
@@ -160,6 +160,7 @@ function handleIncomingMessage(data) {
         if (targetMsg) {
             targetMsg.generating = false;
         }
+        saveConversations();
     }
 
     // 重新渲染
@@ -181,6 +182,15 @@ function setupEventListeners() {
     chatInput?.addEventListener('input', autoResizeTextarea);
     chatInput?.addEventListener('keydown', handleInputKeydown);
     sendBtn?.addEventListener('click', sendMessage);
+
+    document
+        .querySelectorAll(".theme-switcher button")
+        .forEach(btn => {
+            btn.addEventListener("click", () => {
+                const theme = btn.dataset.theme;
+                setTheme(theme);
+            });
+        });
 }
 
 // ===== Sidebar Functions =====
@@ -199,6 +209,10 @@ function closeSidebar() {
 // ===== Chat List Functions =====
 function renderChatList() {
     if (!chatList) return;
+    // 排序
+    const sorted = [...conversations].sort(
+        (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+    );
     chatList.innerHTML = conversations.map(conv => `
         <div class="chat-item ${conv.id === currentConversationId ? 'active' : ''}" data-id="${conv.id}">
             <div class="chat-item-icon">
@@ -259,6 +273,7 @@ function createNewConversation() {
     renderChatList();
     renderMessages();
     closeSidebar();
+    saveConversations();
 }
 
 function deleteConversation(id) {
@@ -269,6 +284,7 @@ function deleteConversation(id) {
         }
         renderChatList();
         renderMessages();
+        saveConversations();
     }
 }
 
@@ -305,6 +321,22 @@ function wrapExecutionBlocks() {
 
         const isGenerating = container.dataset.generating === "true";
 
+        const totalSteps = rows.length;
+
+        const toolCalls = rows.filter(r =>
+            r.querySelector(".timeline-label")?.textContent.includes("Tool")
+        ).length;
+
+        let taskStatus = "completed";
+
+        if (isGenerating) {
+            taskStatus = "running";
+        }
+
+        if (rows.some(r => r.textContent.includes("Error"))) {
+            taskStatus = "error";
+        }
+
         const panel = document.createElement('div');
         panel.className = 'execution-panel';
 
@@ -312,10 +344,20 @@ function wrapExecutionBlocks() {
         header.className = 'execution-header';
 
         header.innerHTML = `
-            <span class="execution-title">
-                ${isGenerating ? '- 执行中...' : '✓ 执行完成'}
-                (${rows.length} steps)
-            </span>
+            <div class="execution-task-info">
+                <div class="execution-task-title">
+                    任务 #${Date.now().toString().slice(-4)}
+                </div>
+                <div class="execution-task-meta">
+                    <span class="execution-task-status ${taskStatus}">
+                        ${taskStatus === "running" ? "● 运行中"
+                        : taskStatus === "error" ? "✖ 出错"
+                        : "✔ 已完成"}
+                    </span>
+                    <span>步骤 : ${totalSteps}</span>
+                    <span>工具 : ${toolCalls}</span>
+                </div>
+            </div>
             <span class="arrow">▼</span>
         `;
 
@@ -387,10 +429,41 @@ function renderAssistantMessage(msg) {
 
     // 按顺序渲染每一步
     if (msg.steps && msg.steps.length > 0) {
-        msg.steps.forEach((step, index) => {
-            const isLast = index === msg.steps.length - 1;
-            html += renderStep(step, index, isLast);
-        });
+        for (let i = 0; i < msg.steps.length; i++) {
+            const step = msg.steps[i];
+            // 1.处理 Tool Call
+            if (step.type === "tool_call") {
+                if (step.content?.name === "AttemptCompletionTool") {
+                    html += renderCompletionToolStep(step, i);
+                    continue;
+                }
+                const nextStep = msg.steps[i + 1];
+                // 情况 A：后面紧跟 tool_result → 合并
+                if (
+                    nextStep &&
+                    nextStep.type === "tool_result" &&
+                    step.content?.name === nextStep.content?.name
+                ) {
+                    html += renderMergedToolStep(step, nextStep, i);
+                    i++; // 跳过 result，避免重复渲染
+                    continue;
+                }
+                // 情况 B：没有 result → 正在 running
+                html += renderRunningToolStep(step, i);
+                continue;
+            }
+
+            // 2.单独出现的 tool_result（理论上不该出现）
+            if (step.type === "tool_result") {
+                // 防御性写法：如果孤立存在，就正常渲染
+                html += renderStep(step, i, false);
+                continue;
+            }
+
+            // 3.其他普通步骤
+            const isLast = i === msg.steps.length - 1;
+            html += renderStep(step, i, isLast);
+        }
     }
     const hasFinal = msg.steps?.some(s => s.type === 'final');
     if (msg.generating && !hasFinal) {
@@ -405,13 +478,6 @@ function renderAssistantMessage(msg) {
 function renderStep(step, index, isLast) {
     let label = "";
     let detail = "";
-    let statusIcon = "";
-    if (step.status === "running") {
-        statusIcon = `<span class="step-running"></span>`;
-    } else if (step.status === "done") {
-        statusIcon = `<span class="step-done">✓</span>`;
-    }
-    const branch = isLast ? "`--" : "|--";
 
     switch (step.type) {
         case 'thinking':
@@ -424,15 +490,11 @@ function renderStep(step, index, isLast) {
             break;
         case 'tool_call':
             label = "Tool Call";
-            detail = typeof step.content === "string"
-                ? step.content
-                : JSON.stringify(step.content, null, 2);
+            detail = renderToolCard(step, false);
             break;
         case 'tool_result':
             label = "Tool Finished";
-            detail = typeof step.content === "string"
-                ? step.content
-                : JSON.stringify(step.content, null, 2);
+            detail = renderToolCard(step, true);
             break;
         case 'error':
             label = "Error";
@@ -447,14 +509,148 @@ function renderStep(step, index, isLast) {
     return `
         <div class="timeline-row ${step.status}" onclick="toggleStep(${index}, this)">
             <div class="timeline-tree">
-                <span class="tree-branch">${branch}</span>
+                <span class="tree-branch ${step.status}"></span>
             </div>
 
             <div class="timeline-main">
-                <div class="timeline-label">${statusIcon} ${label}</div>
+                <div class="timeline-label">${label}</div>
 
                 <div class="timeline-detail">
-                    <pre>${escapeHtml(detail)}</pre>
+                    ${step.type === 'tool_call' || step.type === 'tool_result'
+                        ? detail
+                        : `<pre>${detail}</pre>`}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderToolCard(step, isResult) {
+    const name = step.content?.name || "unknown_tool";
+    const params = step.content?.params || "";
+    const result = step.content?.result || "";
+    const status = step.content?.status || "";
+
+    let statusBadge = "";
+    if (isResult) {
+        if (status === "success") {
+            statusBadge = `<span class="tool-status success">✓ Success</span>`;
+        } else if (status === "error") {
+            statusBadge = `<span class="tool-status error">✗ Error</span>`;
+        }
+    }
+
+    return `
+        <div class="tool-box">
+
+            <div class="tool-title">
+                🛠 ${escapeHtml(name)}
+                ${statusBadge}
+            </div>
+
+            <div class="tool-block">
+                <div class="tool-block-title">Params</div>
+                <pre>${escapeHtml(params)}</pre>
+            </div>
+
+            ${isResult ? `
+            <div class="tool-block">
+                <div class="tool-block-title">Result</div>
+                <pre>${escapeHtml(result)}</pre>
+            </div>
+            ` : ""}
+
+        </div>
+    `;
+}
+
+function renderRunningToolStep(callStep, index) {
+
+    const name = callStep.content?.name || "unknown_tool";
+
+    return `
+        <div class="timeline-row running">
+            <div class="timeline-tree">
+                <span class="tree-branch ${callStep.status}"></span>
+            </div>
+
+            <div class="timeline-main">
+                <div class="timeline-label">
+                    <span class="timeline-label-main">${escapeHtml(name)}</span>
+                    <span class="timeline-label-meta">
+                        <span class="timeline-label-status running">Running…</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderCompletionToolStep(step, index) {
+
+    return `
+        <div class="timeline-row done">
+            <div class="timeline-tree">
+                <span class="tree-branch ${step.status}"></span>
+            </div>
+
+            <div class="timeline-main">
+                <div class="timeline-label">
+                    <span class="timeline-label-main">
+                        AttemptCompletion
+                    </span>
+                    <span class="timeline-label-meta">
+                        <span class="timeline-label-status success">
+                            ✓ Completed
+                        </span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderMergedToolStep(callStep, resultStep, index) {
+    const name = callStep.content?.name || "unknown_tool";
+    const params = callStep.content?.params || "";
+    const result = resultStep.content?.result || "";
+    const status = resultStep.content?.status || "";
+
+    let statusBadge = "";
+    if (status === "success") {
+        statusBadge = `<span class="tool-status success">✓ Success</span>`;
+    } else if (status === "error") {
+        statusBadge = `<span class="tool-status error">✗ Error</span>`;
+    }
+
+    const summary = buildToolSummary(result);
+    const inlineStatus = buildInlineStatus(status);
+
+    return `
+        <div class="timeline-row ${resultStep.status}" onclick="toggleStep(${index}, this)">
+            <div class="timeline-tree">
+                <span class="tree-branch ${resultStep.status}"></span>
+            </div>
+
+            <div class="timeline-main">
+                <div class="timeline-label">
+                    <span class="timeline-label-main">${escapeHtml(name)}</span>
+                    <span class="timeline-label-meta">${inlineStatus} ${summary}</span>
+                </div>
+
+                <div class="timeline-detail">
+                    <div class="tool-box">
+                        <div class="tool-title">${statusBadge}</div>
+                        <div class="tool-block">
+                            <div class="tool-block-title">Params</div>
+                            <pre>${escapeHtml(params)}</pre>
+                        </div>
+                        <div class="tool-block">
+                            <div class="tool-block-title">Result</div>
+                            <pre>${escapeHtml(result)}</pre>
+                        </div>
+
+                    </div>
                 </div>
             </div>
         </div>
@@ -475,6 +671,42 @@ function renderFinalStep(step, index) {
     return `
         <div class="final-step-wrapper">${marked.parse(rawContent)}</div>
     `;
+}
+
+function buildInlineStatus(status) {
+    if (status === "success") {
+        return `<span class="timeline-label-status success">✓ Success</span>`;
+    }
+    if (status === "error") {
+        return `<span class="timeline-label-status error">✗ Error</span>`;
+    }
+    return "";
+}
+
+function buildToolSummary(result) {
+
+    if (!result) return "";
+
+    try {
+        const parsed = JSON.parse(result);
+
+        if (Array.isArray(parsed)) {
+            return `<span class="timeline-label-summary">${parsed.length} items</span>`;
+        }
+
+        if (typeof parsed === "object") {
+            return `<span class="timeline-label-summary">${Object.keys(parsed).length} keys</span>`;
+        }
+
+    } catch (e) {}
+
+    const lines = result.split("\n").length;
+
+    if (lines > 1) {
+        return `<span class="timeline-label-summary">${lines} lines</span>`;
+    }
+
+    return `<span class="timeline-label-summary">${result.length} chars</span>`;
 }
 
 // ===== Input Functions =====
@@ -603,6 +835,53 @@ function smartScroll() {
         chatOutput.scrollTop =
             chatOutput.scrollHeight;
     });
+}
+
+// ===== Theme =====
+function initTheme() {
+    const saved = localStorage.getItem("theme") || "light";
+    if (saved !== "light") {
+        document.documentElement.setAttribute("data-theme", saved);
+    }
+    const switcher = document.querySelector(".theme-switcher");
+    if (switcher) {
+        switcher.setAttribute("data-theme", saved);
+    }
+}
+
+function setTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+    const switcher = document.querySelector(".theme-switcher");
+    if (switcher) {
+        switcher.setAttribute("data-theme", theme);
+    }
+}
+
+// ===== Data =====
+function saveConversations() {
+    localStorage.setItem(
+        "conversations",
+        JSON.stringify(conversations)
+    );
+}
+
+function loadConversations() {
+    const saved = localStorage.getItem("conversations");
+    if (!saved) return;
+
+    conversations = JSON.parse(saved);
+    // 恢复当前会话
+    if (conversations.length > 0) {
+        currentConversationId = conversations[0].id;
+        // 转换时间
+        conversations.forEach(conv => {
+            conv.updatedAt = new Date(conv.updatedAt);
+            conv.messages.forEach(msg => {
+                msg.timestamp = new Date(msg.timestamp);
+            });
+        });
+    }
 }
 
 // ===== Start =====
