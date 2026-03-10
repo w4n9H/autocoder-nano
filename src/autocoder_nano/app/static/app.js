@@ -333,7 +333,7 @@ function wrapExecutionBlocks() {
             taskStatus = "running";
         }
 
-        if (rows.some(r => r.textContent.includes("Error"))) {
+        if (rows.some(r => r.classList.contains("error"))) {
             taskStatus = "error";
         }
 
