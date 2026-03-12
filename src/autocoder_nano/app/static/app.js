@@ -43,6 +43,12 @@ chatOutput.addEventListener("scroll", () => {
     scrollBtn.style.opacity = atBottom ? "0" : "1";
     scrollBtn.style.pointerEvents = atBottom ? "none" : "auto";
 });
+document.getElementById("logoutBtn").onclick = async () => {
+    await fetch("/logout",{
+        method:"POST"
+    })
+    window.location="/login"
+}
 
 scrollBtn.onclick = () => {
     autoScroll = true;

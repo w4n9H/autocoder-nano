@@ -3,22 +3,46 @@ import asyncio
 import json
 import uuid
 import subprocess
+import argparse
 from typing import Dict
 from pathlib import Path
 from datetime import datetime
 import autocoder_nano
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi import HTTPException
+from fastapi.responses import JSONResponse, RedirectResponse
 from contextlib import asynccontextmanager
 
 from autocoder_nano.core.queue import sqlite_queue
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="AI Agent Server")
+    parser.add_argument(
+        "--username",
+        default="admin",
+        help="login username (default: admin)"
+    )
+    parser.add_argument(
+        "--password",
+        default="123456",
+        help="login password (default: 123456)"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8321,
+        help="server port (default: 8321)"
+    )
+    return parser.parse_args()
+
+
 project_root = os.getcwd()
 queue_db_path = os.path.join(project_root, ".auto-coder", "chat-bot.db")
+AUTH_COOKIE = "agent_auth"
 
 # ===== 任务队列和连接管理 =====
 active_connections: Dict[str, WebSocket] = {}  # 客户端ID -> WebSocket
@@ -157,6 +181,8 @@ async def websocket_endpoint(websocket: WebSocket):
 # ===== HTTP 页面入口 =====
 @app.get("/")
 async def get_index(request: Request):
+    if request.cookies.get(AUTH_COOKIE) != "ok":
+        return RedirectResponse("/login")
     return templates.TemplateResponse("index.html", {"request": request})
 
 
@@ -213,8 +239,46 @@ async def kill_run(run_id: str):
         )
 
 
+@app.post("/login")
+async def login(request: Request):
+    data = await request.json()
+    username = data.get("username")
+    password = data.get("password")
+
+    if username == USERNAME and password == PASSWORD:
+        response = RedirectResponse("/", status_code=302)
+        response.set_cookie(
+            key=AUTH_COOKIE,
+            value="ok",
+            httponly=True
+        )
+        return response
+    return {"success": False}
+
+
+@app.get("/login")
+async def login_page(request: Request):
+    return templates.TemplateResponse(
+        "login.html",
+        {"request": request}
+    )
+
+
+@app.post("/logout")
+async def logout():
+    response = JSONResponse({"success": True})
+    response.delete_cookie(AUTH_COOKIE)
+    return response
+
+
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=8321)
+    global USERNAME, PASSWORD
+
+    args = parse_args()
+    USERNAME = args.username
+    PASSWORD = args.password
+
+    uvicorn.run(app, host="0.0.0.0", port=args.port)
 
 
 if __name__ == '__main__':

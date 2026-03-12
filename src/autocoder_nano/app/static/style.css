@@ -329,6 +329,28 @@ button {
     z-index: 40;
 }
 
+.footer-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+.logout-btn{
+    display:flex;
+    align-items:center;
+    gap: var(--space-xs);
+    padding:var(--space-xs) var(--space-sm);
+    border-radius:var(--radius-md);
+    font-size:12px;
+    color:var(--text-tertiary);
+    transition:all var(--transition-fast);
+}
+
+.logout-btn:hover{
+    background:var(--bg-hover);
+    color:var(--text-primary);
+}
+
 /* Theme Switcher */
 .theme-switcher {
   position: relative;

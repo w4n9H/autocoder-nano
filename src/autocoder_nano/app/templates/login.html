@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agent 登录</title>
+<link rel="stylesheet" href="/static/style.css">
+
+<style>
+
+body{
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--bg-primary);
+}
+
+/* 登录卡片 */
+.login-card{
+    width:380px;
+    background:var(--bg-secondary);
+    border:1px solid var(--border-light);
+    border-radius:var(--radius-xl);
+    padding:32px;
+    box-shadow:var(--shadow-lg);
+}
+
+/* 标题 */
+.login-header{
+    text-align:center;
+    margin-bottom:28px;
+}
+
+.login-header h1{
+    font-size:22px;
+    margin-top:10px;
+}
+
+/* logo */
+.logo-icon{
+    width:48px;
+    height:48px;
+    margin:auto;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:white;
+    background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary));
+}
+
+/* 输入框 */
+.form-group{
+    margin-bottom:18px;
+}
+
+.form-group label{
+    font-size:13px;
+    color:var(--text-secondary);
+    display:block;
+    margin-bottom:6px;
+}
+
+.form-group input{
+    width:100%;
+    padding:10px 12px;
+    border-radius:var(--radius-md);
+    border:1px solid var(--border-medium);
+    background:var(--bg-primary);
+    color:var(--text-primary);
+    font-size:14px;
+}
+
+.form-group input:focus{
+    outline:none;
+    border-color:var(--accent-primary);
+}
+
+/* 登录按钮 */
+.login-btn{
+    width:100%;
+    margin-top:6px;
+    padding:11px;
+    border-radius:var(--radius-md);
+    font-weight:600;
+    color:white;
+    background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary));
+    transition:all .2s ease;
+}
+
+.login-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:var(--shadow-md),var(--shadow-glow);
+}
+
+/* 底部 */
+.login-footer{
+    text-align:center;
+    margin-top:18px;
+    font-size:12px;
+    color:var(--text-tertiary);
+}
+
+/* 主题切换 */
+.theme-switcher{
+    margin-top:18px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="login-card">
+
+    <div class="login-header">
+
+        <div class="logo-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
+                <path d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3Z"/>
+                <path d="M12 12L20 7.5"/>
+                <path d="M12 12V21"/>
+                <path d="M12 12L4 7.5"/>
+            </svg>
+        </div>
+
+        <h1>AI Agent</h1>
+
+    </div>
+
+
+    <form onsubmit="login(event)">
+
+        <div class="form-group">
+            <label>用户名</label>
+            <input id="username" required>
+        </div>
+
+        <div class="form-group">
+            <label>密码</label>
+            <input id="password" type="password" required>
+        </div>
+
+        <button class="login-btn">登录</button>
+
+    </form>
+
+
+    <!-- 主题切换 -->
+    <div class="theme-switcher" id="themeSwitcher">
+        <div class="theme-slider"></div>
+        <button data-theme="light">Light</button>
+        <button data-theme="dark">Dark</button>
+        <button data-theme="claude">Claude</button>
+    </div>
+
+    <div class="login-footer">
+        AI Agent © 2026
+    </div>
+
+</div>
+
+
+<script>
+
+const root = document.documentElement
+const switcher = document.getElementById("themeSwitcher")
+
+switcher.querySelectorAll("button").forEach(btn=>{
+    btn.onclick=()=>{
+        const theme=btn.dataset.theme
+        root.setAttribute("data-theme",theme)
+        switcher.setAttribute("data-theme",theme)
+        localStorage.setItem("theme",theme)
+    }
+})
+
+const saved=localStorage.getItem("theme")
+if(saved){
+    root.setAttribute("data-theme",saved)
+    switcher.setAttribute("data-theme",saved)
+}
+
+async function login(e){
+
+    e.preventDefault()
+
+    const username=document.getElementById("username").value
+    const password=document.getElementById("password").value
+
+    const res=await fetch("/login",{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+            username:username,
+            password:password
+        })
+    })
+
+    if(res.ok){
+        window.location="/"
+    }else{
+        alert("账号或密码错误")
+    }
+
+}
+</script>
+
+</body>
+</html>
