@@ -43,6 +43,12 @@ chatOutput.addEventListener("scroll", () => {
     scrollBtn.style.opacity = atBottom ? "0" : "1";
     scrollBtn.style.pointerEvents = atBottom ? "none" : "auto";
 });
+document.getElementById("logoutBtn").onclick = async () => {
+    await fetch("/logout",{
+        method:"POST"
+    })
+    window.location="/login"
+}
 
 scrollBtn.onclick = () => {
     autoScroll = true;
@@ -52,6 +58,8 @@ scrollBtn.onclick = () => {
 marked.setOptions({
     breaks: true,      // 支持换行
     gfm: true,         // GitHub 风格
+    smartLists: true,  // 优化列表渲染
+    smartypants: true  // 将直引号转换为弯引号
 });
 
 // ===== Initialization =====
@@ -105,6 +113,7 @@ function initWebSocket() {
 
 // 处理从后端推送的消息
 function handleIncomingMessage(data) {
+    updateAgentStatus(data)
     // 确保消息属于当前会话
     if (data.conversationId && data.conversationId !== currentConversationId) return;
 
@@ -333,7 +342,7 @@ function wrapExecutionBlocks() {
             taskStatus = "running";
         }
 
-        if (rows.some(r => r.textContent.includes("Error"))) {
+        if (rows.some(r => r.classList.contains("error"))) {
             taskStatus = "error";
         }
 
@@ -383,7 +392,17 @@ function wrapExecutionBlocks() {
             container.appendChild(panel);
         }
 
-        // 🔥 自动折叠逻辑
+        // 新增：如果消息正在生成，将 execution-body 滚动到底部
+        if (isGenerating) {
+            const body = panel.querySelector('.execution-body');
+            if (body) {
+                requestAnimationFrame(() => {
+                    body.scrollTop = body.scrollHeight;
+                });
+            }
+        }
+
+        // 自动折叠逻辑
         if (!isGenerating) {
             body.classList.add('collapsed');
             header.querySelector('.arrow').classList.add('rotated');
@@ -881,6 +900,26 @@ function loadConversations() {
                 msg.timestamp = new Date(msg.timestamp);
             });
         });
+    }
+}
+
+function updateAgentStatus(data) {
+    const dot = document.getElementById("agent-status-dot");
+    const text = document.getElementById("agent-status-text");
+
+    if (!dot || !text) return;
+
+    if (data.type === "final") {
+        dot.style.backgroundColor = "#888";
+        text.textContent = "Agent Idle";
+    }
+    else if (data.type === "error") {
+        dot.style.backgroundColor = "#d73a49";
+        text.textContent = "Agent Error";
+    }
+    else {
+        dot.style.backgroundColor = "#3fb950";
+        text.textContent = "Agent Running";
     }
 }
 

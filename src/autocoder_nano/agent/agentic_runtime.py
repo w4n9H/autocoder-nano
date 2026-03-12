@@ -558,12 +558,13 @@ class AgenticRuntime(BaseAgent):
                         self.args.web_message_id,
                         "final", final_reply)
                 elif isinstance(event, ErrorEvent):
-                    error_message = [f"{event.message}"]
-                    sqlite_queue.insert_agent_response(
-                        self.args.web_queue_db_path,
-                        self.args.web_client_id,
-                        self.args.web_message_id,
-                        "error", error_message)
+                    if event.message != "Stream ended with unterminated <think> block.":
+                        error_message = [f"{event.message}"]
+                        sqlite_queue.insert_agent_response(
+                            self.args.web_queue_db_path,
+                            self.args.web_client_id,
+                            self.args.web_message_id,
+                            "error", error_message)
                 time.sleep(self.args.anti_quota_limit)
         except Exception as err:
             error_message = [f"{err}"]

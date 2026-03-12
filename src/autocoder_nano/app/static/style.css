@@ -329,6 +329,28 @@ button {
     z-index: 40;
 }
 
+.footer-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+.logout-btn{
+    display:flex;
+    align-items:center;
+    gap: var(--space-xs);
+    padding:var(--space-xs) var(--space-sm);
+    border-radius:var(--radius-md);
+    font-size:12px;
+    color:var(--text-tertiary);
+    transition:all var(--transition-fast);
+}
+
+.logout-btn:hover{
+    background:var(--bg-hover);
+    color:var(--text-primary);
+}
+
 /* Theme Switcher */
 .theme-switcher {
   position: relative;
@@ -550,7 +572,7 @@ button {
     border: 1px solid var(--border-light);
     box-shadow:0 6px 18px rgba(20,30,60,0.06);
     color: var(--text-primary);
-    line-height: 1.4;
+    line-height: 1.5;
     font-size: 0.8375rem;
 }
 
@@ -753,6 +775,30 @@ button {
     color: #991b1b;
 }
 
+/* Agent Status Bar */
+.agent-status-bar {
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--space-sm) var(--space-sm);
+    margin-bottom: var(--space-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    border: 1px solid #ccc;
+    border-radius: var(--radius-sm);
+}
+
+#agent-status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-half);
+    background-color: #888; /* 默认灰色 */
+}
+
+#agent-status-text {
+    font-size: 12px;
+    color: #333;
+}
 
 /* INPUT AREA */
 .input-area {

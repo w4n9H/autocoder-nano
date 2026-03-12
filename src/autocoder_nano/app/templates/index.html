@@ -48,7 +48,18 @@
             </div>
             
             <div class="sidebar-footer">
-                <span>AI Agent © 2026</span>
+                <div class="footer-row">
+                    <span>AI Agent © 2026</span>
+                    <button id="logoutBtn" class="logout-btn" title="注销">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                            <polyline points="16 17 21 12 16 7"/>
+                            <line x1="21" y1="12" x2="9" y2="12"/>
+                        </svg>
+                        <span>注销</span>
+                    </button>
+                </div>
             </div>
         </aside>
 
@@ -77,6 +88,10 @@
             <div class="input-area">
                 <div class="input-container">
                     <div class="input-wrapper">
+                        <div class="agent-status-bar" id="agent-status-bar">
+                            <span id="agent-status-dot"></span>
+                            <span id="agent-status-text">Agent Idle</span>
+                        </div>
                         <textarea 
                             class="chat-input" 
                             id="chatInput" 
