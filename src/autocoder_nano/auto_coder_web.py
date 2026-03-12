@@ -12,17 +12,27 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi import HTTPException
 from contextlib import asynccontextmanager
 
 from autocoder_nano.core.queue import sqlite_queue
 
-
 project_root = os.getcwd()
 queue_db_path = os.path.join(project_root, ".auto-coder", "chat-bot.db")
 
-
 # ===== 任务队列和连接管理 =====
 active_connections: Dict[str, WebSocket] = {}  # 客户端ID -> WebSocket
+
+
+async def watch_process(process, run_id):
+    try:
+        exit_code = await asyncio.to_thread(process.wait)
+        if exit_code == 0:
+            sqlite_queue.finish_agent_run(queue_db_path, run_id, "finished")
+        else:
+            sqlite_queue.finish_agent_run(queue_db_path, run_id, "failed")
+    except Exception as e:
+        sqlite_queue.finish_agent_run(queue_db_path, run_id, "failed", str(e))
 
 
 # ===== 后台任务：消费 agent_responses 并推送给前端 =====
@@ -63,15 +73,33 @@ async def lifespan(app: FastAPI):
     consumer_task = asyncio.create_task(response_consumer())
     print("响应消费者已启动")
     yield
-    # 关闭时：清理任务和连接
+    # ===== shutdown ===== 关闭时：清理任务和连接
+    print("开始关闭服务...")
+
+    # 1 关闭消费者
     consumer_task.cancel()
     try:
         await consumer_task
     except asyncio.CancelledError:
         print("消费者已取消")
+
+    # 2 关闭 websocket
     for ws in active_connections.values():
         await ws.close()
     active_connections.clear()
+
+    # 3 kill 所有运行中的 agent
+    running_runs = sqlite_queue.list_running_runs(queue_db_path)
+    for run in running_runs:
+        pid = run["pid"]
+        run_id = run["run_id"]
+        try:
+            os.kill(pid, 9)
+            print(f"已终止 Agent PID={pid}")
+        except ProcessLookupError:
+            print(f"进程不存在 PID={pid}")
+        sqlite_queue.finish_agent_run(queue_db_path, run_id, "killed")
+    print("Agent 清理完成")
 
 app = FastAPI(title="AI Agent", lifespan=lifespan)
 
@@ -103,19 +131,24 @@ async def websocket_endpoint(websocket: WebSocket):
                     None, sqlite_queue.insert_user_message,
                     queue_db_path, client_id, message_id, conversation_id, content
                 )
-
-                today_user_messages_size = sqlite_queue.fetch_user_messages_size_bytime(
-                    queue_db_path, datetime.now().strftime("%Y-%m-%d"))
-                print(today_user_messages_size)
+                # 决定是否 new session
+                today_user_messages_size = await asyncio.get_running_loop().run_in_executor(
+                    None, sqlite_queue.fetch_user_messages_size_bytime,
+                    queue_db_path, datetime.now().strftime("%Y-%m-%d")
+                )
                 agent_start_command = ['auto-coder.nano', '--agent-model', '--agent-query', f'{content}']
                 if today_user_messages_size == 1:
                     # todo 开启新 session 前，将前一天的数据总结后形成 memory 文件
                     agent_start_command.append('--agent-new-session')
 
-                print(' '.join(agent_start_command))
+                run_id = str(uuid.uuid4())
                 process = subprocess.Popen(agent_start_command,
                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                print("子进程已启动，PID:", process.pid)
+                await asyncio.get_running_loop().run_in_executor(
+                    None, sqlite_queue.insert_agent_run,
+                    queue_db_path, run_id, client_id, conversation_id, message_id, content, process.pid
+                )
+                asyncio.create_task(watch_process(process, run_id))
     except WebSocketDisconnect:
         active_connections.pop(client_id, None)
         print(f"客户端 {client_id} 断开连接")
@@ -125,6 +158,59 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/")
 async def get_index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/runs")
+async def list_runs():
+    runs = sqlite_queue.list_agent_runs(queue_db_path)
+    return {
+        "runs": runs
+    }
+
+
+@app.get("/runs/{run_id}")
+async def get_run(run_id: str):
+    run = sqlite_queue.get_agent_run(queue_db_path, run_id)
+    if not run:
+        raise HTTPException(
+            status_code=404,
+            detail="run not found"
+        )
+    return run
+
+
+@app.post("/runs/{run_id}/kill")
+async def kill_run(run_id: str):
+    run = sqlite_queue.get_agent_run(queue_db_path, run_id)
+    if not run:
+        raise HTTPException(
+            status_code=404,
+            detail="run not found"
+        )
+    if run["status"] != "running":
+        return {
+            "status": "ignored",
+            "reason": f"run already {run['status']}"
+        }
+    pid = run["pid"]
+
+    try:
+        os.kill(pid, 9)
+        sqlite_queue.finish_agent_run(queue_db_path, run_id, "killed")
+        return {
+            "status": "killed",
+            "run_id": run_id
+        }
+    except ProcessLookupError:
+        sqlite_queue.finish_agent_run(queue_db_path, run_id, "failed", "process not found")
+        return {
+            "status": "process_missing"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 
 def main():

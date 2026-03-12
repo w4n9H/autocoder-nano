@@ -38,6 +38,21 @@ def init_db(queue_db_path):
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Agent Runtime 状态表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS agent_runs (
+                run_id TEXT PRIMARY KEY,
+                client_id TEXT,
+                conversation_id TEXT,
+                message_id TEXT,
+                query TEXT,
+                pid INTEGER,
+                status TEXT,
+                error TEXT,
+                start_time TEXT,
+                end_time TEXT
+            )
+        """)
         conn.commit()
 
 
@@ -139,3 +154,62 @@ def clean_sent_responses(queue_db_path: str, days: int = 7):
             (f'-{days} days',)
         )
         conn.commit()
+
+
+# ==================== Agent Run Controller ====================
+
+def insert_agent_run(
+        queue_db_path: str, run_id: str, client_id: str, conversation_id: str, message_id: str, query: str, pid: int):
+    """创建新的 agent run（包含 pid）"""
+    with get_connection(queue_db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO agent_runs (run_id, client_id, conversation_id, message_id, query, pid, status, start_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (run_id, client_id, conversation_id, message_id, query, pid, "running")
+        )
+        conn.commit()
+
+
+def finish_agent_run(queue_db_path: str, run_id: str, status: str = "finished", error: str = None):
+    """结束 agent run"""
+    with get_connection(queue_db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """UPDATE agent_runs SET status=?, error=?, end_time=datetime('now') WHERE run_id=?""",
+            (status, error, run_id)
+        )
+        conn.commit()
+
+
+def get_agent_run(queue_db_path: str, run_id: str):
+    """获取单个 run"""
+    with get_connection(queue_db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM agent_runs WHERE run_id=?",
+            (run_id,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def list_agent_runs(queue_db_path: str):
+    """列出最近 runs"""
+    with get_connection(queue_db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """SELECT * FROM agent_runs ORDER BY start_time DESC LIMIT 10"""
+        )
+        rows = cursor.fetchall()
+        return [dict(r) for r in rows]
+
+
+def list_running_runs(queue_db_path: str):
+    with get_connection(queue_db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """SELECT * FROM agent_runs WHERE status='running'"""
+        )
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
