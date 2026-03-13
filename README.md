@@ -1,6 +1,8 @@
-## 概述
+# AutoCoder Nano
 
-**版本**: 0.4.13
+[![Nerq Trust Score](https://nerq.ai/badge/w4n9H/autocoder-nano)](https://nerq.ai/safe/w4n9H/autocoder-nano)
+
+## 概述
 
 AutoCoder Nano 是一款轻量级的编码助手, 利用大型语言模型（LLMs）帮助开发者编写, 理解和修改代码。
 
