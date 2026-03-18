@@ -110,7 +110,7 @@ BUILTIN_MODELS = {
     "(MiniMax)minimax/m2-code-plan": {
         "id": "13",
         "base_url": "https://api.minimaxi.com/v1",
-        "model_name": "MiniMax-M2.5",
+        "model_name": "MiniMax-M2.7",
         "description": "专攻编程",
         "input_price": 0.0,
         "output_price": 0.0,
