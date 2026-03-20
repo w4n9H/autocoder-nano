@@ -1,9 +1,8 @@
-import json
 import typing
 from typing import Optional, Union
 
 from autocoder_nano.agent.agentic_edit_tools.base_tool_resolver import BaseToolResolver
-from autocoder_nano.agent.agentic_edit_types import CallSkillsTool, ToolResult, AgenticEditRequest
+from autocoder_nano.agent.agentic_edit_types import CallSkillsTool, ToolResult
 from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.utils.printer_utils import Printer
 
@@ -36,24 +35,28 @@ class CallSkillsToolResolver(BaseToolResolver):
             # 初始化及添加技能概述
             skill_prompt = [
                 f"# Skill: {_skill_content.metadata.name}",
-                f"**Description**: {_skill_content.metadata.description}\n"
+                f"\n"
+                f"**Description**: {_skill_content.metadata.description}"
+                f"\n"
             ]
             # 添加技能主体
             if _skill_content.body:
                 skill_prompt.append(_skill_content.body)
-                skill_prompt.append("")
+                skill_prompt.append("\n")
             # 添加 script 列表
             if _skill_content.scripts:
-                skill_prompt.append("## Script")
+                skill_prompt.append("## Script Path")
+                skill_prompt.append("\n")
                 for script_name, script_content in _skill_content.scripts.items():
                     skill_prompt.append(f"- {script_name}")
+                skill_prompt.append("\n")
             # 添加参考文档（如果有）
             if _skill_content.references:
                 skill_prompt.append("## References")
                 for ref_name, ref_content in _skill_content.references.items():
                     skill_prompt.append(f"\n### {ref_name}")
                     skill_prompt.append(ref_content)
-                skill_prompt.append("")
+                skill_prompt.append("\n")
 
             skills_agent_define = {
                 "skills": {
@@ -76,7 +79,7 @@ class CallSkillsToolResolver(BaseToolResolver):
                 self.agent.args,
                 self.agent.llm,
                 skills_agent_define)
-            completion_status, completion_text = skill_agent.run_skills_agent(request)
+            completion_status, completion_text = skill_agent.run_skills_agent(skill_name, request)
 
             if completion_status:
                 if completion_text:

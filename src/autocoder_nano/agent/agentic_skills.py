@@ -210,10 +210,9 @@ class SkillLoader:
         for root, _, files in os.walk(dir_path):
             for filename in files:
                 file_path = os.path.join(root, filename)
-                rel_path = os.path.relpath(file_path, dir_path)
-
+                # rel_path = os.path.relpath(file_path, dir_path)
                 with open(file_path, 'r', encoding='utf-8') as f:
-                    result[rel_path] = f.read()
+                    result[file_path] = f.read()
 
         return result
 

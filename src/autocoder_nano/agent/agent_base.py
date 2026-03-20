@@ -470,7 +470,7 @@ class BaseAgent:
         if event.tool_name in ["CallSkillsTool"]:
             if result.content:
                 printer.print_panel(
-                    content=JSON(result.content),
+                    content=Markdown(result.content),
                     title="Skills Call",
                     border_style=COLOR_INFO,
                     center=False)
