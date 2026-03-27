@@ -81,16 +81,36 @@ function initWebSocket() {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
-    socket = new WebSocket(wsUrl);
+    socket = new WebSocket(wsUrl, "supa-nano-gateway");
 
     socket.onopen = () => {
         console.log('WebSocket 连接已建立');
         // 可以显示连接成功的提示（可选）
+        // 第一步：发送握手消息
+        socket.send(JSON.stringify({
+            token: "",    // 如果 no-auth 可以为空
+            client: "web-ui",
+            mode: "browser",
+            version: "1.0.0",
+            capabilities: []
+        }));
     };
 
     socket.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
+            // 新增：处理 handshake
+            if (data.type === "hello_ok") {
+                console.log("Handshake success");
+                // 这里再订阅（关键）
+                socket.send(JSON.stringify({
+                    event: "subscribe",
+                    data: {
+                        events: ["agent.message"]
+                    }
+                }));
+                return;
+            }
             handleIncomingMessage(data);
         } catch (e) {
             console.error('解析 WebSocket 消息失败', e);
@@ -112,7 +132,13 @@ function initWebSocket() {
 }
 
 // 处理从后端推送的消息
-function handleIncomingMessage(data) {
+function handleIncomingMessage(raw) {
+    // 👇 新增：适配 gateway event 包装
+    let data = raw;
+    if (raw.event === "agent.message") {
+        data = raw.data;
+    }
+
     updateAgentStatus(data)
     // 确保消息属于当前会话
     if (data.conversationId && data.conversationId !== currentConversationId) return;
@@ -789,11 +815,20 @@ function sendMessage() {
     renderMessages();
 
     if (socket && socket.readyState === WebSocket.OPEN) {
+        //socket.send(JSON.stringify({
+        //    type: 'user_message',
+        //    conversationId: currentConversationId,
+        //    messageId: assistantMessageId,
+        //    content: content
+        //}));
         socket.send(JSON.stringify({
-            type: 'user_message',
-            conversationId: currentConversationId,
-            messageId: assistantMessageId,
-            content: content
+            id: assistantMessageId,   // 新增（RPC id）
+            method: "agent.run",      // 核心改动
+            params: {
+                content: content,
+                conversation_id: currentConversationId,
+                message_id: assistantMessageId
+            }
         }));
     } else {
         alert('WebSocket 未连接，请刷新页面重试。');

@@ -35,6 +35,7 @@ setup(
         'console_scripts': [
             'auto-coder.nano = autocoder_nano.auto_coder_nano:main',
             'auto-coder.bot = autocoder_nano.auto_coder_web:main',
+            'auto-coder.gateway = autocoder_nano.auto_coder_gateway:main',
         ],
     },
     package_dir={"": "src"},
