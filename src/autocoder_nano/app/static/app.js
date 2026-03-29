@@ -102,16 +102,9 @@ function initWebSocket() {
             // 新增：处理 handshake
             if (data.type === "hello_ok") {
                 console.log("Handshake success");
-                // 这里再订阅（关键）
-                socket.send(JSON.stringify({
-                    event: "subscribe",
-                    data: {
-                        events: ["agent.message"]
-                    }
-                }));
-                return;
+            } else {
+                handleIncomingMessage(data);
             }
-            handleIncomingMessage(data);
         } catch (e) {
             console.error('解析 WebSocket 消息失败', e);
         }
@@ -132,13 +125,7 @@ function initWebSocket() {
 }
 
 // 处理从后端推送的消息
-function handleIncomingMessage(raw) {
-    // 👇 新增：适配 gateway event 包装
-    let data = raw;
-    if (raw.event === "agent.message") {
-        data = raw.data;
-    }
-
+function handleIncomingMessage(data) {
     updateAgentStatus(data)
     // 确保消息属于当前会话
     if (data.conversationId && data.conversationId !== currentConversationId) return;

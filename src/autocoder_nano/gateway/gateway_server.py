@@ -1,7 +1,5 @@
 """ 主要的 gateway 服务器实现 """
-import argparse
 import os
-import sys
 import time
 import asyncio
 import json
@@ -20,6 +18,8 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set
 from uuid import uuid4
 
+from loguru import logger
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
@@ -30,8 +30,6 @@ import uvicorn
 
 import autocoder_nano
 from autocoder_nano.core.queue import sqlite_queue
-
-logger = logging.getLogger(__name__)
 
 
 # ============== Configuration ==============
@@ -216,7 +214,7 @@ class ClientConnection:
                     message = json.loads(MessageEncoder.encode(message))
                 await self.websocket.send_json(message)
             except Exception as e:
-                logger.error(f"Failed to send message to client {self.id}: {e}")
+                logger.error(f"向客户端发送消息失败({self.id}): {e}")
 
     async def send_text(self, text: str):
         """发送文本消息"""
@@ -224,7 +222,7 @@ class ClientConnection:
             try:
                 await self.websocket.send_text(text)
             except Exception as e:
-                logger.error(f"Failed to send text to client {self.id}: {e}")
+                logger.error(f"向客户端发送text消息失败({self.id}): {e}")
 
     async def send_json(self, data: Dict):
         """发送JSON消息"""
@@ -232,7 +230,7 @@ class ClientConnection:
             try:
                 await self.websocket.send_json(data)
             except Exception as e:
-                logger.error(f"Failed to send JSON to client {self.id}: {e}")
+                logger.error(f"向客户端发送json消息失败({self.id}): {e}")
 
     async def close(self, code: int = 1000, reason: str = ""):
         """关闭连接"""
@@ -241,7 +239,7 @@ class ClientConnection:
             try:
                 await self.websocket.close(code=code, reason=reason)
             except Exception as e:
-                logger.error(f"Error closing client {self.id}: {e}")
+                logger.error(f"关闭客户端时出错({self.id}): {e}")
             finally:
                 self.state = ClientState.CLOSED
 
@@ -257,7 +255,7 @@ class MethodRegistry:
     def register(self, method: str, handler: Callable):
         """注册方法处理器"""
         self._handlers[method] = handler
-        logger.info(f"Registered method handler: {method}")
+        logger.info(f"已注册的 Method Handler: {method}")
 
     def unregister(self, method: str):
         """注销方法处理器"""
@@ -606,7 +604,7 @@ class ClientManager:
     async def start(self):
         """启动客户端管理器"""
         self._cleanup_task = asyncio.create_task(self._cleanup_loop())
-        logger.info("Client manager started")
+        logger.info("Client Manager 已启动")
 
     async def stop(self):
         """停止客户端管理器"""
@@ -624,7 +622,7 @@ class ClientManager:
         for client in clients:
             await client.close(1001, "Server shutting down")
 
-        logger.info("Client manager stopped")
+        logger.info("Client Manager 已关闭")
 
     async def register_client(
             self, websocket: WebSocket, mode: GatewayClientMode, name: str, version: str,
@@ -659,7 +657,7 @@ class ClientManager:
                 self._clients_by_mode[mode] = set()
             self._clients_by_mode[mode].add(client_id)
 
-        logger.info(f"Client registered: {client_id} ({mode.value})")
+        logger.info(f"Client 已注册: {client_id} ({mode.value})")
 
         # 触发事件
         await self._emit_event(GatewayEvents.CLIENT_CONNECTED, {
@@ -751,7 +749,7 @@ class ClientManager:
 
     def get_client(self, client_id: str) -> Optional[ClientConnection]:
         """获取客户端"""
-        return self._clients.get(client_id)
+        return self._clients.get(client_id, None)
 
     def get_client_count(self) -> int:
         """获取客户端数量"""
@@ -872,7 +870,7 @@ class AgentService:
         if today_size == 1:
             cmd.append('--agent-new-session')
 
-        process = subprocess.Popen(cmd)
+        process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         run_id = str(uuid4())
         await loop.run_in_executor(
             None, sqlite_queue.insert_agent_run,
@@ -896,17 +894,35 @@ class AgentService:
         while True:
             messages = await loop.run_in_executor(None, sqlite_queue.fetch_pending_responses, self.db_path)
             for msg in messages:
-                await self.gateway.subscription_manager.publish(
-                    "agent.message",
-                    {
-                        "client_id": msg["client_id"],
-                        "type": msg["type"],
-                        "messageId": msg["message_id"],
-                        "content": msg["content"],
-                        "conversationId": msg["conversation_id"]
-                    }
-                )
-                await loop.run_in_executor(None, sqlite_queue.mark_response_sent, self.db_path, msg["id"])
+                client_id = msg["client_id"]
+                client = self.gateway.client_manager.get_client(client_id)
+                if client:
+                    try:
+                        await client.send_json({
+                            "type": msg["type"],
+                            "messageId": msg["message_id"],
+                            "content": msg["content"]  # 已经是 Python 对象
+                        })
+                        # 标记为已发送
+                        await loop.run_in_executor(None, sqlite_queue.mark_response_sent,
+                                                   self.db_path, msg["id"])
+                    except Exception as e:
+                        print(f"发送消息失败: {e}")
+                        # 发送失败，暂不标记，下次循环重试
+                else:
+                    # 客户端已断开，直接标记为已发送（避免堆积）
+                    await loop.run_in_executor(None, sqlite_queue.mark_response_sent, queue_db_path, msg["id"])
+                # await self.gateway.subscription_manager.publish(
+                #     "agent.message",
+                #     {
+                #         "client_id": msg["client_id"],
+                #         "type": msg["type"],
+                #         "messageId": msg["message_id"],
+                #         "content": msg["content"],
+                #         "conversationId": msg["conversation_id"]
+                #     }
+                # )
+                # await loop.run_in_executor(None, sqlite_queue.mark_response_sent, self.db_path, msg["id"])
             await asyncio.sleep(0.5)
 
 
@@ -920,7 +936,7 @@ class GatewayServer:
         self.config = config
         self.authenticator = create_authenticator_from_config(config.auth_config)
         self.client_manager = ClientManager()
-        self.subscription_manager = SubscriptionManager(self.client_manager)
+        # self.subscription_manager = SubscriptionManager(self.client_manager)
         self.method_registry = MethodRegistry()
         self.stats = GatewayStats()
         self.agent_service = AgentService(queue_db_path, self)
@@ -949,7 +965,8 @@ class GatewayServer:
             lifespan=lifespan
         )
 
-        self._app.mount("/static", StaticFiles(directory=Path(autocoder_nano.__file__).parent / "app/static"), name="static")
+        self._app.mount(
+            "/static", StaticFiles(directory=Path(autocoder_nano.__file__).parent / "app/static"), name="static")
         self.templates = Jinja2Templates(directory=Path(autocoder_nano.__file__).parent / "app/templates")
 
         # 注册路由
@@ -1077,19 +1094,20 @@ class GatewayServer:
 
     async def _startup(self):
         """启动服务"""
-        logger.info("Starting Gateway server...")
+        logger.info("正在启动 GatewayServer 服务...")
         self.stats.started_at = datetime.now()
         await self.client_manager.start()
         await self.agent_service.start()
         logger.info(f"Gateway server started on http://{self.config.host}:{self.config.port}")
-        logger.info(f"WebSocket endpoint: ws://{self.config.host}:{self.config.port}/gateway")
+        logger.info(f"WebSocket endpoint-1: ws://{self.config.host}:{self.config.port}/gateway")
+        logger.info(f"WebSocket endpoint-2: ws://{self.config.host}:{self.config.port}/ws")
 
     async def _shutdown(self):
         """关闭服务"""
-        logger.info("Stopping Gateway server...")
+        logger.info("正在关闭 GatewayServer 服务...")
         await self.client_manager.stop()
         await self.agent_service.stop()
-        logger.info("Gateway server stopped")
+        logger.info("GatewayServer 已关闭")
 
     async def _handle_websocket(self, websocket: WebSocket):
         """处理WebSocket连接"""
@@ -1115,9 +1133,9 @@ class GatewayServer:
             await self._message_loop(client, websocket)
 
         except WebSocketDisconnect:
-            logger.info(f"Client disconnected: {client_ip}")
+            logger.info(f"Client 已断开连接: {client_ip}")
         except Exception as e:
-            logger.error(f"WebSocket error: {e}")
+            logger.error(f"WebSocket 错误: {e}")
             self.stats.errors += 1
         finally:
             if client:
@@ -1147,6 +1165,9 @@ class GatewayServer:
                 capabilities=connect_request.capabilities,
                 metadata={"client_ip": client_ip}
             )
+
+            if connect_request.mode == "browser":  # 本地 web ui 无需执行认证
+                return client
 
             # 执行认证
             credentials = {
@@ -1203,15 +1224,15 @@ class GatewayServer:
             return client
 
         except asyncio.TimeoutError:
-            logger.warning("Handshake timeout")
+            logger.warning("握手超时")
             await websocket.close(code=1008, reason="Handshake timeout")
             return None
         except json.JSONDecodeError:
-            logger.warning("Invalid JSON in handshake")
+            logger.warning("握手时包含无效的 JSON")
             await websocket.close(code=1008, reason="Invalid JSON")
             return None
         except Exception as e:
-            logger.error(f"Handshake error: {e}")
+            logger.error(f"握手错误: {e}")
             await websocket.close(code=1011, reason="Internal error")
             return None
 
@@ -1229,21 +1250,26 @@ class GatewayServer:
                 # 处理消息
                 if "method" in data:
                     # 请求帧
+                    # {
+                    #     id: assistantMessageId,
+                    #     method: "agent.run",
+                    #     params: {
+                    #         content: content,
+                    #         conversation_id: currentConversationId,
+                    #         message_id: assistantMessageId
+                    #     }
+                    # }
                     await self._handle_request(client, websocket, data)
-                elif "event" in data:
-                    # 事件帧
-                    await self._handle_event(client, data)
                 else:
                     # 未知消息类型
-                    logger.warning(f"Unknown message type: {data}")
+                    logger.warning(f"未知 Message 类型: {data}")
 
             except WebSocketDisconnect:
                 break
             except json.JSONDecodeError:
-                logger.warning("Invalid JSON received")
-                await self._send_error(client, websocket, None, GatewayErrorCode.INVALID_MESSAGE, "Invalid JSON")
+                logger.warning("收到无效的 JSON")
             except Exception as e:
-                logger.error(f"Message handling error: {e}")
+                logger.error(f"Message 处理错误: {e}")
                 self.stats.errors += 1
 
     async def _handle_request(self, client: ClientConnection, websocket: WebSocket, data: Dict):
@@ -1253,70 +1279,16 @@ class GatewayServer:
             # 获取方法处理器
             handler = self.method_registry.get_handler(request.method)
             if not handler:
-                await self._send_error(
-                    client,
-                    websocket,
-                    request.id,
-                    GatewayErrorCode.METHOD_NOT_FOUND,
-                    f"Method not found: {request.method}"
-                )
                 return
 
             # 执行方法
             try:
-                result = await handler(client, request.params)
-                # 发送响应
-                response = RPCResponse(
-                    id=request.id,
-                    result=result
-                )
-                await websocket.send_json(response.model_dump())
+                await handler(client, request.params)
                 self.stats.messages_sent += 1
             except Exception as e:
                 logger.error(f"Method execution error: {e}")
-                await self._send_error(
-                    client,
-                    websocket,
-                    request.id,
-                    GatewayErrorCode.INTERNAL_ERROR,
-                    str(e)
-                )
         except Exception as e:
-            await self._send_error(client, websocket, None, GatewayErrorCode.INVALID_MESSAGE, str(e))
-
-    async def _handle_event(self, client: ClientConnection, data: Dict):
-        """处理事件"""
-        try:
-            event_msg = EventMessage(**data)
-
-            # 处理订阅/取消订阅
-            if event_msg.event == "subscribe":
-                events = event_msg.data.get("events", [])
-                for event_name in events:
-                    await self.subscription_manager.subscribe(client.id, event_name)
-            elif event_msg.event == "unsubscribe":
-                events = event_msg.data.get("events", [])
-                for event_name in events:
-                    await self.subscription_manager.unsubscribe(client.id, event_name)
-            else:
-                # 转发事件到其他订阅者
-                await self.subscription_manager.publish(event_msg.event, event_msg.data)
-
-        except Exception as e:
-            logger.warning(f"Invalid event frame: {e}")
-
-    async def _send_error(self, client: ClientConnection, websocket: WebSocket, request_id: Optional[str],
-                          code: GatewayErrorCode, message: str):
-        """发送错误响应"""
-        response = RPCResponse(
-            id=request_id or client.id or str(uuid4()),
-            error={
-                "code": code.value,
-                "message": message
-            }
-        )
-        await websocket.send_json(response.model_dump())
-        self.stats.messages_sent += 1
+            logger.error(f"Method execution error: {e}")
 
     def register_method(self, method: str, handler: Callable):
         """注册自定义方法"""
