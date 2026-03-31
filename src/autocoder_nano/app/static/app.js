@@ -372,12 +372,12 @@ function wrapExecutionBlocks() {
                 </div>
                 <div class="execution-task-meta">
                     <span class="execution-task-status ${taskStatus}">
-                        ${taskStatus === "running" ? "● 运行中"
-                        : taskStatus === "error" ? "✖ 出错"
-                        : "✔ 已完成"}
+                        ${taskStatus === "running" ? "● 执行中"
+                        : taskStatus === "error" ? "✖ 执行失败"
+                        : "✔ 执行完成"}
                     </span>
-                    <span>步骤 : ${totalSteps}</span>
-                    <span>工具 : ${toolCalls}</span>
+                    <span>步骤数 : ${totalSteps}</span>
+                    <span>工具调用 : ${toolCalls}</span>
                 </div>
             </div>
             <span class="arrow">▼</span>
@@ -454,7 +454,7 @@ function renderAssistantMessage(msg) {
             </div>
             <div class="message-content" data-generating="${msg.generating ? 'true' : 'false'}">
                 <div class="message-header">
-                    <span class="message-name">AI Agent</span>
+                    <span class="message-name">AI 助手</span>
                     <span class="message-time">${formatTime(msg.timestamp)}</span>
                 </div>
     `;
@@ -513,23 +513,23 @@ function renderStep(step, index, isLast) {
 
     switch (step.type) {
         case 'thinking':
-            label = "Thinking";
+            label = "正在思考";
             detail = step.content || "";
             break;
         case 'output':
-            label = "Output";
+            label = "正在输出";
             detail = step.content || "";
             break;
         case 'tool_call':
-            label = "Tool Call";
+            label = "正在调用工具";
             detail = renderToolCard(step, false);
             break;
         case 'tool_result':
-            label = "Tool Finished";
+            label = "工具调用结束";
             detail = renderToolCard(step, true);
             break;
         case 'error':
-            label = "Error";
+            label = "出现错误";
             detail = step.content || "";
             break;
         case 'final':
@@ -566,9 +566,9 @@ function renderToolCard(step, isResult) {
     let statusBadge = "";
     if (isResult) {
         if (status === "success") {
-            statusBadge = `<span class="tool-status success">✓ Success</span>`;
+            statusBadge = `<span class="tool-status success">✓ 成功</span>`;
         } else if (status === "error") {
-            statusBadge = `<span class="tool-status error">✗ Error</span>`;
+            statusBadge = `<span class="tool-status error">✗ 失败</span>`;
         }
     }
 
@@ -581,13 +581,13 @@ function renderToolCard(step, isResult) {
             </div>
 
             <div class="tool-block">
-                <div class="tool-block-title">Params</div>
+                <div class="tool-block-title">参数</div>
                 <pre>${escapeHtml(params)}</pre>
             </div>
 
             ${isResult ? `
             <div class="tool-block">
-                <div class="tool-block-title">Result</div>
+                <div class="tool-block-title">结果</div>
                 <pre>${escapeHtml(result)}</pre>
             </div>
             ` : ""}
@@ -610,7 +610,7 @@ function renderRunningToolStep(callStep, index) {
                 <div class="timeline-label">
                     <span class="timeline-label-main">${escapeHtml(name)}</span>
                     <span class="timeline-label-meta">
-                        <span class="timeline-label-status running">Running…</span>
+                        <span class="timeline-label-status running">运行中…</span>
                     </span>
                 </div>
             </div>
@@ -628,13 +628,9 @@ function renderCompletionToolStep(step, index) {
 
             <div class="timeline-main">
                 <div class="timeline-label">
-                    <span class="timeline-label-main">
-                        AttemptCompletion
-                    </span>
+                    <span class="timeline-label-main">正在结束任务</span>
                     <span class="timeline-label-meta">
-                        <span class="timeline-label-status success">
-                            ✓ Completed
-                        </span>
+                        <span class="timeline-label-status success">✓ 已完成</span>
                     </span>
                 </div>
             </div>
@@ -674,11 +670,11 @@ function renderMergedToolStep(callStep, resultStep, index) {
                     <div class="tool-box">
                         <div class="tool-title">${statusBadge}</div>
                         <div class="tool-block">
-                            <div class="tool-block-title">Params</div>
+                            <div class="tool-block-title">参数</div>
                             <pre>${escapeHtml(params)}</pre>
                         </div>
                         <div class="tool-block">
-                            <div class="tool-block-title">Result</div>
+                            <div class="tool-block-title">结果</div>
                             <pre>${escapeHtml(result)}</pre>
                         </div>
 
@@ -723,11 +719,11 @@ function buildToolSummary(result) {
         const parsed = JSON.parse(result);
 
         if (Array.isArray(parsed)) {
-            return `<span class="timeline-label-summary">${parsed.length} items</span>`;
+            return `<span class="timeline-label-summary">${parsed.length} 条</span>`;
         }
 
         if (typeof parsed === "object") {
-            return `<span class="timeline-label-summary">${Object.keys(parsed).length} keys</span>`;
+            return `<span class="timeline-label-summary">${Object.keys(parsed).length} 个字段</span>`;
         }
 
     } catch (e) {}
@@ -735,10 +731,10 @@ function buildToolSummary(result) {
     const lines = result.split("\n").length;
 
     if (lines > 1) {
-        return `<span class="timeline-label-summary">${lines} lines</span>`;
+        return `<span class="timeline-label-summary">${lines} 行</span>`;
     }
 
-    return `<span class="timeline-label-summary">${result.length} chars</span>`;
+    return `<span class="timeline-label-summary">${result.length} 字符</span>`;
 }
 
 // ===== Input Functions =====
@@ -933,15 +929,15 @@ function updateAgentStatus(data) {
 
     if (data.type === "final") {
         dot.style.backgroundColor = "#888";
-        text.textContent = "Agent Idle";
+        text.textContent = "Agent 空闲";
     }
     else if (data.type === "error") {
         dot.style.backgroundColor = "#d73a49";
-        text.textContent = "Agent Error";
+        text.textContent = "Agent 异常";
     }
     else {
         dot.style.backgroundColor = "#3fb950";
-        text.textContent = "Agent Running";
+        text.textContent = "Agent 运行中";
     }
 }
 
