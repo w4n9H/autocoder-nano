@@ -3,7 +3,6 @@ import os
 import time
 import asyncio
 import json
-import logging
 import threading
 import hashlib
 import hmac
@@ -604,7 +603,7 @@ class ClientManager:
     async def start(self):
         """启动客户端管理器"""
         self._cleanup_task = asyncio.create_task(self._cleanup_loop())
-        logger.info("Client Manager 已启动")
+        logger.info("正在启动 ClientManager 服务")
 
     async def stop(self):
         """停止客户端管理器"""
@@ -830,27 +829,35 @@ class SubscriptionManager:
 
 
 class AgentService:
-    def __init__(self, db_path: str, gateway: Optional['GatewayServer']):
+    def __init__(self, db_path: str, gateway: Optional['GatewayServer'], agent_timeout: int = 10000):
         self.db_path = db_path
         self.gateway = gateway
         self._consumer_task = None
+        self.agent_timeout = agent_timeout    # 约3小时默认超时
 
     async def start(self):
-        logger.info(f"正在开启 AgentService 服务...")
+        logger.info(f"正在启动 AgentService 服务...")
         sqlite_queue.init_db(self.db_path)
         logger.info(f"AgentService 数据库初始化完成...")
         self._consumer_task = asyncio.create_task(self._response_consumer())
         logger.info(f"AgentService 响应消费者已启动...")
 
     async def stop(self):
-        logger.info(f"开始关闭 AgentService 服务...")
         if self._consumer_task:
             self._consumer_task.cancel()
             logger.info(f"AgentService 响应消费者已关闭...")
-        for ws in self.gateway.client_manager.get_all_clients():
-            await ws.close()
-        logger.info(f"关闭所有 AgentService ClientConnection.....")
-        # todo: kill 所有运行中的 agent
+        running_runs = sqlite_queue.list_running_runs(self.db_path)
+        for run in running_runs:
+            pid = run["pid"]
+            run_id = run["run_id"]
+            try:
+                os.kill(pid, 9)
+                logger.info(f"已终止 Agent PID={pid}")
+            except ProcessLookupError:
+                logger.info(f"进程不存在 PID={pid}")
+            sqlite_queue.finish_agent_run(self.db_path, run_id, "killed")
+        logger.info("AgentService 启动的 Agent 清理完成")
+        logger.info(f"AgentService 已关闭")
 
     async def run_agent(self, client, content, conversation_id, message_id):
         loop = asyncio.get_running_loop()
@@ -884,7 +891,16 @@ class AgentService:
             exit_code = await asyncio.to_thread(process.wait)
             status = "finished" if exit_code == 0 else "failed"
             sqlite_queue.finish_agent_run(self.db_path, run_id, status)
+        except asyncio.TimeoutError:    # 新增：超时处理
+            logger.warning(f"进程 {run_id} 超时({self.agent_timeout})，正在终止...")
+            try:
+                os.kill(process.pid, 9)
+                logger.info(f"已终止 Agent PID={process.pid}")
+            except ProcessLookupError:
+                logger.warning(f"进程不存在 PID={process.pid}")
+            sqlite_queue.finish_agent_run(self.db_path, run_id, "killed", 'Agent 运行超时')
         except Exception as e:
+            logger.error(f"进程 {run_id} 异常: {e}")
             sqlite_queue.finish_agent_run(self.db_path, run_id, "failed", str(e))
 
     async def _response_consumer(self):
@@ -907,11 +923,11 @@ class AgentService:
                         await loop.run_in_executor(None, sqlite_queue.mark_response_sent,
                                                    self.db_path, msg["id"])
                     except Exception as e:
-                        print(f"发送消息失败: {e}")
+                        logger.error(f"发送消息失败: {e}")
                         # 发送失败，暂不标记，下次循环重试
                 else:
                     # 客户端已断开，直接标记为已发送（避免堆积）
-                    await loop.run_in_executor(None, sqlite_queue.mark_response_sent, queue_db_path, msg["id"])
+                    await loop.run_in_executor(None, sqlite_queue.mark_response_sent, self.db_path, msg["id"])
                 # await self.gateway.subscription_manager.publish(
                 #     "agent.message",
                 #     {
@@ -1104,7 +1120,6 @@ class GatewayServer:
 
     async def _shutdown(self):
         """关闭服务"""
-        logger.info("正在关闭 GatewayServer 服务...")
         await self.client_manager.stop()
         await self.agent_service.stop()
         logger.info("GatewayServer 已关闭")

@@ -3,21 +3,9 @@ import logging
 import sys
 import uvicorn
 
+from loguru import logger
+
 from autocoder_nano.gateway import GatewayServer, GatewayConfig
-
-
-logger = logging.getLogger(__name__)
-
-
-def setup_logging(level=logging.INFO):
-    """配置日志"""
-    logging.basicConfig(
-        level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
 
 
 def parse_args():
@@ -50,7 +38,16 @@ def parse_args():
 def run_gateway_server():
     args = parse_args()
     # 配置日志
-    setup_logging(logging.DEBUG if args.verbose else logging.INFO)
+    logger.configure(
+        handlers=[
+            {
+                "sink": sys.stdout,
+                "level": "DEBUG" if args.verbose else "INFO",
+                "format": "{time:HH:mm:ss} | {level} | {message}",
+                "colorize": True
+            }
+        ]
+    )
     logger.info("=" * 60)
     logger.info("Supa Nano Gateway Server")
     logger.info("=" * 60)
