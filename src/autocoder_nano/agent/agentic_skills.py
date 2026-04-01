@@ -664,8 +664,7 @@ class SkillAgent(BaseAgent):
 
                 self.current_conversations.append({
                     "role": "user",
-                    "content": "注意：您必须使用适当的工具或使用 attempt_completion 明确完成任务,"
-                               "不要在不采取具体行动的情况下提供文本回复。请根据用户的任务选择合适的工具继续操作."
+                    "content": "注意：如果你当前的任务已经完成并且已无后续待办，请使用 attempt_completion 工具完成任务"
                 })
                 yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(self.current_conversations))
                 # 继续循环，让 LLM 再思考，而不是 break

@@ -81,17 +81,30 @@ function initWebSocket() {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
-    socket = new WebSocket(wsUrl);
+    socket = new WebSocket(wsUrl, "supa-nano-gateway");
 
     socket.onopen = () => {
         console.log('WebSocket 连接已建立');
         // 可以显示连接成功的提示（可选）
+        // 第一步：发送握手消息
+        socket.send(JSON.stringify({
+            token: "",    // 如果 no-auth 可以为空
+            client: "web-ui",
+            mode: "browser",
+            version: "1.0.0",
+            capabilities: []
+        }));
     };
 
     socket.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            handleIncomingMessage(data);
+            // 新增：处理 handshake
+            if (data.type === "hello_ok") {
+                console.log("Handshake success");
+            } else {
+                handleIncomingMessage(data);
+            }
         } catch (e) {
             console.error('解析 WebSocket 消息失败', e);
         }
@@ -359,12 +372,12 @@ function wrapExecutionBlocks() {
                 </div>
                 <div class="execution-task-meta">
                     <span class="execution-task-status ${taskStatus}">
-                        ${taskStatus === "running" ? "● 运行中"
-                        : taskStatus === "error" ? "✖ 出错"
-                        : "✔ 已完成"}
+                        ${taskStatus === "running" ? "● 执行中"
+                        : taskStatus === "error" ? "✖ 执行失败"
+                        : "✔ 执行完成"}
                     </span>
-                    <span>步骤 : ${totalSteps}</span>
-                    <span>工具 : ${toolCalls}</span>
+                    <span>步骤数 : ${totalSteps}</span>
+                    <span>工具调用 : ${toolCalls}</span>
                 </div>
             </div>
             <span class="arrow">▼</span>
@@ -441,7 +454,7 @@ function renderAssistantMessage(msg) {
             </div>
             <div class="message-content" data-generating="${msg.generating ? 'true' : 'false'}">
                 <div class="message-header">
-                    <span class="message-name">AI Agent</span>
+                    <span class="message-name">AI 助手</span>
                     <span class="message-time">${formatTime(msg.timestamp)}</span>
                 </div>
     `;
@@ -500,23 +513,23 @@ function renderStep(step, index, isLast) {
 
     switch (step.type) {
         case 'thinking':
-            label = "Thinking";
+            label = "正在思考";
             detail = step.content || "";
             break;
         case 'output':
-            label = "Output";
+            label = "正在输出";
             detail = step.content || "";
             break;
         case 'tool_call':
-            label = "Tool Call";
+            label = "正在调用工具";
             detail = renderToolCard(step, false);
             break;
         case 'tool_result':
-            label = "Tool Finished";
+            label = "工具调用结束";
             detail = renderToolCard(step, true);
             break;
         case 'error':
-            label = "Error";
+            label = "出现错误";
             detail = step.content || "";
             break;
         case 'final':
@@ -553,9 +566,9 @@ function renderToolCard(step, isResult) {
     let statusBadge = "";
     if (isResult) {
         if (status === "success") {
-            statusBadge = `<span class="tool-status success">✓ Success</span>`;
+            statusBadge = `<span class="tool-status success">✓ 成功</span>`;
         } else if (status === "error") {
-            statusBadge = `<span class="tool-status error">✗ Error</span>`;
+            statusBadge = `<span class="tool-status error">✗ 失败</span>`;
         }
     }
 
@@ -563,18 +576,18 @@ function renderToolCard(step, isResult) {
         <div class="tool-box">
 
             <div class="tool-title">
-                🛠 ${escapeHtml(name)}
+                🛠 ${escapeHtml(buildToolInfo(name))}
                 ${statusBadge}
             </div>
 
             <div class="tool-block">
-                <div class="tool-block-title">Params</div>
+                <div class="tool-block-title">参数</div>
                 <pre>${escapeHtml(params)}</pre>
             </div>
 
             ${isResult ? `
             <div class="tool-block">
-                <div class="tool-block-title">Result</div>
+                <div class="tool-block-title">结果</div>
                 <pre>${escapeHtml(result)}</pre>
             </div>
             ` : ""}
@@ -595,9 +608,9 @@ function renderRunningToolStep(callStep, index) {
 
             <div class="timeline-main">
                 <div class="timeline-label">
-                    <span class="timeline-label-main">${escapeHtml(name)}</span>
+                    <span class="timeline-label-main">${escapeHtml(buildToolInfo(name))}</span>
                     <span class="timeline-label-meta">
-                        <span class="timeline-label-status running">Running…</span>
+                        <span class="timeline-label-status running">运行中…</span>
                     </span>
                 </div>
             </div>
@@ -615,13 +628,9 @@ function renderCompletionToolStep(step, index) {
 
             <div class="timeline-main">
                 <div class="timeline-label">
-                    <span class="timeline-label-main">
-                        AttemptCompletion
-                    </span>
+                    <span class="timeline-label-main">正在结束任务</span>
                     <span class="timeline-label-meta">
-                        <span class="timeline-label-status success">
-                            ✓ Completed
-                        </span>
+                        <span class="timeline-label-status success">✓ 已完成</span>
                     </span>
                 </div>
             </div>
@@ -637,9 +646,9 @@ function renderMergedToolStep(callStep, resultStep, index) {
 
     let statusBadge = "";
     if (status === "success") {
-        statusBadge = `<span class="tool-status success">✓ Success</span>`;
+        statusBadge = `<span class="tool-status success">✓ 成功</span>`;
     } else if (status === "error") {
-        statusBadge = `<span class="tool-status error">✗ Error</span>`;
+        statusBadge = `<span class="tool-status error">✗ 失败</span>`;
     }
 
     const summary = buildToolSummary(result);
@@ -653,7 +662,7 @@ function renderMergedToolStep(callStep, resultStep, index) {
 
             <div class="timeline-main">
                 <div class="timeline-label">
-                    <span class="timeline-label-main">${escapeHtml(name)}</span>
+                    <span class="timeline-label-main">${escapeHtml(buildToolInfo(name))}</span>
                     <span class="timeline-label-meta">${inlineStatus} ${summary}</span>
                 </div>
 
@@ -661,11 +670,11 @@ function renderMergedToolStep(callStep, resultStep, index) {
                     <div class="tool-box">
                         <div class="tool-title">${statusBadge}</div>
                         <div class="tool-block">
-                            <div class="tool-block-title">Params</div>
+                            <div class="tool-block-title">参数</div>
                             <pre>${escapeHtml(params)}</pre>
                         </div>
                         <div class="tool-block">
-                            <div class="tool-block-title">Result</div>
+                            <div class="tool-block-title">结果</div>
                             <pre>${escapeHtml(result)}</pre>
                         </div>
 
@@ -694,10 +703,10 @@ function renderFinalStep(step, index) {
 
 function buildInlineStatus(status) {
     if (status === "success") {
-        return `<span class="timeline-label-status success">✓ Success</span>`;
+        return `<span class="timeline-label-status success">✓ 成功</span>`;
     }
     if (status === "error") {
-        return `<span class="timeline-label-status error">✗ Error</span>`;
+        return `<span class="timeline-label-status error">✗ 失败</span>`;
     }
     return "";
 }
@@ -710,11 +719,11 @@ function buildToolSummary(result) {
         const parsed = JSON.parse(result);
 
         if (Array.isArray(parsed)) {
-            return `<span class="timeline-label-summary">${parsed.length} items</span>`;
+            return `<span class="timeline-label-summary">${parsed.length} 条</span>`;
         }
 
         if (typeof parsed === "object") {
-            return `<span class="timeline-label-summary">${Object.keys(parsed).length} keys</span>`;
+            return `<span class="timeline-label-summary">${Object.keys(parsed).length} 个字段</span>`;
         }
 
     } catch (e) {}
@@ -722,10 +731,45 @@ function buildToolSummary(result) {
     const lines = result.split("\n").length;
 
     if (lines > 1) {
-        return `<span class="timeline-label-summary">${lines} lines</span>`;
+        return `<span class="timeline-label-summary">${lines} 行</span>`;
     }
 
-    return `<span class="timeline-label-summary">${result.length} chars</span>`;
+    return `<span class="timeline-label-summary">${result.length} 字符</span>`;
+}
+
+function buildToolInfo(name) {
+    switch (name) {
+        case "ReadFileTool":
+            return `正在读取文件`;
+        case "WriteToFileTool":
+            return `正在写入文件`;
+        case "ReplaceInFileTool":
+            return `正在修改文件`;
+        case "ExecuteCommandTool":
+            return `正在执行终端命令`;
+        case "ListFilesTool":
+            return `正在列出目录`;
+        case "SearchFilesTool":
+            return `正在搜索文件`;
+        case "WebSearchTool":
+            return `正在执行联网搜索`;
+        case "CallSubAgentTool":
+            return `正在调用子代理`;
+        case "UseRAGTool":
+            return `正在调用 RAG 检索`;
+        case "CallSkillsTool":
+            return `正在调用 Skills`;
+        case "WebReaderTool":
+            return `正在联网读取网页`;
+        case "QueryDataTool":
+            return `正在联网读取网页`;
+        case "TodoReadTool":
+            return `正在读取待办事项`;
+        case "TodoWriteTool":
+            return `正在操作待办事项`;
+        default:
+            return name;
+    }
 }
 
 // ===== Input Functions =====
@@ -789,11 +833,20 @@ function sendMessage() {
     renderMessages();
 
     if (socket && socket.readyState === WebSocket.OPEN) {
+        //socket.send(JSON.stringify({
+        //    type: 'user_message',
+        //    conversationId: currentConversationId,
+        //    messageId: assistantMessageId,
+        //    content: content
+        //}));
         socket.send(JSON.stringify({
-            type: 'user_message',
-            conversationId: currentConversationId,
-            messageId: assistantMessageId,
-            content: content
+            id: assistantMessageId,   // 新增（RPC id）
+            method: "agent.run",      // 核心改动
+            params: {
+                content: content,
+                conversation_id: currentConversationId,
+                message_id: assistantMessageId
+            }
         }));
     } else {
         alert('WebSocket 未连接，请刷新页面重试。');
@@ -911,15 +964,15 @@ function updateAgentStatus(data) {
 
     if (data.type === "final") {
         dot.style.backgroundColor = "#888";
-        text.textContent = "Agent Idle";
+        text.textContent = "Agent 空闲";
     }
     else if (data.type === "error") {
         dot.style.backgroundColor = "#d73a49";
-        text.textContent = "Agent Error";
+        text.textContent = "Agent 异常";
     }
     else {
         dot.style.backgroundColor = "#3fb950";
-        text.textContent = "Agent Running";
+        text.textContent = "Agent 运行中";
     }
 }
 

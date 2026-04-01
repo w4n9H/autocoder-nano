@@ -8,7 +8,7 @@ rich
 pylint
 PyYAML
 pdfminer
-pypdf
+pypdf>=6.9.1
 pathspec
 tokenizers
 duckdb
@@ -20,4 +20,4 @@ antlr4-python3-runtime==4.7.1
 fastapi
 uvicorn
 websockets
-requests
+requests>=2.32.4
