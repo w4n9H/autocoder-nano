@@ -576,7 +576,7 @@ function renderToolCard(step, isResult) {
         <div class="tool-box">
 
             <div class="tool-title">
-                🛠 ${escapeHtml(name)}
+                🛠 ${escapeHtml(buildToolInfo(name))}
                 ${statusBadge}
             </div>
 
@@ -608,7 +608,7 @@ function renderRunningToolStep(callStep, index) {
 
             <div class="timeline-main">
                 <div class="timeline-label">
-                    <span class="timeline-label-main">${escapeHtml(name)}</span>
+                    <span class="timeline-label-main">${escapeHtml(buildToolInfo(name))}</span>
                     <span class="timeline-label-meta">
                         <span class="timeline-label-status running">运行中…</span>
                     </span>
@@ -646,9 +646,9 @@ function renderMergedToolStep(callStep, resultStep, index) {
 
     let statusBadge = "";
     if (status === "success") {
-        statusBadge = `<span class="tool-status success">✓ Success</span>`;
+        statusBadge = `<span class="tool-status success">✓ 成功</span>`;
     } else if (status === "error") {
-        statusBadge = `<span class="tool-status error">✗ Error</span>`;
+        statusBadge = `<span class="tool-status error">✗ 失败</span>`;
     }
 
     const summary = buildToolSummary(result);
@@ -662,7 +662,7 @@ function renderMergedToolStep(callStep, resultStep, index) {
 
             <div class="timeline-main">
                 <div class="timeline-label">
-                    <span class="timeline-label-main">${escapeHtml(name)}</span>
+                    <span class="timeline-label-main">${escapeHtml(buildToolInfo(name))}</span>
                     <span class="timeline-label-meta">${inlineStatus} ${summary}</span>
                 </div>
 
@@ -703,10 +703,10 @@ function renderFinalStep(step, index) {
 
 function buildInlineStatus(status) {
     if (status === "success") {
-        return `<span class="timeline-label-status success">✓ Success</span>`;
+        return `<span class="timeline-label-status success">✓ 成功</span>`;
     }
     if (status === "error") {
-        return `<span class="timeline-label-status error">✗ Error</span>`;
+        return `<span class="timeline-label-status error">✗ 失败</span>`;
     }
     return "";
 }
@@ -735,6 +735,41 @@ function buildToolSummary(result) {
     }
 
     return `<span class="timeline-label-summary">${result.length} 字符</span>`;
+}
+
+function buildToolInfo(name) {
+    switch (name) {
+        case "ReadFileTool":
+            return `正在读取文件`;
+        case "WriteToFileTool":
+            return `正在写入文件`;
+        case "ReplaceInFileTool":
+            return `正在修改文件`;
+        case "ExecuteCommandTool":
+            return `正在执行终端命令`;
+        case "ListFilesTool":
+            return `正在列出目录`;
+        case "SearchFilesTool":
+            return `正在搜索文件`;
+        case "WebSearchTool":
+            return `正在执行联网搜索`;
+        case "CallSubAgentTool":
+            return `正在调用子代理`;
+        case "UseRAGTool":
+            return `正在调用 RAG 检索`;
+        case "CallSkillsTool":
+            return `正在调用 Skills`;
+        case "WebReaderTool":
+            return `正在联网读取网页`;
+        case "QueryDataTool":
+            return `正在联网读取网页`;
+        case "TodoReadTool":
+            return `正在读取待办事项`;
+        case "TodoWriteTool":
+            return `正在操作待办事项`;
+        default:
+            return name;
+    }
 }
 
 // ===== Input Functions =====
