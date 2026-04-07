@@ -1132,6 +1132,17 @@ def main():
         else:
             event.app.exit()
 
+    @kb.add("c-q")
+    def _(event):
+        # 快速切换模型
+        _model_list = list(memory.get("models", {}))
+        _current_model = memory.get("conf", {}).get("chat_model", "")
+        _current_model_index = _model_list.index(_current_model) if _current_model in _model_list else 0
+        _next_model = _model_list[(_current_model_index + 1) % len(_model_list)]
+
+        memory["conf"]["chat_model"] = _next_model
+        save_memory()
+
     @kb.add("c-t")  # 新增 Ctrl+T 切换主题
     def _(event):
         theme_list = list(theme.list_themes())
@@ -1147,7 +1158,7 @@ def main():
         # 动态更新样式
         event.app.style = theme.get_theme(next_theme)
 
-        printer.print_text(f"主题已切换至: {theme_name}", style=COLOR_SUCCESS)
+        # printer.print_text(f"主题已切换至: {theme_name}", style=COLOR_SUCCESS)
 
     def get_bottom_toolbar():
         if "mode" not in memory:
@@ -1158,7 +1169,7 @@ def main():
         theme_name = theme.get_theme_name(memory["theme"])
         current_project = os.path.basename(project_root)
         current_model = memory["conf"]["chat_model"]
-        return f" 当前项目: {current_project} | 主题: {theme_name} (ctl+t 切换) | 当前模型: {current_model}"
+        return f" 当前项目: {current_project} | 主题: {theme_name} (ctl+t) | 当前模型: {current_model} (ctl+q)"
 
     current_theme_name = memory.get("theme", "cyberpunk")
     current_style = theme.get_theme(current_theme_name)
@@ -1187,7 +1198,7 @@ def main():
         {
             "AutoCoder Nano": f"v{__version__}",
             "Url": "https://github.com/w4n9H/autocoder-nano",
-            "Help": "输入 /help 可以查看可用的命令(Ctrl + t 切换主题)."
+            "Help": "输入 /help 可以查看可用的命令(Ctrl + t 切换主题 / Ctrl + q 切换模型)."
         }
     )
 
