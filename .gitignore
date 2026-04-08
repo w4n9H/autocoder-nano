@@ -175,3 +175,4 @@ cython_debug/
 .auto-coder/
 actions/
 output.txt
+.workbuddy/

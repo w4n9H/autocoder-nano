@@ -85,6 +85,7 @@ function initWebSocket() {
 
     socket.onopen = () => {
         console.log('WebSocket 连接已建立');
+        updateGatewayStatus('ok')
         // 可以显示连接成功的提示（可选）
         // 第一步：发送握手消息
         socket.send(JSON.stringify({
@@ -116,6 +117,7 @@ function initWebSocket() {
 
     socket.onclose = () => {
         console.log('WebSocket 连接关闭，尝试重连...');
+        updateGatewayStatus('error')
         // 设置重连定时器
         if (reconnectTimer) clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(() => {
@@ -126,7 +128,7 @@ function initWebSocket() {
 
 // 处理从后端推送的消息
 function handleIncomingMessage(data) {
-    updateAgentStatus(data)
+    // updateAgentStatus(data)
     // 确保消息属于当前会话
     if (data.conversationId && data.conversationId !== currentConversationId) return;
 
@@ -738,38 +740,40 @@ function buildToolSummary(result) {
 }
 
 function buildToolInfo(name) {
+    let desc = ``;
     switch (name) {
         case "ReadFileTool":
-            return `正在读取文件`;
+            desc = `正在读取文件`;break;
         case "WriteToFileTool":
-            return `正在写入文件`;
+            desc = `正在写入文件`;break;
         case "ReplaceInFileTool":
-            return `正在修改文件`;
+            desc = `正在修改文件`;break;
         case "ExecuteCommandTool":
-            return `正在执行终端命令`;
+            desc = `正在执行终端命令`;break;
         case "ListFilesTool":
-            return `正在列出目录`;
+            desc = `正在列出目录`;break;
         case "SearchFilesTool":
-            return `正在搜索文件`;
+            desc = `正在搜索文件`;break;
         case "WebSearchTool":
-            return `正在执行联网搜索`;
+            desc = `正在执行联网搜索`;break;
         case "CallSubAgentTool":
-            return `正在调用子代理`;
+            desc = `正在调用子代理`;break;
         case "UseRAGTool":
-            return `正在调用 RAG 检索`;
+            desc = `正在调用 RAG 检索`;break;
         case "CallSkillsTool":
-            return `正在调用 Skills`;
+            desc = `正在调用 Skills`;break;
         case "WebReaderTool":
-            return `正在联网读取网页`;
+            desc = `正在联网读取网页`;break;
         case "QueryDataTool":
-            return `正在联网读取网页`;
+            desc = `正在查询数据`;break;
         case "TodoReadTool":
-            return `正在读取待办事项`;
+            desc = `正在读取待办事项`;break;
         case "TodoWriteTool":
-            return `正在操作待办事项`;
+            desc = `正在操作待办事项`;break;
         default:
             return name;
     }
+    return `${desc} (${name})`;
 }
 
 // ===== Input Functions =====
@@ -973,6 +977,26 @@ function updateAgentStatus(data) {
     else {
         dot.style.backgroundColor = "#3fb950";
         text.textContent = "Agent 运行中";
+    }
+}
+
+function updateGatewayStatus(status) {
+    const dot = document.getElementById("agent-status-dot");
+    const text = document.getElementById("agent-status-text");
+
+    if (!dot || !text) return;
+
+    if (status === "ok") {
+        dot.style.backgroundColor = "#3fb950";
+        text.textContent = "Gateway 状态: 在线";
+    }
+    else if (status === "error") {
+        dot.style.backgroundColor = "#d73a49";
+        text.textContent = "Gateway 状态: 离线";
+    }
+    else {
+        dot.style.backgroundColor = "#888";
+        text.textContent = "Gateway 状态: 未知";
     }
 }
 
