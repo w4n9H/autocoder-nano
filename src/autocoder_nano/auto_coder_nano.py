@@ -633,15 +633,6 @@ def initialize_system():
 
 
 def add_files(add_files_args: List[str]):
-    if "groups" not in memory["current_files"]:
-        memory["current_files"]["groups"] = {}
-    if "groups_info" not in memory["current_files"]:
-        memory["current_files"]["groups_info"] = {}
-    if "current_groups" not in memory["current_files"]:
-        memory["current_files"]["current_groups"] = []
-    groups = memory["current_files"]["groups"]
-    groups_info = memory["current_files"]["groups_info"]
-
     if not add_files_args:
         printer.print_panel(Text("请为 /add_files 命令提供参数.", style=COLOR_ERROR), title="错误", center=True)
         return
@@ -651,94 +642,6 @@ def add_files(add_files_args: List[str]):
         load_memory()
         printer.print_panel(Text("已刷新的文件列表.", style=COLOR_SUCCESS), title="文件刷新", center=True)
         return
-
-    if add_files_args[0] == "/group":
-        # 列出组
-        if len(add_files_args) == 1 or (len(add_files_args) == 2 and add_files_args[1] == "list"):
-            if not groups:
-                printer.print_panel(Text("未定义任何文件组.", style=COLOR_WARNING), title="文件组", center=True)
-            else:
-                data_list = []
-                for i, (group_name, files) in enumerate(groups.items()):
-                    query_prefix = groups_info.get(group_name, {}).get("query_prefix", "")
-                    is_active = ("✓" if group_name in memory["current_files"]["current_groups"] else "")
-                    data_list.append([
-                        group_name,
-                        "\n".join([os.path.relpath(f, project_root) for f in files]),
-                        query_prefix,
-                        is_active
-                    ])
-                printer.print_table_compact(
-                    data=data_list,
-                    title="已定义文件组",
-                    headers=["Group Name", "Files", "Query Prefix", "Active"]
-                )
-        # 重置活动组
-        elif len(add_files_args) >= 2 and add_files_args[1] == "/reset":
-            memory["current_files"]["current_groups"] = []
-            printer.print_panel(
-                Text("活动组名称已重置。如果你想清除活动文件，可使用命令 /remove_files /all .", style=COLOR_SUCCESS),
-                title="活动组重置", center=True
-            )
-        # 新增组
-        elif len(add_files_args) >= 3 and add_files_args[1] == "/add":
-            group_name = add_files_args[2]
-            groups[group_name] = memory["current_files"]["files"].copy()
-            printer.print_panel(
-                Text(f"已将当前文件添加到组 '{group_name}' .", style=COLOR_SUCCESS), title="新增组", center=True
-            )
-        # 删除组
-        elif len(add_files_args) >= 3 and add_files_args[1] == "/drop":
-            group_name = add_files_args[2]
-            if group_name in groups:
-                del memory["current_files"]["groups"][group_name]
-                if group_name in groups_info:
-                    del memory["current_files"]["groups_info"][group_name]
-                if group_name in memory["current_files"]["current_groups"]:
-                    memory["current_files"]["current_groups"].remove(group_name)
-                printer.print_panel(
-                    Text(f"已删除组 '{group_name}'.", style=COLOR_SUCCESS), title="删除组", center=True
-                )
-            else:
-                printer.print_panel(
-                    Text(f"组 '{group_name}' 未找到.", style=COLOR_ERROR), title="Error", center=True
-                )
-        # 支持多个组的合并，允许组名之间使用逗号或空格分隔
-        elif len(add_files_args) >= 2:
-            group_names = " ".join(add_files_args[1:]).replace(",", " ").split()
-            merged_files = set()
-            missing_groups = []
-            for group_name in group_names:
-                if group_name in groups:
-                    merged_files.update(groups[group_name])
-                else:
-                    missing_groups.append(group_name)
-            if missing_groups:
-                printer.print_panel(
-                    Text(f"未找到组: {', '.join(missing_groups)}", style=COLOR_ERROR), title="Error", center=True
-                )
-            if merged_files:
-                memory["current_files"]["files"] = list(merged_files)
-                memory["current_files"]["current_groups"] = [
-                    name for name in group_names if name in groups
-                ]
-                printer.print_panel(
-                    Text(f"合并来自组 {', '.join(group_names)} 的文件 .", style=COLOR_SUCCESS), title="文件合并", center=True
-                )
-                printer.print_table_compact(
-                    data=[[os.path.relpath(f, project_root)] for f in memory["current_files"]["files"]],
-                    title="当前文件",
-                    headers=["File"]
-                )
-                printer.print_panel(
-                    Text(f"当前组: {', '.join(memory['current_files']['current_groups'])}", style=COLOR_SUCCESS),
-                    title="当前组", center=True
-                )
-            elif not missing_groups:
-                printer.print_panel(
-                    Text(f"指定组中没有文件.", style=COLOR_WARNING), title="未添加任何文件", center=True
-                )
-
     else:
         existing_files = memory["current_files"]["files"]
         matched_files = find_files_in_project(add_files_args)
