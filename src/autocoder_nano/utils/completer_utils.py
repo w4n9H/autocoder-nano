@@ -7,7 +7,7 @@ from autocoder_nano.actypes import Tag, AutoCoderArgs, FileSystemModel, MemoryCo
 
 COMMANDS = {
     "/add_files": {
-        "/group": {"/add": "", "/drop": "", "/reset": ""},
+        # "/group": {"/add": "", "/drop": "", "/reset": ""},
         "/refresh": "",
     },
     "/index": {"/code": "", "/rag": ""},
@@ -340,20 +340,6 @@ class CommandCompleter(Completer):
                 for command in parser.get_sub_commands():
                     if command.startswith(current_word):
                         yield Completion(command, start_position=-len(current_word))
-
-                if parser.first_sub_command() == "/group" and (
-                        parser.last_sub_command() == "/group"
-                        or parser.last_sub_command() == "/drop"
-                ):
-                    group_names = list(self.memory_model.get_memory_func().get("current_files", {}).get("groups", {}).keys())
-                    if "," in current_word:
-                        current_word = current_word.split(",")[-1]
-
-                    for group_name in group_names:
-                        if group_name.startswith(current_word):
-                            yield Completion(
-                                group_name, start_position=-len(current_word)
-                            )
 
                 if parser.first_sub_command() != "/group":
                     if current_word and current_word.startswith("."):

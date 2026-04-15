@@ -11,7 +11,7 @@ default_exclude_dirs = [
     "dist",
     "build",
     "__pycache__",
-    ".auto-coder",
+    # ".auto-coder",
     "actions",
     ".vscode",
     ".idea",

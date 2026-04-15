@@ -96,7 +96,7 @@ SubAgent = {
             "write_to_file",
             "replace_in_file",
             "call_subagent",
-            "ask_followup_question",
+            # "ask_followup_question",
             "attempt_completion",
             "call_skill"
         ]
@@ -176,7 +176,7 @@ SubAgent = {
             "read_file",
             "search_files",
             "list_files",
-            "ask_followup_question",
+            # "ask_followup_question",
             "attempt_completion",
             "call_skill"
         ]
@@ -283,12 +283,11 @@ SubAgent = {
             '- 每次研究可以使用 1-4 次 web_search 搜索工具。\n',
             '- 输出前确保信息经过验证。\n',
             '- 报告格式为 Markdown/HTML 文件，内容尽量精简，尽量保持在500-2000字之间。\n',
-            '- 报告位置：报告必须放入当前项目 `acdoc` 目录下(不存在则创建)'
         ],
         "tools": [
             "web_search",
             "web_reader",
-            "ask_followup_question",
+            # "ask_followup_question",
             "attempt_completion",
             "write_to_file",
             "call_skill"
@@ -385,7 +384,7 @@ SubAgent = {
         "tools": [
             "write_to_file",
             "use_rag_tool",
-            "ask_followup_question",
+            # "ask_followup_question",
             "attempt_completion"
         ]
     },
@@ -435,7 +434,7 @@ SubAgent = {
             "read_file",
             "query_data",
             "write_to_file",
-            "ask_followup_question",
+            # "ask_followup_question",
             "attempt_completion",
         ]
     }
