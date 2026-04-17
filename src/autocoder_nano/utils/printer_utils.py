@@ -10,12 +10,12 @@ from rich.text import Text
 from rich.align import Align
 
 
-COLOR_SYSTEM = "grey62"                      # 系统信息 - 暗灰色 60
-COLOR_SUCCESS = "bright_green"               # 成功状态 - 亮绿色
-COLOR_ERROR = "bright_red"                   # 错误信息 - 亮红色
-COLOR_WARNING = "bright_yellow"              # 警告信息 - 亮黄色
-COLOR_INFO = "grey50"                        # 一般信息 - 暗灰色（低调显示）
-COLOR_BORDER = "dim cyan"                    # 边框颜色 - 青色
+COLOR_SYSTEM = "grey70"                      # 系统信息 - 暗灰色 60
+COLOR_SUCCESS = "green3"               # 成功状态 - 亮绿色
+COLOR_ERROR = "red3"                   # 错误信息 - 亮红色
+COLOR_WARNING = "yellow3"              # 警告信息 - 亮黄色
+COLOR_INFO = "grey58"                        # 一般信息 - 暗灰色（低调显示）
+COLOR_BORDER = "cyan"                    # 边框颜色 - 青色
 
 
 class Printer:
@@ -59,19 +59,19 @@ class Printer:
             data: Iterable[Iterable[Any]],
             title: Optional[str] = None,
             headers: Optional[List[str]] = None,
-            show_lines: bool = True,
+            show_lines: bool = False,
             expand: bool = True,
             caption: Optional[str] = None,
             compact: bool = True,
             center: bool = True,  # 新增居中参数
     ) -> None:
         # TUI风格的颜色配置
-        title_style = "bold white on green"  # 更醒目的标题
-        caption_style = "dim black on cyan"  # 蓝灰背景
-        header_style = "bold white on yellow"  # 高对比度表头
-        content_style = "bright_white"  # 亮灰色
-        alt_row_style = "white"  # 暗灰色
-        border_style = COLOR_BORDER  # 鲜绿色边框
+        title_style = "bold cyan"
+        caption_style = "dim grey50"
+        header_style = "bold grey70"
+        content_style = "grey85"
+        alt_row_style = "grey70"
+        border_style = "grey35"
 
         table = Table(
             title=Text(f"  {title}  ", style=title_style),
@@ -80,9 +80,9 @@ class Printer:
             show_lines=show_lines,  # 在每行之间绘制分隔线
             show_edge=True,  # 在表格外部绘制边框, 默认为 True。
             expand=expand,  # 如果为 True，则扩展表格以填充可用空间；否则将自动计算表格宽度。默认为 False。
-            padding=(0, 0) if compact else (1, 2),  # 紧凑模式减少内边距
-            box=box.SQUARE,
-            style="on black",
+            padding=(0, 1) if compact else (1, 2),  # 紧凑模式减少内边距
+            box=box.ROUNDED,
+            # style="on black",
             row_styles=[content_style, alt_row_style],  # 斑马纹
             border_style=border_style,
         )
