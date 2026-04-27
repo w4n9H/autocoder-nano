@@ -4,15 +4,11 @@ from typing import Optional, Union
 from autocoder_nano.agent.agentic_edit_tools.base_tool_resolver import BaseToolResolver
 from autocoder_nano.agent.agentic_edit_types import ExecuteCommandTool, ToolResult
 from autocoder_nano.actypes import AutoCoderArgs
-from autocoder_nano.utils.printer_utils import Printer
 from autocoder_nano.utils.shell_utils import run_cmd_subprocess
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_runtime import AgenticRuntime
     from autocoder_nano.agent.agentic_sub import SubAgents
-
-
-printer = Printer()
 
 
 class ExecuteCommandToolResolver(BaseToolResolver):
@@ -40,18 +36,11 @@ class ExecuteCommandToolResolver(BaseToolResolver):
         try:
             exit_code, output = run_cmd_subprocess(command, verbose=False, cwd=source_dir)
 
-            printer.print_key_value(
-                items={"执行命令": f"{command}", "返回 Code": f"{exit_code}", "输出大小": f"{len(output)} chars"},
-                title="使用 run_cmd_subprocess 执行命令工具"
-            )
-
             final_output = self._prune_file_content(output, "command_output")
 
             if exit_code == 0:
                 return ToolResult(success=True, message="Command executed successfully.", content=final_output)
             else:
-                # For the human-readable error message, we might prefer the original full output.
-                # For the agent-consumable content, we provide the (potentially pruned) final_output.
                 error_message_for_human = f"Command failed with return code {exit_code}.\nOutput:\n{output}"
                 return ToolResult(success=False, message=error_message_for_human,
                                   content={"output": final_output, "returncode": exit_code})

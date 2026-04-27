@@ -34,7 +34,7 @@ def convert_config_value(key, value):
         else:
             return value
     else:
-        printer.print_text(f"无效的配置项: {key}", style="red")
+        printer.error(f"无效的配置项: {key}")
         return None
 
 
@@ -59,11 +59,10 @@ def load_include_files(config, base_path, max_depth=10, current_depth=0):
 
         for include_file in include_files:
             abs_include_path = resolve_include_path(base_path, include_file)
-            # printer.print_text(f"正在加载 Include file: {abs_include_path}", style="green")
             with open(abs_include_path, "r") as f:
                 include_config = yaml.safe_load(f)
                 if not include_config:
-                    printer.print_text(f"Include file {abs_include_path} 为空，跳过处理.", style="green")
+                    printer.success(f"Include file {abs_include_path} 为空，跳过处理.")
                     continue
                 config.update(
                     {
@@ -147,7 +146,7 @@ def get_last_yaml_file(project_root: str) -> Optional[str]:
 def prepare_chat_yaml(project_root: str):
     actions_dir = os.path.join(project_root, "actions")
     if not os.path.exists(actions_dir):
-        printer.print_text("当前目录中未找到 actions 目录。请执行初始化 AutoCoder Nano", style="yellow")
+        printer.warnning("当前目录中未找到 actions 目录。请执行初始化 AutoCoder Nano")
         return
 
     action_files = [
@@ -178,5 +177,5 @@ def prepare_chat_yaml(project_root: str):
         with open(new_file, "w") as f:
             f.write(content)
 
-    printer.print_text(f"已成功创建新的 action 文件: {new_file}", style="green")
+    printer.success(f"已成功创建新的 action 文件: {new_file}")
     return

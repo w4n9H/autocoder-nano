@@ -228,12 +228,12 @@ def exclude_dirs(dir_names: List[str]):
         existing_dirs.extend(dirs_to_add)
         if "exclude_dirs" not in memory:
             memory["exclude_dirs"] = existing_dirs
-        printer.print_text(Text(f"已添加排除目录: {dirs_to_add}", style=COLOR_SUCCESS))
+        printer.success(f"已添加排除目录: {dirs_to_add}")
         for d in dirs_to_add:
             exclude_files(f"regex://.*/{d}/*.")
         # exclude_files([f"regex://.*/{d}/*." for d in dirs_to_add])
     else:
-        printer.print_text(Text(f"所有指定目录已在排除列表中. ", style=COLOR_SUCCESS))
+        printer.success(f"所有指定目录已在排除列表中. ")
     save_memory()
     completer.refresh_files()
 
@@ -260,6 +260,7 @@ def exclude_files(query: str):
             dir_query = query.replace("regex://.*/", "", 1).replace("/*.", "", 1)
             if dir_query in existing_dirs_patterns:
                 existing_dirs_patterns.remove(dir_query.strip())
+        printer.success(f"已添加排除目录: {query.strip()}")
         save_memory()
         completer.refresh_files()
         return
@@ -278,9 +279,9 @@ def exclude_files(query: str):
         if "exclude_files" not in memory:
             memory["exclude_files"] = existing_file_patterns
         save_memory()
-        printer.print_text(f"已添加排除文件: {file_patterns_to_add}. ", style=COLOR_SUCCESS)
+        printer.success(f"已添加排除文件: {file_patterns_to_add}. ")
     else:
-        printer.print_text(f"所有指定文件已在排除列表中. ", style=COLOR_SUCCESS)
+        printer.success(f"所有指定文件已在排除列表中. ")
 
 
 def get_conversation_history() -> str:
@@ -289,7 +290,7 @@ def get_conversation_history() -> str:
     memory_file = os.path.join(memory_dir, "chat_history.json")
 
     def error_message():
-        printer.print_panel(Text("未找到可应用聊天记录.", style=COLOR_WARNING), title="Chat History", center=True)
+        printer.warnning("未找到可应用聊天记录.")
 
     if not os.path.exists(memory_file):
         error_message()
@@ -361,7 +362,7 @@ def coding_command(query: str, llm: AutoLLM):
 
         run_edit(llm=llm, args=args)
     else:
-        printer.print_text(f"创建新的 YAML 文件失败.", style=COLOR_WARNING)
+        printer.warnning(f"创建新的 YAML 文件失败.")
 
     save_memory()
     completer.refresh_files()
@@ -425,7 +426,7 @@ def commit_info(query: str, llm: AutoLLM):
             # commit_message = ""
             commit_llm = llm
             commit_llm.setup_default_model_name(args.chat_model)
-            printer.print_text(f"Commit 信息生成中...", style=COLOR_SUCCESS)
+            printer.success(f"Commit 信息生成中...")
 
             try:
                 uncommitted_changes = get_uncommitted_changes(repo_path)
@@ -435,7 +436,7 @@ def commit_info(query: str, llm: AutoLLM):
                 llm_to_commit_message = commit_message.output
                 memory["conversation"].append({"role": "user", "content": llm_to_commit_message})
             except Exception as err:
-                printer.print_text(f"Commit 信息生成失败: {err}", style=COLOR_ERROR)
+                printer.error(f"Commit 信息生成失败: {err}")
                 return
 
             yaml_config["query"] = llm_to_commit_message
@@ -449,11 +450,11 @@ def commit_info(query: str, llm: AutoLLM):
             commit_result = commit_changes(repo_path, f"auto_coder_nano_{file_name}_{md5}")
             print_commit_info(commit_result=commit_result, llm_commit_message=llm_to_commit_message)
             if commit_message:
-                printer.print_text(f"Commit 成功", style=COLOR_SUCCESS)
+                printer.success(f"Commit 成功")
         except Exception as err:
             import traceback
             traceback.print_exc()
-            printer.print_text(f"Commit 失败: {err}", style=COLOR_ERROR)
+            printer.error(f"Commit 失败: {err}")
             if execute_file:
                 os.remove(execute_file)
 
@@ -496,36 +497,35 @@ def configure(conf: str, skip_print=False):
         if key in memory["conf"]:
             del memory["conf"][key]
             save_memory()
-            printer.print_text(f"Deleted configuration: {key}", style=COLOR_SUCCESS)
+            printer.success(f"Deleted configuration: {key}")
         else:
-            printer.print_text(f"Configuration not found: {key}", style=COLOR_WARNING)
+            printer.warnning(f"Configuration not found: {key}")
     else:
         parts = conf.split(":", 1)
         if len(parts) != 2:
-            printer.print_text(
-                "Error: Invalid configuration format. Use 'key:value' or '/drop key'.", style=COLOR_ERROR)
+            printer.error("Error: Invalid configuration format. Use 'key:value' or '/drop key'.")
             return
         key, value = parts
         key = key.strip()
         value = value.strip()
         if not value:
-            printer.print_text("Error: Value cannot be empty. Use 'key:value'.", style=COLOR_ERROR)
+            printer.error("Error: Value cannot be empty. Use 'key:value'.")
             return
         memory["conf"][key] = value
         save_memory()
         if not skip_print:
-            printer.print_text(f"Set {key} to {value}", style=COLOR_SUCCESS)
+            printer.success(f"Set {key} to {value}")
 
 
 def add_files(add_files_args: List[str]):
     if not add_files_args:
-        printer.print_panel(Text("请为 /add_files 命令提供参数.", style=COLOR_ERROR), title="错误", center=True)
+        printer.warnning("请为 /add_files 命令提供参数.")
         return
 
     if add_files_args[0] == "/refresh":  # 刷新
         completer.refresh_files()
         load_memory()
-        printer.print_panel(Text("已刷新的文件列表.", style=COLOR_SUCCESS), title="文件刷新", center=True)
+        printer.success("已刷新的文件列表.")
         return
     else:
         existing_files = memory["current_files"]["files"]
@@ -540,9 +540,8 @@ def add_files(add_files_args: List[str]):
                 headers=["文件"]
             )
         else:
-            printer.print_panel(
-                Text(f"所有指定文件已存在于当前会话中，或者未找到匹配的文件.", style=COLOR_WARNING), title="未新增文件", center=True
-            )
+            printer.section("未新增文件")
+            printer.warnning(f"指定文件已存在于当前会话中，或者未找到匹配的文件.")
 
     completer.update_current_files(memory["current_files"]["files"])
     save_memory()
@@ -552,7 +551,8 @@ def remove_files(file_names: List[str]):
     if "/all" in file_names:
         memory["current_files"]["files"] = []
         memory["current_files"]["current_groups"] = []
-        printer.print_panel("已移除所有文件", title="文件移除", center=True)
+        printer.section("文件移除")
+        printer.warnning(f"已移除所有文件.")
     else:
         removed_files = []
         for file in memory["current_files"]["files"]:
@@ -570,7 +570,8 @@ def remove_files(file_names: List[str]):
                 headers=["File"]
             )
         else:
-            printer.print_panel("未移除任何文件", title="未移除文件", border_style=COLOR_WARNING, center=True)
+            printer.section("未移除文件")
+            printer.warnning(f"未移除任何文件.")
     completer.update_current_files(memory["current_files"]["files"])
     save_memory()
 
@@ -585,7 +586,8 @@ def list_files():
             headers=["File"]
         )
     else:
-        printer.print_panel("当前会话中无文件。", title="当前文件", center=True)
+        printer.section("当前文件")
+        printer.warnning("当前会话中无文件. ")
 
 
 def print_conf(content: Dict[str, Any]):
@@ -620,9 +622,7 @@ def print_models(content: Dict[str, Any]):
     printer.print_table_compact(
         headers=["Name", "Model Name", "Base URL"],
         title="模型列表",
-        data=data_list,
-        show_lines=True,
-        expand=True
+        data=data_list
     )
 
 
@@ -671,10 +671,9 @@ def manage_models(models_args, models_data, llm: AutoLLM):
         check_models(models_data, llm)
     if models_args[0] == "/add":
         m1, m2, m3, m4 = configure_project_model()
-        printer.print_text("正在更新缓存...", style=COLOR_WARNING)
+        printer.warnning("正在更新缓存...")
         memory["models"][m1] = {"base_url": m3, "api_key": m4, "model": m2}
-        printer.print_text(f"供应商配置已成功完成！后续你可以使用 /models 命令, 查看, 新增和修改所有模型", style=COLOR_SUCCESS)
-        printer.print_text(f"正在部署 {m1} 模型...", style=COLOR_SUCCESS)
+        printer.success(f"供应商配置已成功完成！后续你可以使用 /models 命令, 查看, 新增和修改所有模型")
         llm.setup_sub_client(m1,
                              memory["models"][m1]["api_key"],
                              memory["models"][m1]["base_url"],
@@ -683,7 +682,7 @@ def manage_models(models_args, models_data, llm: AutoLLM):
         add_model_args = models_args[1:]
         add_model_info = {item.split('=')[0]: item.split('=')[1] for item in add_model_args if item}
         mn = add_model_info["name"]
-        printer.print_text(f"正在为 {mn} 更新缓存信息", style=COLOR_SUCCESS)
+        printer.warnning(f"正在为 {mn} 更新缓存信息")
         if mn not in memory["models"]:
             memory["models"][mn] = {
                 "base_url": add_model_info["base_url"],
@@ -691,21 +690,20 @@ def manage_models(models_args, models_data, llm: AutoLLM):
                 "model": add_model_info["model"]
             }
         else:
-            printer.print_text(f"{mn} 已经存在, 请执行 /models /remove <name> 进行删除", style=COLOR_ERROR)
-        printer.print_text(f"正在部署 {mn} 模型", style=COLOR_SUCCESS)
+            printer.warnning(f"{mn} 已经存在, 请执行 /models /remove <name> 进行删除")
         llm.setup_sub_client(mn, add_model_info["api_key"], add_model_info["base_url"], add_model_info["model"])
     elif models_args[0] == "/remove":
         rmn = models_args[1]
-        printer.print_text(f"正在清理 {rmn} 缓存信息", style=COLOR_SUCCESS)
+        printer.warnning(f"正在清理 {rmn} 缓存信息")
         if rmn in memory["models"]:
             del memory["models"][rmn]
-        printer.print_text(f"正在卸载 {rmn} 模型", style=COLOR_SUCCESS)
+        printer.warnning(f"正在卸载 {rmn} 模型")
         if llm.get_sub_client(rmn):
             llm.remove_sub_client(rmn)
         if rmn == memory["conf"]["chat_model"]:
-            printer.print_text(f"当前首选Chat模型 {rmn} 已被删除, 请立即 /conf chat_model: 调整", style=COLOR_WARNING)
+            printer.warnning(f"当前首选Chat模型 {rmn} 已被删除, 请立即 /conf chat_model: 调整")
         if rmn == memory["conf"]["code_model"]:
-            printer.print_text(f"当前首选Code模型 {rmn} 已被删除, 请立即 /conf code_model: 调整", style=COLOR_WARNING)
+            printer.warnning(f"当前首选Code模型 {rmn} 已被删除, 请立即 /conf code_model: 调整")
 
 
 def rules(query_args: List[str], llm: AutoLLM):
@@ -723,42 +721,23 @@ def rules(query_args: List[str], llm: AutoLLM):
             with open(rule_path, "r") as fp:
                 printer.print_markdown(text=fp.read(), panel=True)
         else:
-            printer.print_text(f"Rules 文件[{rule_path}]不存在", style=COLOR_WARNING)
+            printer.warnning(f"Rules 文件[{rule_path}]不存在")
 
     if query_args[0] == "/clear":
         if os.path.exists(rule_path):
             with open(rule_path, "w") as fp:
                 fp.write("")
-            printer.print_text(f"Rules 文件[{rule_path}]已重置", style=COLOR_WARNING)
+            printer.warnning(f"Rules 文件[{rule_path}]已重置")
 
     if query_args[0] == "/analyze":
         files = memory.get("current_files", {}).get("files", [])
         if not files:
-            printer.print_text("当前无活跃文件用于生成 Rules", style=COLOR_WARNING)
+            printer.warnning("当前无活跃文件用于生成 Rules")
             return
 
         rules_from_active_files(files=files, llm=llm, args=args)
 
     completer.refresh_files()
-
-
-def is_old_version():
-    # "0.1.26" 开始使用兼容 AutoCoder 的 chat_model, code_model 参数
-    # 不再使用 current_chat_model 和 current_chat_model
-    if 'current_chat_model' in memory['conf'] and 'current_code_model' in memory['conf']:
-        printer.print_text(f"0.1.26 新增 chat_model, code_model 参数, 正在进行配置兼容性处理", style=COLOR_WARNING)
-        memory['conf']['chat_model'] = memory['conf']['current_chat_model']
-        memory['conf']['code_model'] = memory['conf']['current_code_model']
-        del memory['conf']['current_chat_model']
-        del memory['conf']['current_code_model']
-    # "0.1.31" 在 .auto-coder 目录中新增 autocoderrules 目录
-    rules_dir_path = os.path.join(project_root, ".auto-coder", "autocoderrules")
-    if not os.path.exists(rules_dir_path):
-        printer.print_text(f"0.1.31 .auto-coder 目录中新增 autocoderrules 目录, 正在进行配置兼容性处理", style=COLOR_WARNING)
-        os.makedirs(rules_dir_path, exist_ok=True)
-    # "0.4.1" 在 memory.json 中新增了 "theme": "cyberpunk"  # 新增theme字段，默认为cyberpunk
-    if "theme" not in memory:
-        memory["theme"] = "cyberpunk"
 
 
 def main():
@@ -772,51 +751,37 @@ def main():
     try:
         load_memory()
         load_tokenizer()
-        is_old_version()
         completer.update_current_files(memory["current_files"]["files"])
         completer.refresh_files()
     except Exception as e:
-        printer.print_text(
-            Text.assemble(
-                ("初始化过程发生异常:", COLOR_ERROR),
-                (f"{type(e).__name__}", COLOR_WARNING),
-                (f" - {str(e)}", "")
-            )
-        )
+        printer.error(f"初始化过程发生异常: {type(e).__name__} - {str(e)}")
         exit(1)
 
     if len(memory["models"]) == 0:
         _model_pass = input(f"  是否跳过模型配置(y/n): ").strip().lower()
         if _model_pass == "n":
             m1, m2, m3, m4 = configure_project_model()
-            printer.print_text("正在更新缓存...", style=COLOR_WARNING)
+            printer.warnning("正在更新缓存...")
             memory["conf"]["chat_model"] = m1
             memory["conf"]["code_model"] = m1
             memory["models"][m1] = {"base_url": m3, "api_key": m4, "model": m2}
-            printer.print_text(f"供应商配置已成功完成！后续你可以使用 /models 命令, 查看, 新增和修改所有模型", style=COLOR_SUCCESS)
+            printer.success(f"供应商配置已成功完成！后续你可以使用 /models 命令, 查看, 新增和修改所有模型")
         else:
-            printer.print_text("你已跳过模型配置,后续请使用 /models /add_model 添加模型...", style=COLOR_WARNING)
-            printer.print_text("添加示例 /models /add_model name=& base_url=& api_key=& model=&", style=COLOR_WARNING)
+            printer.warnning("你已跳过模型配置,后续请使用 /models /add_model 添加模型...")
+            printer.warnning("添加示例 /models /add_model name=& base_url=& api_key=& model=&")
 
     auto_llm = AutoLLM()  # 创建模型
     if len(memory["models"]) > 0:
         for _model_name in memory["models"]:
-            printer.print_text(
-                Text.assemble(
-                    ("正在部署模型: ", COLOR_INFO),
-                    (f"{_model_name}", COLOR_SUCCESS)
-                ))
             auto_llm.setup_sub_client(_model_name,
                                       memory["models"][_model_name]["api_key"],
                                       memory["models"][_model_name]["base_url"],
                                       memory["models"][_model_name]["model"])
 
-    printer.print_text("模型初始化完成.", style=COLOR_SUCCESS)
-
     if memory["conf"]["chat_model"] not in memory["models"].keys():
-        printer.print_text("首选 Chat 模型与部署模型不一致, 请使用 /conf chat_model:& 设置", style=COLOR_ERROR)
+        printer.error("首选 Chat 模型与部署模型不一致, 请使用 /conf chat_model:& 设置")
     if memory["conf"]["code_model"] not in memory["models"].keys():
-        printer.print_text("首选 Code 模型与部署模型不一致, 请使用 /conf code_model:& 设置", style=COLOR_ERROR)
+        printer.error("首选 Code 模型与部署模型不一致, 请使用 /conf code_model:& 设置")
 
     if _raw_args and _raw_args.agent_query:
         if _raw_args.agent_new_session:
@@ -833,12 +798,7 @@ def main():
             auto_command(project_root=project_root, memory=memory, query=_agent_query, llm=auto_llm,
                          agent_define=_agent_define, is_web=_raw_args.agent_model)
         except Exception as e:
-            printer.print_text(
-                Text.assemble(
-                    ("发生异常:", COLOR_ERROR),
-                    (f"{type(e).__name__}", COLOR_WARNING),
-                    (f" - {str(e)}", COLOR_SYSTEM))
-            )
+            printer.error(f"发生异常: {type(e).__name__} - {str(e)}")
             if _raw_args.debug:
                 import traceback
                 traceback.print_exc()
@@ -883,8 +843,6 @@ def main():
         # 动态更新样式
         event.app.style = theme.get_theme(next_theme)
 
-        # printer.print_text(f"主题已切换至: {theme_name}", style=COLOR_SUCCESS)
-
     def get_bottom_toolbar():
         if "mode" not in memory:
             memory["mode"] = "normal"
@@ -896,12 +854,18 @@ def main():
         current_model = memory["conf"]["chat_model"]
         return f" 当前项目: {current_project} | 主题: {theme_name} (ctl+t) | 当前模型: {current_model} (ctl+q)"
 
+    def get_top_status():
+        printer.separator()
+        printer.print_text(
+            Text.assemble(
+                (f"Nano Cli - v{__version__}", "bold"),
+                (f" | {memory.get('conf', {}).get('chat_model', '')} | {project_root}", "dim"),
+            )
+        )
+
     current_theme_name = memory.get("theme", "cyberpunk")
     current_style = theme.get_theme(current_theme_name)
     session = PromptSession(
-        # 输入行为
-        # multiline=True,
-        # prompt_continuation=lambda width, line_number, is_soft_wrap: " " * width,
         # 历史记录
         history=InMemoryHistory(),
         auto_suggest=AutoSuggestFromHistory(),
@@ -915,47 +879,48 @@ def main():
         cursor=CursorShape.BLINKING_BLOCK,
         lexer=SimpleAutoCoderLexer(),    # 实时语法高亮
         # 界面元素
-        bottom_toolbar=get_bottom_toolbar,
+        # bottom_toolbar=get_bottom_toolbar,
         # 行为控制
         key_bindings=kb,
     )
-    printer.print_key_value(
-        {
-            "AutoCoder Nano": f"v{__version__}",
-            "Url": "https://github.com/w4n9H/autocoder-nano",
-            "Help": "输入 /help 可以查看可用的命令(Ctrl + t 切换主题 / Ctrl + q 切换模型)."
-        }
-    )
+    # printer.kv(
+    #     {
+    #         "AutoCoder Nano": f"v{__version__}",
+    #         "Url": "https://github.com/w4n9H/autocoder-nano",
+    #         "Help": "输入 /help 可以查看可用的命令(Ctrl + t 切换主题 / Ctrl + q 切换模型)."
+    #     }
+    # )
+    get_top_status()
 
     new_prompt = ""
 
     while True:
         try:
             prompt_message = [
-                ("class:username", "coding"),
-                ("class:at", "@"),
-                ("class:host", "supa-nano"),
-                ("class:colon", ":"),
-                ("class:path", "~"),
-                ("class:dollar", "$ "),
+                # ("class:username", "coding"),
+                # ("class:at", "@"),
+                # ("class:host", "supa-nano"),
+                # ("class:colon", ":"),
+                # ("class:path", "~"),
+                ("class:dollar", "> "),
             ]
-
+            printer.separator()
             if new_prompt:
                 user_input = session.prompt(FormattedText(prompt_message), default=new_prompt, style=current_style)
             else:
                 user_input = session.prompt(FormattedText(prompt_message), style=current_style)
             new_prompt = ""
 
-            if "mode" not in memory:
-                memory["mode"] = "normal"  # 默认为正常模式
-            if memory["mode"] == "auto_detect" and user_input and not user_input.startswith("/"):
-                shell_script = generate_shell_command(
-                    project_root=project_root, memory=memory, input_text=user_input, llm=auto_llm)
-                if confirm("是否要执行此脚本?"):
-                    execute_shell_command(shell_script)
-                else:
-                    continue
-            elif user_input.startswith("/add_files"):
+            # if "mode" not in memory:
+            #     memory["mode"] = "normal"  # 默认为正常模式
+            # if memory["mode"] == "auto_detect" and user_input and not user_input.startswith("/"):
+            #     shell_script = generate_shell_command(
+            #         project_root=project_root, memory=memory, input_text=user_input, llm=auto_llm)
+            #     if confirm("是否要执行此脚本?"):
+            #         execute_shell_command(shell_script)
+            #     else:
+            #         continue
+            if user_input.startswith("/add_files"):
                 add_files_args = user_input[len("/add_files"):].strip().split()
                 add_files(add_files_args)
             elif user_input.startswith("/remove_files"):
@@ -964,7 +929,7 @@ def main():
             elif user_input.startswith("/index"):
                 index_args = user_input[len("/index"):].strip().split()
                 if not index_args:
-                    printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
+                    printer.warnning("Please enter your request.")
                 else:
                     new_index_command(index_args=index_args, project_root=project_root, memory=memory, llm=auto_llm)
             elif user_input.startswith("/list_files"):
@@ -975,16 +940,17 @@ def main():
                     print_conf(memory["conf"])
                 else:
                     configure(conf)
+                get_top_status()
             elif user_input.startswith("/git"):
                 git_args = user_input[len("/git"):].strip().split()
                 if not git_args:
-                    printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
-                else:
-                    git_command(git_args, auto_llm)
+                    printer.warnning("Please enter your request.")
+                    continue
+                git_command(git_args, auto_llm)
             elif user_input.startswith("/rules"):
                 query_args = user_input[len("/rules"):].strip().split()
                 if not query_args:
-                    printer.print_text("Please enter your request.", style=COLOR_WARNING)
+                    printer.warnning("Please enter your request.")
                     continue
                 rules(query_args=query_args, llm=auto_llm)
             elif user_input.startswith("/help"):
@@ -994,28 +960,28 @@ def main():
             elif user_input.startswith("/coding"):
                 query = user_input[len("/coding"):].strip()
                 if not query:
-                    printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
+                    printer.warnning("Please enter your request.")
                     continue
                 coding_command(query=query, llm=auto_llm)
             elif user_input.startswith("/auto"):
                 query = user_input[len("/auto"):].strip()
                 if not query:
-                    printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
+                    printer.warnning("Please enter your request.")
                     continue
                 auto_command(project_root=project_root, memory=memory, query=query, llm=auto_llm,
                              agent_define=get_subagent_define())
             elif user_input.startswith("/chat"):
                 query = user_input[len("/chat"):].strip()
                 if not query:
-                    printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
-                else:
-                    chat_command(project_root=project_root, query=query, memory=memory, llm=auto_llm)
+                    printer.warnning("Please enter your request.")
+                    continue
+                chat_command(project_root=project_root, query=query, memory=memory, llm=auto_llm)
             elif user_input.startswith("/models"):
                 models_args = user_input[len("/models"):].strip().split()
                 if not models_args:
-                    printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
-                else:
-                    manage_models(models_args, memory["models"], auto_llm)
+                    printer.warnning("Please enter your request.")
+                    continue
+                manage_models(models_args, memory["models"], auto_llm)
             elif user_input.startswith("/exclude_dirs"):
                 dir_names = user_input[len("/exclude_dirs"):].strip().split(",")
                 exclude_dirs(dir_names)
@@ -1023,30 +989,18 @@ def main():
                 query = user_input[len("/exclude_files"):].strip()
                 exclude_files(query)
             else:
-                printer.print_text(Text("Please enter your request.", style=COLOR_ERROR))
+                printer.warnning("Please enter your request.")
         except KeyboardInterrupt:
             continue
         except EOFError:
             try:
                 save_memory()
             except Exception as e:
-                printer.print_text(
-                    Text.assemble(
-                        ("保存配置时发生异常:", COLOR_ERROR),
-                        (f"{type(e).__name__}", COLOR_WARNING),
-                        (f" - {str(e)}", "")
-                    )
-                )
-            printer.print_text("退出 AutoCoder Nano...", style=COLOR_WARNING)
+                printer.error(f"保存配置时发生异常: {type(e).__name__} - {str(e)}")
+            printer.info("退出 AutoCoder Nano...")
             break
         except Exception as e:
-            printer.print_text(
-                Text.assemble(
-                    ("发生异常:", COLOR_ERROR),
-                    (f"{type(e).__name__}", COLOR_WARNING),
-                    (f" - {str(e)}", "")
-                )
-            )
+            printer.error(f"发生异常: {type(e).__name__} - {str(e)}")
             if _raw_args and _raw_args.debug:
                 import traceback
                 traceback.print_exc()

@@ -8,9 +8,6 @@ from datetime import datetime
 from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.agent.agentic_edit_tools import BaseToolResolver
 from autocoder_nano.agent.agentic_edit_types import ToolResult, TodoWriteTool
-from autocoder_nano.utils.printer_utils import Printer
-
-printer = Printer()
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_runtime import AgenticRuntime
@@ -46,12 +43,7 @@ class TodoWriteToolResolver(BaseToolResolver):
             with open(todo_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
-            printer.print_text(f"加载 TodoList 失败: {e}", style="yellow")
-            return {
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat(),
-                "todos": []
-            }
+            raise Exception(f"打开 Todos 文件失败: {e}")
 
     def _save_todos(self, data: Dict[str, Any]) -> bool:
         """Save todos to the session file."""
@@ -63,8 +55,7 @@ class TodoWriteToolResolver(BaseToolResolver):
                 json.dump(data, f, ensure_ascii=False, indent=2)
             return True
         except Exception as e:
-            printer.print_text(f"保存 TodoList 失败: {e}", style="red")
-            return False
+            raise Exception(f"保存 TodoList 失败: {e}")
 
     @staticmethod
     def _generate_todo_id() -> str:
@@ -234,9 +225,6 @@ class TodoWriteToolResolver(BaseToolResolver):
         """
         try:
             action = self.tool.action.lower()
-            printer.print_text(f"执行待办事项操作: {action}", style="green")
-
-            # Load existing todos
             data = self._load_todos()
             todos = data["todos"]
 
@@ -300,7 +288,6 @@ class TodoWriteToolResolver(BaseToolResolver):
                     )
 
                 todo_index = self._find_todo_by_id(todos, self.tool.task_id)
-                # printer.print_text(f"任务index {todo_index}")
                 if todo_index is None:
                     return ToolResult(
                         success=False,
@@ -347,7 +334,6 @@ class TodoWriteToolResolver(BaseToolResolver):
                 )
 
         except Exception as e:
-            printer.print_text(f"执行待办事项操作失败: {e}", style="red")
             return ToolResult(
                 success=False,
                 message=f"执行待办事项操作失败: {str(e)}",

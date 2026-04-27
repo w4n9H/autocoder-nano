@@ -5,9 +5,6 @@ import os
 import xml.sax.saxutils
 
 from rich.markdown import Markdown
-from rich.syntax import Syntax
-from rich.text import Text
-from rich.json import JSON
 from prompt_toolkit import prompt as _toolkit_prompt
 
 from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
@@ -16,9 +13,7 @@ from autocoder_nano.rag.token_counter import count_tokens
 from autocoder_nano.rules import get_rules_context
 from autocoder_nano.utils.config_utils import prepare_chat_yaml, get_last_yaml_file, convert_yaml_config_to_str
 from autocoder_nano.utils.git_utils import get_uncommitted_changes, commit_changes
-from autocoder_nano.utils.printer_utils import (
-    Printer, COLOR_ERROR, COLOR_SUCCESS, COLOR_WARNING, COLOR_INFO, COLOR_SYSTEM)
-from autocoder_nano.agent.agent_define import get_subagent_define
+from autocoder_nano.utils.printer_utils import Printer
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.agent.agentic_edit_tools import *
 from autocoder_nano.utils.sys_utils import detect_env
@@ -110,8 +105,7 @@ class BaseAgent:
             # 在<tool_tag>和</tool_tag>之间查找内容
             inner_xml_match = re.search(rf"<{tool_tag}>(.*?)</{tool_tag}>", tool_xml, re.DOTALL)
             if not inner_xml_match:
-                printer.print_text(f"无法在<{tool_tag}>...</{tool_tag}>标签内找到内容",
-                                   style=COLOR_ERROR, prefix=self.mapp)
+                printer.error(f"无法在<{tool_tag}>...</{tool_tag}>标签内找到内容")
                 return None
             inner_xml = inner_xml_match.group(1).strip()
 
@@ -133,33 +127,30 @@ class BaseAgent:
                     try:
                         params['options'] = json.loads(params['options'])
                     except json.JSONDecodeError:
-                        printer.print_text(f"ask_followup_question_tool 参数JSON解码失败: {params['options']}",
-                                           style=COLOR_ERROR, prefix=self.mapp)
+                        printer.error(f"ask_followup_question_tool 参数JSON解码失败: {params['options']}")
                         # 保持为字符串还是处理错误？目前先保持为字符串
                         pass
                 if tool_tag == 'plan_mode_respond' and 'options' in params:
                     try:
                         params['options'] = json.loads(params['options'])
                     except json.JSONDecodeError:
-                        printer.print_text(f"plan_mode_respond_tool 参数JSON解码失败: {params['options']}",
-                                           style=COLOR_ERROR, prefix=self.mapp)
+                        printer.error(f"plan_mode_respond_tool 参数JSON解码失败: {params['options']}")
                 # 处理 list_files 工具的递归参数
                 if tool_tag == 'list_files' and 'recursive' in params:
                     params['recursive'] = params['recursive'].lower() == 'true'
                 return tool_cls(**params)
             else:
-                printer.print_text(f"未找到标签对应的工具类: {tool_tag}", style=COLOR_ERROR, prefix=self.mapp)
+                printer.error(f"未找到标签对应的工具类: {tool_tag}")
                 return None
         except Exception as e:
-            printer.print_text(f"解析工具XML <{tool_tag}> 失败: {e}\nXML内容:\n{tool_xml}",
-                               style=COLOR_ERROR, prefix=self.mapp)
+            printer.error(f"解析工具XML <{tool_tag}> 失败: {e}\nXML内容:\n{tool_xml}")
             return None
 
     def _reconstruct_tool_xml(self, tool: BaseTool) -> str:
         """ Reconstructs the XML representation of a tool call from its Pydantic model. """
         tool_tag = next((tag for tag, model in TOOL_MODEL_MAP.items() if isinstance(tool, model)), None)
         if not tool_tag:
-            printer.print_text(f"找不到工具类型 {type(tool).__name__} 对应的标签名", style=COLOR_ERROR, prefix=self.mapp)
+            printer.error(f"找不到工具类型 {type(tool).__name__} 对应的标签名")
             return f"<error>Could not find tag for tool {type(tool).__name__}</error>"
 
         xml_parts = [f"<{tool_tag}>"]
@@ -359,11 +350,7 @@ class BaseAgent:
 
         if changes != "No uncommitted changes found.":
             if not self.args.skip_commit:
-                printer.print_panel(
-                    content=Markdown(changes),
-                    title="代码变更详情",
-                    border_style=COLOR_INFO,
-                    center=False)
+                printer.print_markdown(changes)
                 _is_commit = _toolkit_prompt("是否提交(Commit)以上代码(y/n)：", default="y").strip()
                 if _is_commit != 'y':
                     return
@@ -397,90 +384,17 @@ class BaseAgent:
                         self.args.source_dir, f"auto_coder_nano_{latest_yaml_file}_{md5}",
                     )
                     if commit_message:
-                        printer.print_text(f"Commit 成功", style=COLOR_SUCCESS, prefix=self.mapp)
+                        printer.success(f"Commit 成功")
                 except Exception as err:
                     import traceback
                     traceback.print_exc()
-                    printer.print_text(f"Commit 失败: {err}", style=COLOR_ERROR, prefix=self.mapp)
+                    printer.error(f"Commit 失败: {err}")
         else:
-            printer.print_text(f"文件未进行任何更改, 无需 Commit", style=COLOR_WARNING, prefix=self.mapp)
+            printer.warnning(f"文件未进行任何更改, 无需 Commit")
 
     @staticmethod
     def _count_conversations_tokens(conversations: list):
         return count_tokens(json.dumps(conversations, ensure_ascii=False))
-
-    def _handle_token_usage_event(self, event, accumulated_token_usage):
-        """处理token使用事件"""
-        last_meta: SingleOutputMeta = event.usage
-
-        # 累计token使用情况
-        accumulated_token_usage["model_name"] = self.args.chat_model
-        accumulated_token_usage["input_tokens"] += last_meta.input_tokens_count
-        accumulated_token_usage["output_tokens"] += last_meta.generated_tokens_count
-
-        printer.print_text(f"本次调用模型 Token 使用: "
-                           f"Input({last_meta.input_tokens_count})/"
-                           f"Output({last_meta.generated_tokens_count})",
-                           style=COLOR_INFO, prefix=self.mapp)
-
-    def _handle_tool_call_event(self, event):
-        """处理工具调用事件"""
-        # 跳过显示AttemptCompletionTool的工具调用
-        if isinstance(event.tool, AttemptCompletionTool):
-            return
-
-        tool_name = type(event.tool).__name__
-        if isinstance(event.tool, QueryDataTool):
-            printer.print_panel(
-                content=Syntax(
-                    f"{self.get_tool_display_message(event.tool)}", "sql", theme="monokai", line_numbers=True),
-                border_style=COLOR_INFO,
-                title=f"{tool_name}"
-            )
-        else:
-            printer.print_text(
-                Text.assemble(
-                    (f"{tool_name}: ", COLOR_SYSTEM),
-                    (f"{self.get_tool_display_message(event.tool)}", COLOR_INFO)
-                ),
-                prefix=self.mapp
-            )
-
-    def _handle_tool_result_event(self, event):
-        """处理工具结果事件"""
-        if event.tool_name in ["AttemptCompletionTool", "PlanModeRespondTool"]:
-            return
-
-        result = event.result
-        printer.print_text(
-            Text.assemble(
-                (f"{event.tool_name} Result: ", COLOR_SYSTEM),
-                (f"{result.message}", COLOR_SUCCESS if result.success else COLOR_ERROR)
-            ),
-            prefix=self.mapp
-        )
-
-        if event.tool_name in ["TodoReadTool", "TodoWriteTool"]:
-            if result.content:
-                printer.print_panel(
-                    content=Markdown(result.content),
-                    title="Todo List",
-                    border_style=COLOR_INFO,
-                    center=False)
-        if event.tool_name in ["CallSkillsTool"]:
-            if result.content:
-                printer.print_panel(
-                    content=Markdown(result.content),
-                    title="Skills Call",
-                    border_style=COLOR_INFO,
-                    center=False)
-
-        # 不在展示具体的代码，以展示 Agent 操作为主
-        # content_str = self._format_tool_result_content(result.content)
-        # lexer = self._determine_content_lexer(event.tool_name, result.message)
-        # if content_str:
-        #     printer.print_code(
-        #         code=content_str, lexer=lexer, theme="monokai", line_numbers=True, panel=True)
 
     def _format_tool_result_content(self, result_content, max_len: int = 500):
         """格式化工具返回的内容"""
@@ -502,7 +416,7 @@ class BaseAgent:
                 else:
                     content_str = str(result_content)
             except Exception as e:
-                printer.print_text(f"Error formatting tool result content: {e}", style=COLOR_WARNING, prefix=self.mapp)
+                printer.warnning(f"Error formatting tool result content: {e}")
                 content_str = _format_content(str(result_content))
 
         return content_str
@@ -540,7 +454,6 @@ class BaseAgent:
     def _delete_old_todo_file(self):
         todo_file = os.path.join(self.args.source_dir, ".auto-coder", "todos", "current_session.json")
         if os.path.exists(todo_file):
-            printer.print_text(f"TodoList 文件已清理", style=COLOR_INFO, prefix=self.mapp)
             os.remove(todo_file)
 
 
@@ -562,7 +475,6 @@ class ToolResolverFactory:
             raise ValueError(f"Resolver class {resolver_class} must be a subclass of BaseToolResolver")
 
         self._resolvers[tool_type] = resolver_class
-        # printer.print_text(f"✅ 注册工具解析器: {tool_type.__name__} -> {resolver_class.__name__}", style="green")
 
     def register_dynamic_resolver(self, agent_type):
         subagent = self.agent_define
@@ -576,14 +488,12 @@ class ToolResolverFactory:
             _resolver_class = TOOL_RESOLVER_MAP[_tool_type]
 
             self.register_resolver(_tool_type, _resolver_class)
-        printer.print_text(f"已注册 Agent Tool Resolver {len(tool_list)} 个", style=COLOR_INFO)
 
     def get_resolvers(self):
         return self._resolvers
 
     def get_resolver(self, tool_type: Type[BaseTool]):
         if not self.has_resolver(tool_type):
-            printer.print_text(f"{tool_type} 工具类型不存在", style=COLOR_WARNING)
             return None
         return self._resolvers[tool_type]
 
@@ -602,7 +512,6 @@ class ToolResolverFactory:
     def clear_instances(self) -> None:
         """清除所有解析器实例"""
         self._resolvers.clear()
-        printer.print_text("已清除所有工具解析器实例", style=COLOR_WARNING)
 
 
 class PromptManager:

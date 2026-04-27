@@ -10,17 +10,15 @@ from datetime import datetime
 from copy import deepcopy
 
 import yaml
-from rich.text import Text
 
+from autocoder_nano.acmodels import BUILTIN_MODELS
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.agent.agent_base import BaseAgent, ToolResolverFactory, PromptManager
 from autocoder_nano.actypes import AutoCoderArgs, SingleOutputMeta
 from autocoder_nano.context import ConversationsPruner
 from autocoder_nano.context.cache import MemoryCache
 from autocoder_nano.core import AutoLLM, prompt, stream_chat_with_continue
-from autocoder_nano.utils.printer_utils import (
-    Printer, COLOR_SYSTEM, COLOR_INFO, COLOR_SUCCESS, COLOR_ERROR)
-
+from autocoder_nano.utils.printer_utils import Printer
 
 printer = Printer()
 
@@ -405,13 +403,9 @@ class SkillAgent(BaseAgent):
         # prompt 管理
         self.prompt_manager = PromptManager(args=self.args, agent_define=self.agent_define)
 
-        # skills agent printer prefix
-        self.sapp = f"* (sub:{self.agent_type}) "
-
     def _reinforce_guidelines(self, interval=5):
         """ 每N轮对话强化指导原则 """
         if len(self.current_conversations) % interval == 0:
-            printer.print_text(f"强化工具使用规则(间隔{interval})", style=COLOR_SYSTEM, prefix=self.sapp)
             self.current_conversations.append(
                 {"role": "user", "content": self._get_tools_prompt()}
             )
@@ -504,13 +498,7 @@ class SkillAgent(BaseAgent):
             f"{self._get_tools_prompt()}\n"
             f"----------\n"
             f"{self._get_sysinfo_prompt()}")
-        system_prompt = [
-            {"role": "system", "content": _system_prompt}
-        ]
-
-        printer.print_text(f"系统提示词长度(token): {self._count_conversations_tokens(system_prompt)}",
-                           style=COLOR_INFO, prefix=self.sapp)
-
+        system_prompt = [{"role": "system", "content": _system_prompt}]
         return system_prompt
 
     def analyze(self, request: str) -> Generator[Union[Any] | None, None, None]:
@@ -520,16 +508,13 @@ class SkillAgent(BaseAgent):
             "content": f"{request} \n Current Time:{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         })
 
-        iteration_count = 0
         should_yield_completion_event = False
         completion_event = None
 
         while True:
             self._reinforce_guidelines(interval=10)
-            iteration_count += 1
             tool_executed = False
             last_message = self.current_conversations[-1]
-            printer.print_text(f"当前为第{iteration_count}轮对话", style=COLOR_INFO, prefix=self.sapp)
 
             if last_message["role"] == "assistant":
                 if should_yield_completion_event:
@@ -581,7 +566,6 @@ class SkillAgent(BaseAgent):
                     yield event  # Yield the ToolCallEvent for display
 
                     if isinstance(tool_obj, AttemptCompletionTool):
-                        printer.print_text(f"正在准备结束会话 ...", style=COLOR_INFO, prefix=self.sapp)
                         completion_event = CompletionEvent(completion=tool_obj, completion_xml=tool_xml)
                         mark_event_should_finish = True
                         should_yield_completion_event = True
@@ -636,8 +620,6 @@ class SkillAgent(BaseAgent):
 
                 elif isinstance(event, ErrorEvent):
                     if event.message.startswith("Stream ended with unterminated"):
-                        printer.print_text(f"LLM Response 流以未闭合的标签块结束, 即将强化记忆",
-                                           style=COLOR_ERROR, prefix=self.sapp)
                         self.current_conversations.append(
                             {"role": "user",
                              "content": "使用工具时需要包含 开始和结束标签, 缺失结束标签会导致工具调用失败"}
@@ -647,8 +629,6 @@ class SkillAgent(BaseAgent):
                     yield event
 
             if not tool_executed:
-                # printer.print_text("LLM 响应完成, 未执行任何工具, 将 Assistant Buffer 内容写入会话历史",
-                #                    style=COLOR_WARNING, prefix=self.spp)
                 if assistant_buffer:
                     last_message = self.current_conversations[-1]
                     if last_message["role"] != "assistant":
@@ -660,76 +640,84 @@ class SkillAgent(BaseAgent):
                         tokens_used=self._count_conversations_tokens(self.current_conversations))
 
                 # 添加系统提示，要求LLM必须使用工具或明确结束，而不是直接退出
-                # printer.print_text("正在添加系统提示: 请使用工具或尝试直接生成结果", style=COLOR_INFO, prefix=self.spp)
-
                 self.current_conversations.append({
                     "role": "user",
                     "content": "注意：如果你当前的任务已经完成并且已无后续待办，请使用 attempt_completion 工具完成任务"
                 })
                 yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(self.current_conversations))
                 # 继续循环，让 LLM 再思考，而不是 break
-                # printer.print_text("🔄 SubAgent 持续运行 LLM 交互循环（保持不中断）", style=COLOR_ITERATION)
                 continue
 
-        printer.print_text(f"分析循环已完成，共执行 {iteration_count} 次迭代.", style=COLOR_SUCCESS, prefix=self.sapp)
-
     def run_skills_agent(self, skill_name: str, request: str):
-        project_name = os.path.basename(os.path.abspath(self.args.source_dir))
-        printer.print_text(f"开始执行技能: {skill_name}, 用户目标: {request[:50]}...",
-                           style=COLOR_SYSTEM, prefix=self.sapp)
+        accumulated_token_usage = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "tokens_used": 0
+        }
+        iteration_count = 0
         completion_text = ""
         completion_status = False
+        printer.set_agent(f"sub:{self.agent_type}")
         try:
             # self._apply_pre_changes()  # 在开始 Agentic 之前先判断是否有未提交变更,有变更则直接退出
             event_stream = self.analyze(request)
             for event in event_stream:
                 if isinstance(event, TokenUsageEvent):
+                    iteration_count += 1
                     last_meta: SingleOutputMeta = event.usage
-                    printer.print_text(
-                        Text.assemble(
-                            ("本次调用模型 Token 使用: ", COLOR_SYSTEM),
-                            (f"Input({last_meta.input_tokens_count})", COLOR_INFO),
-                            (f"/", COLOR_SYSTEM),
-                            (f"Output({last_meta.generated_tokens_count})", COLOR_INFO)
-                        ),
-                        prefix=self.sapp
+                    accumulated_token_usage["input_tokens"] += last_meta.input_tokens_count
+                    accumulated_token_usage["output_tokens"] += last_meta.generated_tokens_count
+                    accumulated_token_usage["tokens_used"] += (
+                                last_meta.input_tokens_count + last_meta.generated_tokens_count)
+                    _max_context = BUILTIN_MODELS.get(self.args.chat_model, {}).get("context", 128_000)
+                    printer.token_status(
+                        iteration=iteration_count,
+                        input_tokens=accumulated_token_usage["input_tokens"],
+                        output_tokens=accumulated_token_usage["output_tokens"],
+                        context_tokens=accumulated_token_usage["tokens_used"],
+                        max_context=_max_context
                     )
                 elif isinstance(event, WindowLengthChangeEvent):
                     pass
                 elif isinstance(event, LLMThinkingEvent):
-                    # 以不太显眼的样式（比如灰色）呈现思考内容
-                    printer.print_text(f"LLM Thinking: ", style=COLOR_SYSTEM, prefix=self.sapp)
-                    printer.print_llm_output(f"{event.text}")
+                    printer.thinking(f"{event.text}")
                 elif isinstance(event, LLMOutputEvent):
-                    printer.print_text(f"LLM Output: ", style=COLOR_SYSTEM, prefix=self.sapp)
-                    printer.print_llm_output(f"{event.text}")
+                    printer.output(f"{event.text}")
                 elif isinstance(event, ToolCallEvent):
-                    printer.print_text(
-                        Text.assemble(
-                            (f"{type(event.tool).__name__}: ", COLOR_SYSTEM),
-                            (f"{self.get_tool_display_message(event.tool)}", COLOR_INFO)
-                        ),
-                        prefix=self.sapp
-                    )
+                    if isinstance(event.tool, AttemptCompletionTool):
+                        pass
+                    else:
+                        tool_name = type(event.tool).__name__
+                        printer.tool_call(tool_name, self.get_tool_display_message(event.tool))
+                        printer.start_spinner()
+                        time.sleep(self.args.anti_quota_limit)
                 elif isinstance(event, ToolResultEvent):
-                    result = event.result
-                    printer.print_text(
-                        Text.assemble(
-                            (f"{event.tool_name} Result: ", COLOR_SYSTEM),
-                            (f"{result.message}", COLOR_SUCCESS if result.success else COLOR_ERROR)
-                        ),
-                        prefix=self.sapp
-                    )
+                    if event.tool_name in ["AttemptCompletionTool"]:
+                        pass
+                    else:
+                        printer.end_spinner()
+                        if event.tool_name in ["TodoReadTool", "TodoWriteTool", "CallSkillsTool"]:
+                            printer.tool_result(
+                                success=event.result.success,
+                                msg=event.result.message,
+                                content=event.result.content
+                            )
+                        else:
+                            printer.tool_result(
+                                success=event.result.success,
+                                msg=event.result.message,
+                                content=None
+                            )
                 elif isinstance(event, CompletionEvent):
                     completion_text = event.completion.result
                     completion_status = True
+                    if event.completion.result:
+                        printer.section("Agent End")
+                        printer.print_markdown(completion_text)
                     if event.completion.command:
-                        printer.print_text(f"建议命令: {event.completion.command}", style=COLOR_INFO, prefix=self.sapp)
-                    printer.print_text(f"任务完成", style=COLOR_SUCCESS, prefix=self.sapp)
-                    printer.print_llm_output(f"{completion_text}")
+                        printer.info(f"建议命令: {event.completion.command}")
                 elif isinstance(event, ErrorEvent):
-                    printer.print_text(f"任务失败", style=COLOR_ERROR, prefix=self.sapp)
-                    printer.print_llm_output(f"{event.message}")
+                    printer.error(f"ErrorEvent: {event.message}")
 
                 time.sleep(self.args.anti_quota_limit)
 
@@ -737,8 +725,8 @@ class SkillAgent(BaseAgent):
                 if completion_text:
                     break
         except Exception as err:
-            printer.print_text(f"SkillAgent {skill_name} 执行失败", style=COLOR_ERROR, prefix=self.sapp)
-            printer.print_llm_output(f"{err}")
+            printer.error(f"SkillAgent {skill_name} 执行失败")
             completion_text = f"SkillAgent {skill_name} 执行失败: {str(err)}"
 
+        printer.clear_agent()
         return completion_status, completion_text

@@ -40,10 +40,11 @@ class RetrySession:
             _response.raise_for_status()  # 如果响应状态码不是2xx，抛出HTTPError
             return _response
         except requests.exceptions.RetryError as e:
-            printer.print_text(f"达到最大重试次数，重试失败: {e}", style="red")
+            raise Exception(f"达到最大重试次数，重试失败: {e}")
         except requests.exceptions.RequestException as e:
-            printer.print_text(f"请求失败: {e}", style="red")
-        return None
+            raise Exception(f"请求失败: {e}")
+        except Exception as e:
+            raise Exception(f"发生异常: {e}")
 
     def get(self, url, **kwargs):
         return self.request('GET', url, **kwargs)
