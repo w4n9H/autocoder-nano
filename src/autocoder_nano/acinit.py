@@ -149,21 +149,23 @@ def configure_project_model():
 
     # 内置模型
     print_header(f"\n=== 正在配置项目模型 ===\n")
-    print_info("Volcengine: https://www.volcengine.com/")
+    print_info("DeepSeek: https://www.deepseek.com/")
+    print_info("MoonShot: https://www.kimi.com/")
+    print_info("MiniMax: https://minimaxi.com/")
+    print_info("BigModel: https://bigmodel.cn/")
     print_info("OpenRouter: https://openrouter.ai/")
-    print_info("iFlow: https://platform.iflow.cn/")
     print_info("")
     for key, model_info in BUILTIN_MODELS.items():
         model_id = model_info["id"]
         print_info(f"  {model_id}. {key}")
-    print_info(f"  15. 其他模型")
-    model_num = input(f"  请选择您想使用的模型供应商编号(1-14): ").strip().lower()
+    print_info(f"  13. 其他模型")
+    model_num = input(f"  请选择您想使用的模型供应商编号(1-13): ").strip().lower()
 
-    if int(model_num) < 1 or int(model_num) > 15:
-        printer.print_text("请选择 1-15", style=COLOR_ERROR)
+    if int(model_num) < 1 or int(model_num) > 13:
+        printer.print_text("请选择 1-13", style=COLOR_ERROR)
         exit(1)
 
-    if model_num == "15":  # 只有选择"其他模型"才需要手动输入所有信息
+    if model_num == "13":  # 只有选择"其他模型"才需要手动输入所有信息
         current_model = input(f"  设置你的首选模型别名(例如: deepseek-v3/r1, ark-deepseek-v3/r1): ").strip().lower()
         current_model_name = input(f"  请输入你使用模型的 Model Name: ").strip().lower()
         current_base_url = input(f"  请输入你使用模型的 Base URL: ").strip().lower()

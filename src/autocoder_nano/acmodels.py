@@ -1,131 +1,112 @@
 BUILTIN_MODELS = {
-    "(Volcengine)deepseek/deepseek-r1-0528": {
+    "(DeepSeek)deepseek/deepseek-v4-flash": {
         "id": "1",
-        "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-        "model_name": "deepseek-r1-250528",
-        "description": "推理优化版，擅长深度思考与复杂推理",
-        "input_price": 0.0,    # 单位:元/百万 input tokens
-        "output_price": 0.0,  # 单位:元/百万 output tokens
-        "context": 128000
+        "base_url": "https://api.deepseek.com",
+        "model_name": "deepseek-v4-flash",
+        "description": "引入全新注意力机制，结合DSA稀疏注意力，Agent能力强化，百万上下文",
+        "input_price": 0.0,
+        "output_price": 0.0,
+        "context": 1_000_000
     },
-    "(Volcengine)deepseek/deepseek-v3.2": {
+    "(DeepSeek)deepseek/deepseek-v4-pro": {
         "id": "2",
-        "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-        "model_name": "deepseek-v3-2-251201",
-        "description": "擅长数学求解与学术逻辑验证",
+        "base_url": "https://api.deepseek.com",
+        "model_name": "deepseek-v4-pro",
+        "description": "引入全新注意力机制，结合DSA稀疏注意力，Agent能力强化，百万上下文",
         "input_price": 0.0,
         "output_price": 0.0,
-        "context": 128000
+        "context": 1_000_000
     },
-    "(Volcengine)byte/doubao-seed-1.6-251015": {
+    "(BigModel)bigmodel/glm-5.1": {
         "id": "3",
-        "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-        "model_name": "doubao-seed-1-6-251015",
-        "description": "均衡型模型，适用日常任务",
-        "input_price": 0.0,
-        "output_price": 0.0,
-        "context": 256000
-    },
-    "(Volcengine)moonshotai/kimi-k2": {
-        "id": "4",
-        "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-        "model_name": "kimi-k2-250905",
-        "description": "擅长超长上下文信息处理",
-        "input_price": 0.0,
-        "output_price": 0.0,
-        "context": 256000
-    },
-    "(iFlow)ali/qwen3-max": {
-        "id": "5",
-        "base_url": "https://apis.iflow.cn/v1",
-        "model_name": "qwen3-max",
-        "description": "擅长复杂编程与智能体任务",
-        "input_price": 0.0,
-        "output_price": 0.0,
-        "context": 256000
-    },
-    "(iFlow)bigmodel/glm-4.7": {
-        "id": "6",
-        "base_url": "https://apis.iflow.cn/v1",
-        "model_name": "glm-4.7",
-        "description": "通用能力强，适合多轮对话",
-        "input_price": 0.0,
-        "output_price": 0.0,
-        "context": 200000
-    },
-    "(OpenRouter)anthropic/claude-opus-4.6": {
-        "id": "7",
-        "base_url": "https://openrouter.ai/api/v1",
-        "model_name": "anthropic/claude-opus-4.6",
-        "description": "擅长深度编程与复杂工作流",
-        "input_price": 0.0,
-        "output_price": 0.0,
-        "context": 1000000
-    },
-    "(OpenRouter)anthropic/claude-sonnet-4.5": {
-        "id": "8",
-        "base_url": "https://openrouter.ai/api/v1",
-        "model_name": "anthropic/claude-sonnet-4.5",
-        "description": "均衡性能，适合企业级自动化",
-        "input_price": 0.0,
-        "output_price": 0.0,
-        "context": 1000000
-    },
-    "(OpenRouter)google/gemini-3-pro-preview": {
-        "id": "9",
-        "base_url": "https://openrouter.ai/api/v1",
-        "model_name": "google/gemini-3-pro-preview",
-        "description": "擅长多模态与复杂推理，工程化能力强",
-        "input_price": 0.0,
-        "output_price": 0.0,
-        "context": 1000000
-    },
-    "(OpenRouter)openai/gpt-5.2": {
-        "id": "10",
-        "base_url": "https://openrouter.ai/api/v1",
-        "model_name": "openai/gpt-5.2",
-        "description": "全能型模型，综合能力领先",
-        "input_price": 0.0,
-        "output_price": 0.0,
-        "context": 400000
-    },
-    "(BigModel)bigmodel/glm-4.7": {
-        "id": "11",
         "base_url": "https://open.bigmodel.cn/api/paas/v4",
-        "model_name": "glm-4.7",
+        "model_name": "glm-5.1",
         "description": "通用能力强，适合多轮对话",
         "input_price": 0.0,
         "output_price": 0.0,
-        "context": 200000
+        "context": 200_000
     },
-    "(BigModel)bigmodel/coding-plan": {
-        "id": "12",
+    "(BigModel)bigmodel/glm-5v-turbo": {
+        "id": "4",
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "model_name": "glm-5v-turbo",
+        "description": "通用能力强，适合多轮对话",
+        "input_price": 0.0,
+        "output_price": 0.0,
+        "context": 200_000
+    },
+    "(BigModel)bigmodel/token-plan": {
+        "id": "5",
         "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
-        "model_name": "glm-4.7",
+        "model_name": "glm-5.1",
         "description": "编码能力强，适合多轮对话",
         "input_price": 0.0,
         "output_price": 0.0,
-        "context": 200000
+        "context": 200_000
     },
-    "(MiniMax)minimax/m2-code-plan": {
-        "id": "13",
+    "(MiniMax)minimax/minimax-m2.7": {
+        "id": "6",
+        "base_url": "https://api.minimaxi.com/v1",
+        "model_name": "MiniMax-M2.7",
+        "description": "编码能力强，适合多轮对话",
+        "input_price": 0.0,
+        "output_price": 0.0,
+        "context": 204_800
+    },
+    "(MiniMax)minimax/token-plan": {
+        "id": "7",
         "base_url": "https://api.minimaxi.com/v1",
         "model_name": "MiniMax-M2.7",
         "description": "专攻编程",
         "input_price": 0.0,
         "output_price": 0.0,
-        "context": 256000
+        "context": 204_800
     },
-    "(DeepSeek)deepseek/deepseek-reasoner-v3.2": {
-        "id": "14",
-        "base_url": "https://api.deepseek.com/v1",
-        "model_name": "deepseek-reasoner",
-        "description": "基于DSA稀疏注意力机制，Agent能力强化，擅长数据分析",
+    "(MoonShot)kimi/kimi-2.6": {
+        "id": "8",
+        "base_url": "https://api.moonshot.cn/v1",
+        "model_name": "kimi-k2.6",
+        "description": "专攻编程",
         "input_price": 0.0,
         "output_price": 0.0,
-        "context": 128000
+        "context": 256_000
+    },
+    "(MoonShot)kimi/token-plan": {
+        "id": "9",
+        "base_url": "https://api.kimi.com/coding/v1",
+        "model_name": "kimi-for-coding",
+        "description": "专攻编程",
+        "input_price": 0.0,
+        "output_price": 0.0,
+        "context": 256_000
+    },
+    "(OpenRouter)anthropic/claude-opus-4.7": {
+        "id": "10",
+        "base_url": "https://openrouter.ai/api/v1",
+        "model_name": "anthropic/claude-opus-4.7",
+        "description": "擅长深度编程与复杂工作流",
+        "input_price": 0.0,
+        "output_price": 0.0,
+        "context": 1_000_000
+    },
+    "(OpenRouter)anthropic/claude-sonnet-4.5": {
+        "id": "11",
+        "base_url": "https://openrouter.ai/api/v1",
+        "model_name": "anthropic/claude-sonnet-4.5",
+        "description": "均衡性能，适合企业级自动化",
+        "input_price": 0.0,
+        "output_price": 0.0,
+        "context": 1_000_000
+    },
+    "(OpenRouter)openai/gpt-5.4": {
+        "id": "12",
+        "base_url": "https://openrouter.ai/api/v1",
+        "model_name": "openai/gpt-5.4",
+        "description": "全能型模型，综合能力领先",
+        "input_price": 0.0,
+        "output_price": 0.0,
+        "context": 1_000_000
     }
-
 }
 
 
