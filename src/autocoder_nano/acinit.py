@@ -36,8 +36,6 @@ def init_project(project_type: str, project_root: str):
 
 
 def initialize_system(project_root: str):
-    printer.print_text(f"正在初始化系统...", style=COLOR_INFO)
-
     def _init_project():
         base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-auto-coder")
         if not os.path.exists(os.path.join(project_root, ".auto-coder")):
@@ -49,7 +47,6 @@ def initialize_system(project_root: str):
                     if first_time:  # 首次启动,配置项目类型
                         if not os.path.exists(base_persist_dir):
                             os.makedirs(base_persist_dir, exist_ok=True)
-                            # printer.print_text("创建目录：{}".format(base_persist_dir), style=COLOR_SUCCESS)
                         count_file_ext = auto_count_file_extensions(project_root)
                         project_type = ".py"
                         if len(count_file_ext) > 0:
@@ -65,8 +62,6 @@ def initialize_system(project_root: str):
             else:
                 printer.print_text("退出而不初始化.", style=COLOR_WARNING)
                 exit(1)
-
-        printer.print_text("项目初始化完成.", style=COLOR_SUCCESS)
 
     _init_project()
 

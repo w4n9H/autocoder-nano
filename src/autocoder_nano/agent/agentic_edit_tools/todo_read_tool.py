@@ -6,9 +6,7 @@ from typing import Union, Optional, List, Dict, Any
 from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.agent.agentic_edit_tools import BaseToolResolver
 from autocoder_nano.agent.agentic_edit_types import ToolResult, TodoReadTool
-from autocoder_nano.utils.printer_utils import Printer
 
-printer = Printer()
 
 if typing.TYPE_CHECKING:
     from autocoder_nano.agent.agentic_runtime import AgenticRuntime
@@ -41,8 +39,7 @@ class TodoReadToolResolver(BaseToolResolver):
                 data = json.load(f)
                 return data.get('todos', [])
         except Exception as e:
-            printer.print_text(f"打开 Todos 文件失败: {e}")
-            return []
+            raise Exception(f"打开 Todos 文件失败: {e}")
 
     @staticmethod
     def _format_todo_display(todos: List[Dict[str, Any]]) -> str:
@@ -93,23 +90,14 @@ class TodoReadToolResolver(BaseToolResolver):
         Read the current todo list and return it in a formatted display.
         """
         try:
-            printer.print_text(f"正在读取当前 TodoList", style="green")
-
-            # Load todos from file
             todos = self._load_todos()
-
-            # Format for display
             formatted_display = self._format_todo_display(todos)
-
-            printer.print_text(f"在当前会话中找到 {len(todos)} 个 Todos", style="green")
-
             return ToolResult(
                 success=True,
                 message="成功获取 TodoList.",
                 content=formatted_display
             )
         except Exception as e:
-            printer.print_text(f"读取TodoList时出错: {e}", style="red")
             return ToolResult(
                 success=False,
                 message=f"读取TodoList时出错: {str(e)}",

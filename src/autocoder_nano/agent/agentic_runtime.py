@@ -6,6 +6,7 @@ from copy import deepcopy
 from typing import Generator, Union
 from datetime import datetime
 
+from autocoder_nano.acmodels import BUILTIN_MODELS
 from autocoder_nano.agent.agent_base import BaseAgent, ToolResolverFactory, PromptManager
 from autocoder_nano.agent.agentic_skills import SkillRegistry
 from autocoder_nano.context import get_context_manager, ConversationsPruner
@@ -13,7 +14,7 @@ from rich.markdown import Markdown
 
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.core import AutoLLM, stream_chat_with_continue, prompt
-from autocoder_nano.actypes import AutoCoderArgs, SourceCodeList
+from autocoder_nano.actypes import AutoCoderArgs, SourceCodeList, SingleOutputMeta
 from autocoder_nano.utils.formatted_log_utils import save_formatted_log
 from autocoder_nano.utils.printer_utils import (
     Printer, COLOR_SYSTEM, COLOR_SUCCESS, COLOR_WARNING, COLOR_ERROR, COLOR_INFO)
@@ -72,7 +73,6 @@ class AgenticRuntime(BaseAgent):
     def _reinforce_guidelines(self, conversations, interval=5):
         """ 每N轮对话强化指导原则 """
         if len(conversations) % interval == 0:
-            printer.print_text(f"强化工具使用规则(间隔{interval})", style=COLOR_SYSTEM, prefix=self.mapp)
             conversations.append(
                 {"role": "user", "content": self._get_tools_prompt()}
             )
@@ -177,13 +177,7 @@ class AgenticRuntime(BaseAgent):
             f"{self._get_skills_pompt() if self.tool_resolver_factory.has_resolver(CallSkillsTool) else ''}\n"
             f"----------\n"
             f"{self._get_sysinfo_prompt()}")
-        system_prompt = [
-            {"role": "system", "content": _system_prompt}
-        ]
-
-        printer.print_text(f"系统提示词长度(token): {self._count_conversations_tokens(system_prompt)}",
-                           style=COLOR_INFO, prefix=self.mapp)
-
+        system_prompt = [{"role": "system", "content": _system_prompt}]
         return system_prompt
 
     def _add_resumed_conversation(self, conversations: list):
@@ -199,8 +193,6 @@ class AgenticRuntime(BaseAgent):
                             "role": message['role'],
                             "content": message['content']
                         })
-                printer.print_text(f"恢复对话，已有 {len(current_conversation['messages'])} 条现有消息",
-                                   style=COLOR_SUCCESS, prefix=self.mapp)
 
     def analyze(self, request: AgenticEditRequest) -> Generator[Union[LLMOutputEvent, LLMThinkingEvent, ToolCallEvent, ToolResultEvent, CompletionEvent, ErrorEvent, WindowLengthChangeEvent, TokenUsageEvent, PlanModeRespondEvent] | None, None, None]:
         conversations = self._build_system_prompt()
@@ -225,18 +217,14 @@ class AgenticRuntime(BaseAgent):
 
         yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(conversations))
 
-        iteration_count = 0
-        tool_executed = False
+        # tool_executed = False
         should_yield_completion_event = False
         completion_event = None
 
         while True:
-            self._reinforce_guidelines(conversations=conversations, interval=8)
-            iteration_count += 1
+            self._reinforce_guidelines(conversations=conversations, interval=10)
             tool_executed = False
             last_message = conversations[-1]
-            printer.print_text(f"当前为第 {iteration_count} 轮对话, 历史会话长度(Context):{len(conversations)}",
-                               style=COLOR_INFO, prefix=self.mapp)
 
             if last_message["role"] == "assistant":
                 if should_yield_completion_event:
@@ -250,13 +238,14 @@ class AgenticRuntime(BaseAgent):
                 break
 
             assistant_buffer = ""
-
+            printer.start_spinner(message="LLM Call")
             llm_response_gen = stream_chat_with_continue(  # 实际请求大模型
                 llm=self.llm,
                 conversations=self.agentic_pruner.prune_conversations(deepcopy(conversations)),
                 llm_config={},  # Placeholder for future LLM configs
                 args=self.args
             )
+            printer.end_spinner()
 
             parsed_events = self.stream_and_parse_llm_response(llm_response_gen)
 
@@ -277,13 +266,8 @@ class AgenticRuntime(BaseAgent):
                 elif isinstance(event, ToolCallEvent):
                     tool_executed = True
                     tool_obj = event.tool
-                    tool_name = type(tool_obj).__name__
+                    # tool_name = type(tool_obj).__name__
                     tool_xml = event.tool_xml  # Already reconstructed by parser
-
-                    # 不在展示工具触发, 仅展示后面的调用部分
-                    # printer.print_panel(content=f"tool_xml \n{tool_xml}", title=f"🛠️ 工具触发: {tool_name}",
-                    #                     center=True)
-                    # printer.print_text(f"🛠️ 工具触发: {tool_name}", style=COLOR_TOOL_CALL)
 
                     # 记录当前对话的token数量
                     conversations.append({
@@ -301,7 +285,6 @@ class AgenticRuntime(BaseAgent):
 
                     # Handle AttemptCompletion separately as it ends the loop
                     if isinstance(tool_obj, AttemptCompletionTool):
-                        printer.print_text(f"正在准备结束会话 ...", style=COLOR_INFO, prefix=self.mapp)
                         completion_event = CompletionEvent(completion=tool_obj, completion_xml=tool_xml)
                         mark_event_should_finish = True
                         should_yield_completion_event = True
@@ -364,7 +347,7 @@ class AgenticRuntime(BaseAgent):
 
                 elif isinstance(event, ErrorEvent):
                     if event.message.startswith("Stream ended with unterminated"):
-                        printer.print_text(f"流以未闭合的标签块结束, 即将强化记忆", style=COLOR_ERROR, prefix=self.mapp)
+                        printer.warnning(f"流以未闭合的标签块结束, 即将强化记忆")
                         conversations.append(
                             {"role": "user", "content": "使用工具时需要包含 开始和结束标签, 缺失结束标签会导致工具调用失败"}
                         )
@@ -374,26 +357,18 @@ class AgenticRuntime(BaseAgent):
 
             if not tool_executed:
                 # No tool executed in this LLM response cycle
-                printer.print_text("LLM响应完成, 未执行任何工具", style=COLOR_WARNING, prefix=self.mapp)
                 if assistant_buffer:
-                    printer.print_text(f"将 Assistant Buffer 内容写入会话历史（字符数：{len(assistant_buffer)}）",
-                                       style=COLOR_INFO, prefix=self.mapp)
-
                     last_message = conversations[-1]
                     if last_message["role"] != "assistant":
-                        printer.print_text("添加新的 Assistant 消息", style=COLOR_INFO, prefix=self.mapp)
                         conversations.append({"role": "assistant", "content": assistant_buffer})
                         self.conversation_manager.append_message_to_current(
                             role="assistant", content=assistant_buffer, metadata={})
                     elif last_message["role"] == "assistant":
-                        printer.print_text("追加已存在的 Assistant 消息", style=COLOR_INFO, prefix=self.mapp)
                         last_message["content"] += assistant_buffer
 
                     yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(conversations))
 
                 # 添加系统提示，要求LLM必须使用工具或明确结束，而不是直接退出
-                printer.print_text("正在添加系统提示: 请使用工具或尝试直接生成结果", style=COLOR_INFO, prefix=self.mapp)
-
                 conversations.append({
                     "role": "user",
                     "content": "注意：如果你当前的任务已经完成并且已无后续待办，请使用 attempt_completion 工具完成任务"
@@ -405,91 +380,100 @@ class AgenticRuntime(BaseAgent):
 
                 yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(conversations))
                 # 继续循环，让 LLM 再思考，而不是 break
-                printer.print_text("持续运行 LLM 交互循环（保持不中断）", style=COLOR_INFO, prefix=self.mapp)
                 continue
-
-        printer.print_text(f"Agentic {self.agent_type} 分析循环已完成，共执行 {iteration_count} 次迭代.",
-                           style=COLOR_INFO, prefix=self.mapp)
         save_formatted_log(self.args.source_dir, json.dumps(conversations, ensure_ascii=False), "agentic_conversation")
 
     def run_in_terminal(self, request: AgenticEditRequest):
-        project_name = os.path.basename(os.path.abspath(self.args.source_dir))
-
-        printer.print_text(f"Agentic {self.agent_type} 开始运行, 项目名: {project_name}, "
-                           f"用户目标: {request.user_input.strip()}",
-                           style=COLOR_SYSTEM, prefix=self.mapp)
-
+        # project_name = os.path.basename(os.path.abspath(self.args.source_dir))
         # 用于累计TokenUsageEvent数据
         accumulated_token_usage = {
-            "model_name": "",
             "input_tokens": 0,
             "output_tokens": 0,
+            "tokens_used": 0
         }
+        iteration_count = 0
 
         try:
             self._apply_pre_changes()  # 在开始 Agentic 之前先判断是否有未提交变更,有变更则直接退出
             event_stream = self.analyze(request)
             for event in event_stream:
                 if isinstance(event, TokenUsageEvent):
-                    self._handle_token_usage_event(event, accumulated_token_usage)
+                    iteration_count += 1
+                    last_meta: SingleOutputMeta = event.usage
+                    accumulated_token_usage["input_tokens"] += last_meta.input_tokens_count
+                    accumulated_token_usage["output_tokens"] += last_meta.generated_tokens_count
+                    accumulated_token_usage["tokens_used"] += (last_meta.input_tokens_count + last_meta.generated_tokens_count)
+                    _max_context = BUILTIN_MODELS.get(self.args.chat_model, {}).get("context", 128_000)
+                    printer.token_status(
+                        iteration=iteration_count,
+                        input_tokens=accumulated_token_usage["input_tokens"],
+                        output_tokens=accumulated_token_usage["output_tokens"],
+                        context_tokens=accumulated_token_usage["tokens_used"],
+                        max_context=_max_context
+                    )
                 elif isinstance(event, WindowLengthChangeEvent):
                     pass
-                    # printer.print_text(f"当前 Token 总用量: {event.tokens_used}", style=COLOR_INFO, prefix=self.mapp)
                 elif isinstance(event, LLMThinkingEvent):
-                    # 以不太显眼的样式（比如灰色）呈现思考内容
-                    # printer.print_panel(
-                    #     content=Text(f"{event.text}", style=COLOR_INFO, justify="left"),
-                    #     title="LLM Thinking",
-                    #     border_style=COLOR_INFO,
-                    #     center=True)
-                    printer.print_text(f"LLM Thinking: ", style=COLOR_SYSTEM, prefix=self.mapp)
-                    printer.print_llm_output(f"{event.text}")
+                    printer.thinking(f"{event.text}")
                 elif isinstance(event, LLMOutputEvent):
-                    # printer.print_panel(
-                    #     content=Text(f"{event.text}", style=COLOR_INFO, justify="left"),
-                    #     title="LLM Output",
-                    #     border_style=COLOR_INFO,
-                    #     center=True)
-                    printer.print_text(f"LLM Output: ", style=COLOR_SYSTEM, prefix=self.mapp)
-                    printer.print_llm_output(f"{event.text}")
+                    printer.output(f"{event.text}")
                 elif isinstance(event, ToolCallEvent):
-                    self._handle_tool_call_event(event)
+                    if isinstance(event.tool, AttemptCompletionTool):
+                        pass
+                    elif isinstance(event.tool, (CallSubAgentTool, CallSkillsTool)):
+                        tool_name = type(event.tool).__name__
+                        printer.tool_call(tool_name, self.get_tool_display_message(event.tool))
+                    else:
+                        tool_name = type(event.tool).__name__
+                        printer.tool_call(tool_name, self.get_tool_display_message(event.tool))
+                        printer.start_spinner()
+                        time.sleep(self.args.anti_quota_limit)
                 elif isinstance(event, ToolResultEvent):
-                    self._handle_tool_result_event(event)
+                    if event.tool_name in ["AttemptCompletionTool"]:
+                        pass
+                    elif event.tool_name in ["CallSubAgentTool", "CallSkillsTool"]:
+                        printer.tool_result(
+                            success=event.result.success,
+                            msg=event.result.message,
+                            content=None
+                        )
+                    else:
+                        printer.end_spinner()
+                        if event.tool_name in ["TodoReadTool", "TodoWriteTool", "CallSkillsTool"]:
+                            printer.tool_result(
+                                success=event.result.success,
+                                msg=event.result.message,
+                                content=event.result.content
+                            )
+                        else:
+                            printer.tool_result(
+                                success=event.result.success,
+                                msg=event.result.message,
+                                content=None
+                            )
                 elif isinstance(event, CompletionEvent):
                     try:
                         self._apply_changes(request)  # 在这里完成实际合并
                     except Exception as e:
-                        printer.print_text(f"合并变更失败: {e}", style=COLOR_ERROR, prefix=self.mapp)
-
-                    printer.print_panel(
-                        content=Markdown(event.completion.result),
-                        border_style=COLOR_SUCCESS,
-                        title="任务完成", center=True
-                    )
+                        printer.error(f"合并变更失败: {e}")
+                    if event.completion.result:
+                        printer.section("Agent End")
+                        printer.print_markdown(event.completion.result)
                     if event.completion.command:
-                        printer.print_text(f"建议命令: {event.completion.command}", style=COLOR_INFO, prefix=self.mapp)
+                        printer.info(f"建议命令: {event.completion.command}")
                 elif isinstance(event, ErrorEvent):
-                    printer.print_panel(
-                        content=f"Error: {event.message}",
-                        border_style=COLOR_ERROR,
-                        title="任务失败", center=True
-                    )
+                    printer.error(f"ErrorEvent: {event.message}")
 
                 time.sleep(self.args.anti_quota_limit)
         except Exception as err:
             # 在处理异常时也打印累计的token使用情况
             if accumulated_token_usage["input_tokens"] > 0:
-                printer.print_key_value(accumulated_token_usage)
-            printer.print_panel(
-                content=f"FATAL ERROR: {err}",
-                title=f"Agentic {self.agent_type} 运行错误",
-                border_style=COLOR_ERROR,
-                center=True)
+                printer.kv(accumulated_token_usage)
+            printer.error(f"Agentic {self.agent_type} 运行错误: {err}")
             raise err
         finally:
             self._delete_old_todo_file()
-            printer.print_text(f"Agentic {self.agent_type} 结束", style=COLOR_SUCCESS, prefix=self.mapp)
+            printer.success(f"Agentic {self.agent_type} 结束")
 
     def run_in_web(self, request: AgenticEditRequest):
         from autocoder_nano.core.queue import sqlite_queue
@@ -547,7 +531,7 @@ class AgenticRuntime(BaseAgent):
                         self.args.skip_commit = True  # 临时设置参数
                         self._apply_changes(request)  # 在这里完成实际变更
                     except Exception as e:
-                        printer.print_text(f"合并变更失败: {e}", style=COLOR_ERROR, prefix=self.mapp)
+                        printer.error(f"合并变更失败: {e}")
 
                     final_reply = [f"{event.completion.result}"]
                     sqlite_queue.insert_agent_response(
