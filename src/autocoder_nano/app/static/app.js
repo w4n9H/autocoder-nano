@@ -699,7 +699,7 @@ function renderFinalStep(step, index) {
         : step.content;
 
     return `
-        <div class="final-step-wrapper">${marked.parse(rawContent)}</div>
+        <div class="final-step-wrapper markdown-body">${marked.parse(rawContent)}</div>
     `;
 }
 
