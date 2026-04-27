@@ -589,6 +589,16 @@ button {
     font-style: italic;
 }
 
+.markdown-body {
+  box-sizing: border-box;
+  min-width: 200px;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 40px;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+}
+
 
 /* TIMELINE */
 .timeline-row {

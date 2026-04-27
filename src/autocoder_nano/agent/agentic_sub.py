@@ -16,8 +16,7 @@ from rich.markdown import Markdown
 from autocoder_nano.agent.agentic_edit_types import *
 from autocoder_nano.core import AutoLLM, stream_chat_with_continue, prompt
 from autocoder_nano.actypes import AutoCoderArgs, SourceCodeList, SingleOutputMeta
-from autocoder_nano.utils.printer_utils import (
-    Printer, COLOR_SYSTEM, COLOR_INFO, COLOR_SUCCESS, COLOR_ERROR)
+from autocoder_nano.utils.printer_utils import Printer
 
 printer = Printer()
 
@@ -43,9 +42,6 @@ class SubAgents(BaseAgent):
 
         # prompt 管理
         self.prompt_manager = PromptManager(args=self.args, agent_define=self.agent_define)
-
-        # subagent printer prefix
-        self.spp = f"* (sub:{self.agent_type}) "
 
     def _reinforce_guidelines(self, interval=5):
         """ 每N轮对话强化指导原则 """
@@ -160,7 +156,6 @@ class SubAgents(BaseAgent):
         })
 
         yield WindowLengthChangeEvent(tokens_used=self._count_conversations_tokens(self.current_conversations))
-
 
         should_yield_completion_event = False
         completion_event = None
