@@ -34,29 +34,30 @@ class CallSkillsToolResolver(BaseToolResolver):
 
             # 初始化及添加技能概述
             skill_prompt = [
+                f"\n-----\n"
                 f"# Skill: {_skill_content.metadata.name}",
                 f"\n"
                 f"**Description**: {_skill_content.metadata.description}"
-                f"\n"
+                f"\n-----\n"
             ]
             # 添加技能主体
             if _skill_content.body:
                 skill_prompt.append(_skill_content.body)
-                skill_prompt.append("\n")
+                skill_prompt.append(f"\n-----\n")
             # 添加 script 列表
             if _skill_content.scripts:
                 skill_prompt.append("## Script Path")
                 skill_prompt.append("\n")
                 for script_name, script_content in _skill_content.scripts.items():
                     skill_prompt.append(f"- {script_name}")
-                skill_prompt.append("\n")
+                skill_prompt.append(f"\n-----\n")
             # 添加参考文档（如果有）
             if _skill_content.references:
                 skill_prompt.append("## References")
                 for ref_name, ref_content in _skill_content.references.items():
                     skill_prompt.append(f"\n### {ref_name}")
                     skill_prompt.append(ref_content)
-                skill_prompt.append("\n")
+                skill_prompt.append(f"\n-----\n")
 
             skills_agent_define = {
                 "skills": {
