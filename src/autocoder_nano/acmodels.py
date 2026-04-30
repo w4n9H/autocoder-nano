@@ -106,6 +106,15 @@ BUILTIN_MODELS = {
         "input_price": 0.0,
         "output_price": 0.0,
         "context": 1_000_000
+    },
+    "(XiaoMi)mimo/mimo-v2.5-pro": {
+        "id": "12",
+        "base_url": "https://token-plan-cn.xiaomimimo.com/v1",
+        "model_name": "mimo-v2.5-pro",
+        "description": "全能型模型，综合能力领先",
+        "input_price": 0.0,
+        "output_price": 0.0,
+        "context": 1_000_000
     }
 }
 
