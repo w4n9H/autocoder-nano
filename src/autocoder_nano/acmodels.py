@@ -108,7 +108,7 @@ BUILTIN_MODELS = {
         "context": 1_000_000
     },
     "(XiaoMi)mimo/mimo-v2.5-pro": {
-        "id": "12",
+        "id": "13",
         "base_url": "https://token-plan-cn.xiaomimimo.com/v1",
         "model_name": "mimo-v2.5-pro",
         "description": "全能型模型，综合能力领先",
