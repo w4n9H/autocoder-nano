@@ -10,7 +10,7 @@ COMMANDS = {
         # "/group": {"/add": "", "/drop": "", "/reset": ""},
         "/refresh": "",
     },
-    "/index": {"/code": "", "/rag": ""},
+    # "/index": {"/code": "", "/rag": ""},
     "/git": {"/revert": "", "/commit": ""},
     "/remove_files": {"/all": ""},
     "/coding": {"/apply": ""},
@@ -539,7 +539,7 @@ class CommandCompleter(Completer):
                     if current_word and current_word in file_name:
                         yield Completion(file_name, start_position=-len(current_word))
 
-            elif words[0] in ["/index", "/git", "/models", "/help", "/rules", "/exclude_files"]:
+            elif words[0] in ["/git", "/models", "/help", "/rules", "/exclude_files"]:
                 new_text = text[len(words[0]):]
                 parser = CommandTextParser(new_text, words[0])
                 parser.add_files()

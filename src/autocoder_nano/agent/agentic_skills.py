@@ -185,12 +185,11 @@ class SkillLoader:
 
         # 根据级别加载额外内容
         if level == SkillLevel.BODY:
-            # Body metadata 已经在上一步加载
-            pass
+            pass    # Body metadata 已经在上一步加载
 
-        if level == SkillLevel.RESOURCES:
-            # 加载资源目录
+        if level == SkillLevel.RESOURCES:    # 加载资源目录
             skill_content.scripts = self._load_directory(skill_path, "scripts")
+            skill_content.references = self._load_directory(skill_path, "references")
 
         # 缓存结果
         self.cache.set(cache_key, skill_content)

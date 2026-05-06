@@ -56,7 +56,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 # 移除 /shell, /editor, /context
 commands = [
     "/auto", "/coding", "/chat",                                                       # 核心功能
-    "/help", "/exit", "/models", "/conf", "/index", "/git", "/rules",                  # 辅助功能
+    "/help", "/exit", "/models", "/conf", "/git", "/rules",                            # 辅助功能
     "/add_files", "/remove_files", "/list_files", "/exclude_dirs", "/exclude_files"        # 文件管理
 ]
 
@@ -109,41 +109,41 @@ def get_all_dir_names_in_project() -> List[str]:
 
 def get_all_file_in_project_with_dot() -> List[str]:
     file_names = []
-    final_exclude_dirs = default_exclude_dirs + memory.get("exclude_dirs", [])
-    for root, dirs, files in os.walk(project_root, followlinks=True):
-        dirs[:] = [d for d in dirs if d not in final_exclude_dirs]
-        for file in files:
-            if file not in default_exclude_files:
-                file_names.append(os.path.join(root, file).replace(project_root, "."))
+    # final_exclude_dirs = default_exclude_dirs + memory.get("exclude_dirs", [])
+    # for root, dirs, files in os.walk(project_root, followlinks=True):
+    #     dirs[:] = [d for d in dirs if d not in final_exclude_dirs]
+    #     for file in files:
+    #         if file not in default_exclude_files:
+    #             file_names.append(os.path.join(root, file).replace(project_root, "."))
     return file_names
 
 
 def get_symbol_list() -> List[SymbolItem]:
     list_of_symbols = []
-    index_file = os.path.join(project_root, ".auto-coder", "index.json")
-
-    if os.path.exists(index_file):
-        with open(index_file, "r") as file:
-            index_data = json.load(file)
-    else:
-        index_data = {}
-
-    for item in index_data.values():
-        symbols_str = item["symbols"]
-        module_name = item["module_name"]
-        info1 = extract_symbols(symbols_str)
-        for name in info1.classes:
-            list_of_symbols.append(
-                SymbolItem(symbol_name=name, symbol_type=SymbolType.CLASSES, file_name=module_name)
-            )
-        for name in info1.functions:
-            list_of_symbols.append(
-                SymbolItem(symbol_name=name, symbol_type=SymbolType.FUNCTIONS, file_name=module_name)
-            )
-        for name in info1.variables:
-            list_of_symbols.append(
-                SymbolItem(symbol_name=name, symbol_type=SymbolType.VARIABLES, file_name=module_name)
-            )
+    # index_file = os.path.join(project_root, ".auto-coder", "index.json")
+    #
+    # if os.path.exists(index_file):
+    #     with open(index_file, "r") as file:
+    #         index_data = json.load(file)
+    # else:
+    #     index_data = {}
+    #
+    # for item in index_data.values():
+    #     symbols_str = item["symbols"]
+    #     module_name = item["module_name"]
+    #     info1 = extract_symbols(symbols_str)
+    #     for name in info1.classes:
+    #         list_of_symbols.append(
+    #             SymbolItem(symbol_name=name, symbol_type=SymbolType.CLASSES, file_name=module_name)
+    #         )
+    #     for name in info1.functions:
+    #         list_of_symbols.append(
+    #             SymbolItem(symbol_name=name, symbol_type=SymbolType.FUNCTIONS, file_name=module_name)
+    #         )
+    #     for name in info1.variables:
+    #         list_of_symbols.append(
+    #             SymbolItem(symbol_name=name, symbol_type=SymbolType.VARIABLES, file_name=module_name)
+    #         )
     return list_of_symbols
 
 
@@ -926,12 +926,12 @@ def main():
             elif user_input.startswith("/remove_files"):
                 file_names = user_input[len("/remove_files"):].strip().split(",")
                 remove_files(file_names)
-            elif user_input.startswith("/index"):
-                index_args = user_input[len("/index"):].strip().split()
-                if not index_args:
-                    printer.warnning("Please enter your request.")
-                else:
-                    new_index_command(index_args=index_args, project_root=project_root, memory=memory, llm=auto_llm)
+            # elif user_input.startswith("/index"):
+            #     index_args = user_input[len("/index"):].strip().split()
+            #     if not index_args:
+            #         printer.warnning("Please enter your request.")
+            #     else:
+            #         new_index_command(index_args=index_args, project_root=project_root, memory=memory, llm=auto_llm)
             elif user_input.startswith("/list_files"):
                 list_files()
             elif user_input.startswith("/conf"):

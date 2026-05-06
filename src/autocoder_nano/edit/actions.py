@@ -5,12 +5,12 @@ import time
 from autocoder_nano.edit.code.generate_editblock import CodeAutoGenerateEditBlock
 from autocoder_nano.edit.code.merge_editblock import CodeAutoMergeEditBlock
 from autocoder_nano.index.entry import build_index_and_filter_files
+from autocoder_nano.index import quick_source_code
 from autocoder_nano.core import AutoLLM
 from autocoder_nano.actypes import AutoCoderArgs
 from autocoder_nano.project import PyProject, SuffixProject
 from autocoder_nano.rag.token_counter import count_tokens
 from autocoder_nano.utils.printer_utils import Printer
-
 
 printer = Printer()
 
@@ -91,13 +91,15 @@ class ActionSuffixProject(BaseAction):
         self.pp = None
 
     def run(self):
-        pp = SuffixProject(llm=self.llm, args=self.args)
-        self.pp = pp
-        pp.run()
-        source_code = pp.output()
-        if self.llm:
-            source_code = build_index_and_filter_files(args=self.args, llm=self.llm, sources=pp.sources)
-        self.process_content(source_code)
+        # pp = SuffixProject(llm=self.llm, args=self.args)
+        # self.pp = pp
+        # pp.run()
+        # source_code = pp.output()
+        # if self.llm:
+        # source_code = build_index_and_filter_files(args=self.args, llm=self.llm, sources=pp.sources)
+        source_code = quick_source_code(args=self.args)
+        if source_code:
+            self.process_content(source_code)
 
     def process_content(self, content: str):
         if self.args.execute and self.llm:

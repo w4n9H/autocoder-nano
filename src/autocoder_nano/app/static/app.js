@@ -285,7 +285,7 @@ function createNewConversation() {
             role: 'assistant',
             timestamp: new Date(),
             steps: [{
-                type: 'final',
+                type: 'first',
                 content: '你好！我是你的专属 AI 助手(Agent)，有什么可以帮助你的吗？',
                 timestamp: new Date()
             }]
@@ -534,6 +534,8 @@ function renderStep(step, index, isLast) {
             label = "出现错误";
             detail = step.content || "";
             break;
+        case 'first':
+            return renderFirst(step);
         case 'final':
             return renderFinalStep(step, index);
         default:
@@ -700,6 +702,12 @@ function renderFinalStep(step, index) {
 
     return `
         <div class="final-step-wrapper markdown-body">${marked.parse(rawContent)}</div>
+    `;
+}
+
+function renderFirst(step) {
+    return `
+        <div class="final-step-wrapper">${step.content}</div>
     `;
 }
 
