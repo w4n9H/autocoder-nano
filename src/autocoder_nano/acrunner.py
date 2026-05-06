@@ -15,7 +15,7 @@ from autocoder_nano.chat import stream_chat_display
 from autocoder_nano.context import ContextManagerConfig, get_context_manager
 from autocoder_nano.core import AutoLLM, prompt, extract_code
 from autocoder_nano.editor import run_editor
-from autocoder_nano.index import index_build_and_filter, index_build
+from autocoder_nano.index import index_build_and_filter, index_build, quick_source_code
 from autocoder_nano.project import project_source
 from autocoder_nano.rag import rag_build_cache, rag_retrieval
 from autocoder_nano.utils.config_utils import get_final_config, get_last_yaml_file, convert_yaml_to_config
@@ -90,7 +90,7 @@ def chat_command(project_root: str, query: str, memory: dict, llm: AutoLLM):
     )
 
     pre_conversations = []
-    s = index_build_and_filter(llm=llm, args=args, sources_codes=project_source(source_llm=llm, args=args))
+    s = quick_source_code(args=args)
     if s:
         pre_conversations.append(
             {
@@ -100,8 +100,8 @@ def chat_command(project_root: str, query: str, memory: dict, llm: AutoLLM):
         )
         pre_conversations.append(
             {"role": "assistant", "content": "read"})
-    else:
-        return
+    # else:
+    #     return
 
     loaded_conversations = pre_conversations + chat_history["ask_conversation"]
 

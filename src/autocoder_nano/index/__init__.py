@@ -27,6 +27,36 @@ def index_build_and_filter(llm: AutoLLM, args: AutoCoderArgs, sources_codes: lis
     return build_index_and_filter_files(args=args, llm=llm, sources=sources_codes)
 
 
+def quick_source_code(args: AutoCoderArgs) -> str:
+    """
+    替代index_build_and_filter函数，移除project_source，build_index_and_filter_files
+    """
+    def _convert_to_source_code(_fp):
+        with open(_fp, "r") as fp:
+            _source_code = fp.read()
+        return SourceCode(module_name=_fp, source_code=_source_code)
+
+    source_codes = []
+    if args.urls:
+        for url in args.urls:
+            if os.path.exists(url):
+                source_codes.append(_convert_to_source_code(url))
+    else:
+        return ""
+
+    result_source_code = ""
+    depulicated_sources = set()
+
+    for file in source_codes:
+        if file.module_name in depulicated_sources:
+            continue
+        depulicated_sources.add(file.module_name)
+        result_source_code += f"##File: {file.module_name}\n"
+        result_source_code += f"{file.source_code}\n\n"
+
+    return result_source_code
+
+
 def index_export(project_root: str, export_path: str) -> bool:
     try:
         index_path = os.path.join(project_root, ".auto-coder", "index.json")
@@ -90,4 +120,5 @@ def index_import(project_root: str, import_path: str):
         return False
 
 
-__all__ = ["index_build", "index_export", "index_import", "index_build_and_filter", "extract_symbols", "IndexManager"]
+__all__ = ["index_build", "index_export", "index_import", "index_build_and_filter", "extract_symbols", "IndexManager",
+           "quick_source_code"]
