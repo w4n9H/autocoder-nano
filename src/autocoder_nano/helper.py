@@ -11,16 +11,13 @@ def show_help():
     printer.print_text(Text.assemble(("  命令", "cyan"), (" - ", "default"), ("描述", "green")), prefix=help_prefix)
 
     commands_data = [
-        ("/auto", " <query> | /new | /resume", "使用Agent完成你的任务, /new新建会话, /resume继续会话"),
-        ("/chat", " <query> | /new | /history", "与AI聊天, /new新建会话, /history查看历史记录"),
-        ("/coding", " <query> | /apply", "修改当前活动文件代码, /apply会带上历史记录"),
+        ("/auto", " /new | /resume | <query>", "使用Agent完成你的任务, /new 新建会话, /resume 继续会话"),
+        ("/chat", " /new | /history | <query>", "与AI聊天, /new 新建会话, /history 查看历史记录"),
+        ("/coding", " /apply ｜ <query>", "修改当前活动文件代码, /apply 会带上 /chat 历史记录"),
         ("/help", "", "显示此帮助消息"),
-        ("/models", " <subcommand>", "管理LLM模型"),
-        ("    /models /list", "", "列出所有部署模型"),
-        ("    /models /add", "", "添加新的模型"),
-        ("    /models /check", "", "检查所有部署模型的可用性"),
+        ("/models", " <subcommand>", "管理LLM模型, /list 列出模型, /add 添加新模型, /check 检查模型可用性"),
         ("/conf", " <key>:<value>", "设置AutoCoder配置"),
-        ("/git", " | /revert | /commit", "Git操作, /revert撤销, /commit自动生成yaml提交"),
+        ("/git", " /revert | /commit", "Git操作, /revert撤销, /commit自动生成yaml提交"),
         ("/rules", "", "基于当前活动文件或Commit变更生成功能模式和设计模式"),
         ("/add_files", " <file1> <file2> ... | /refresh", "将文件添加到当前会话, /refresh刷新"),
         ("/list_files", "", "列出当前会话中的所有活跃文件"),
