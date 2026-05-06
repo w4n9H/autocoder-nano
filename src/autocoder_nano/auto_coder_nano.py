@@ -56,7 +56,7 @@ base_persist_dir = os.path.join(project_root, ".auto-coder", "plugins", "chat-au
 # 移除 /shell, /editor, /context
 commands = [
     "/auto", "/coding", "/chat",                                                       # 核心功能
-    "/help", "/exit", "/models", "/conf", "/index", "/git", "/rules",                  # 辅助功能
+    "/help", "/exit", "/models", "/conf", "/git", "/rules",                            # 辅助功能
     "/add_files", "/remove_files", "/list_files", "/exclude_dirs", "/exclude_files"        # 文件管理
 ]
 

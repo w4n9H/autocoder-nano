@@ -14,7 +14,7 @@ class Dispacher:
 
     def dispach(self):
         dispacher_actions = [
-            ActionPyProject(args=self.args, llm=self.llm),
+            # ActionPyProject(args=self.args, llm=self.llm),
             ActionSuffixProject(args=self.args, llm=self.llm)
         ]
         for action in dispacher_actions:
