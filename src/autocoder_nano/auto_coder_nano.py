@@ -926,12 +926,12 @@ def main():
             elif user_input.startswith("/remove_files"):
                 file_names = user_input[len("/remove_files"):].strip().split(",")
                 remove_files(file_names)
-            elif user_input.startswith("/index"):
-                index_args = user_input[len("/index"):].strip().split()
-                if not index_args:
-                    printer.warnning("Please enter your request.")
-                else:
-                    new_index_command(index_args=index_args, project_root=project_root, memory=memory, llm=auto_llm)
+            # elif user_input.startswith("/index"):
+            #     index_args = user_input[len("/index"):].strip().split()
+            #     if not index_args:
+            #         printer.warnning("Please enter your request.")
+            #     else:
+            #         new_index_command(index_args=index_args, project_root=project_root, memory=memory, llm=auto_llm)
             elif user_input.startswith("/list_files"):
                 list_files()
             elif user_input.startswith("/conf"):
